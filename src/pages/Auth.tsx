@@ -1,20 +1,29 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Heart, Users, ShoppingBag } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fullName, setFullName] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, signIn, signUp } = useAuth();
+
+  useEffect(() => {
+    // Redirect if already logged in
+    if (user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -22,26 +31,15 @@ const Auth = () => {
 
     try {
       if (isLogin) {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+        const { error } = await signIn(email, password);
         if (error) throw error;
-        if (data.user) {
-          toast({
-            title: "Welcome back!",
-            description: "You have successfully logged in.",
-          });
-          navigate("/");
-        }
-      } else {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-          },
+        toast({
+          title: "Welcome back!",
+          description: "You have successfully logged in.",
         });
+        navigate("/");
+      } else {
+        const { error } = await signUp(email, password, fullName);
         if (error) throw error;
         toast({
           title: "Account created!",
@@ -79,6 +77,20 @@ const Auth = () => {
           </div>
 
           <form onSubmit={handleAuth} className="space-y-6">
+            {!isLogin && (
+              <div>
+                <Label htmlFor="fullName">Full Name</Label>
+                <Input
+                  id="fullName"
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Enter your full name"
+                  className="mt-1"
+                />
+              </div>
+            )}
+            
             <div>
               <Label htmlFor="email">Email</Label>
               <Input
@@ -118,6 +130,7 @@ const Auth = () => {
             <button
               onClick={() => setIsLogin(!isLogin)}
               className="text-pink-600 hover:text-pink-700 font-medium"
+              type="button"
             >
               {isLogin ? "Need an account? Sign up" : "Already have an account? Sign in"}
             </button>

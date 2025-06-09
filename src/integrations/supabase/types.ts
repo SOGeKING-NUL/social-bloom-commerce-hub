@@ -9,16 +9,489 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      cart_items: {
+        Row: {
+          added_at: string | null
+          id: string
+          product_id: string
+          quantity: number
+          user_id: string
+        }
+        Insert: {
+          added_at?: string | null
+          id?: string
+          product_id: string
+          quantity?: number
+          user_id: string
+        }
+        Update: {
+          added_at?: string | null
+          id?: string
+          product_id?: string
+          quantity?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cart_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cart_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_members: {
+        Row: {
+          group_id: string
+          id: string
+          joined_at: string | null
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          joined_at?: string | null
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          joined_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groups: {
+        Row: {
+          created_at: string | null
+          creator_id: string
+          description: string | null
+          id: string
+          is_private: boolean | null
+          member_limit: number | null
+          name: string
+          product_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          creator_id: string
+          description?: string | null
+          id?: string
+          is_private?: boolean | null
+          member_limit?: number | null
+          name: string
+          product_id: string
+        }
+        Update: {
+          created_at?: string | null
+          creator_id?: string
+          description?: string | null
+          id?: string
+          is_private?: boolean | null
+          member_limit?: number | null
+          name?: string
+          product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "groups_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "groups_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      order_items: {
+        Row: {
+          id: string
+          order_id: string
+          price: number
+          product_id: string
+          quantity: number
+        }
+        Insert: {
+          id?: string
+          order_id: string
+          price: number
+          product_id: string
+          quantity: number
+        }
+        Update: {
+          id?: string
+          order_id?: string
+          price?: number
+          product_id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          created_at: string | null
+          id: string
+          shipping_address: string
+          status: string | null
+          total_amount: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          shipping_address: string
+          status?: string | null
+          total_amount: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          shipping_address?: string
+          status?: string | null
+          total_amount?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_comments: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_comments_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_likes: {
+        Row: {
+          created_at: string | null
+          id: string
+          post_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          post_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          post_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_likes_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      posts: {
+        Row: {
+          comments_count: number | null
+          content: string
+          created_at: string | null
+          id: string
+          image_url: string | null
+          likes_count: number | null
+          post_type: Database["public"]["Enums"]["post_type"] | null
+          product_id: string | null
+          shares_count: number | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          comments_count?: number | null
+          content: string
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          likes_count?: number | null
+          post_type?: Database["public"]["Enums"]["post_type"] | null
+          product_id?: string | null
+          shares_count?: number | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          comments_count?: number | null
+          content?: string
+          created_at?: string | null
+          id?: string
+          image_url?: string | null
+          likes_count?: number | null
+          post_type?: Database["public"]["Enums"]["post_type"] | null
+          product_id?: string | null
+          shares_count?: number | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posts_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean | null
+          name: string
+          price: number
+          stock_quantity: number | null
+          updated_at: string | null
+          vendor_id: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          name: string
+          price: number
+          stock_quantity?: number | null
+          updated_at?: string | null
+          vendor_id: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean | null
+          name?: string
+          price?: number
+          stock_quantity?: number | null
+          updated_at?: string | null
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string
+          full_name: string | null
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email: string
+          full_name?: string | null
+          id: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string
+          full_name?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      vendor_kyc: {
+        Row: {
+          aadhar_number: string | null
+          business_address: string
+          business_name: string
+          documents_url: string[] | null
+          gst_number: string | null
+          id: string
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["kyc_status"] | null
+          submitted_at: string | null
+          vendor_id: string
+        }
+        Insert: {
+          aadhar_number?: string | null
+          business_address: string
+          business_name: string
+          documents_url?: string[] | null
+          gst_number?: string | null
+          id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["kyc_status"] | null
+          submitted_at?: string | null
+          vendor_id: string
+        }
+        Update: {
+          aadhar_number?: string | null
+          business_address?: string
+          business_name?: string
+          documents_url?: string[] | null
+          gst_number?: string | null
+          id?: string
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["kyc_status"] | null
+          submitted_at?: string | null
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vendor_kyc_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vendor_kyc_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { user_uuid: string }
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
     }
     Enums: {
-      [_ in never]: never
+      kyc_status: "pending" | "approved" | "rejected"
+      post_type: "text" | "image" | "product"
+      user_role: "user" | "vendor" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -133,6 +606,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      kyc_status: ["pending", "approved", "rejected"],
+      post_type: ["text", "image", "product"],
+      user_role: ["user", "vendor", "admin"],
+    },
   },
 } as const
