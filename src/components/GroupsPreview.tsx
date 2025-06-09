@@ -1,8 +1,13 @@
 
 import { Button } from "@/components/ui/button";
 import { Users, Lock, Plus } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const GroupsPreview = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
   const groups = [
     {
       id: 1,
@@ -30,6 +35,13 @@ const GroupsPreview = () => {
     }
   ];
 
+  const handleJoinGroup = (groupName: string) => {
+    toast({
+      title: "Joined Group!",
+      description: `Welcome to ${groupName}!`,
+    });
+  };
+
   return (
     <section className="py-20 bg-white">
       <div className="container mx-auto px-4">
@@ -45,7 +57,8 @@ const GroupsPreview = () => {
                 <img 
                   src={group.image} 
                   alt={group.name}
-                  className="w-full h-48 object-cover"
+                  className="w-full h-48 object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
+                  onClick={() => navigate("/groups")}
                 />
                 <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full p-2">
                   <Lock className="w-4 h-4 text-pink-500" />
@@ -62,7 +75,11 @@ const GroupsPreview = () => {
                     <Users className="w-4 h-4 mr-1" />
                     <span className="text-sm">{group.members} members</span>
                   </div>
-                  <Button size="sm" className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500">
+                  <Button 
+                    size="sm" 
+                    onClick={() => handleJoinGroup(group.name)}
+                    className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
+                  >
                     Join Group
                   </Button>
                 </div>
@@ -72,7 +89,12 @@ const GroupsPreview = () => {
         </div>
         
         <div className="text-center">
-          <Button size="lg" variant="outline" className="social-button border-pink-200 text-pink-600 hover:bg-pink-50">
+          <Button 
+            size="lg" 
+            variant="outline" 
+            onClick={() => navigate("/groups")}
+            className="social-button border-pink-200 text-pink-600 hover:bg-pink-50"
+          >
             <Plus className="w-5 h-5 mr-2" />
             Create New Group
           </Button>

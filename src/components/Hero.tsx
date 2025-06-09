@@ -1,8 +1,11 @@
 
 import { Button } from "@/components/ui/button";
 import { Users, ShoppingBag, Share } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const Hero = () => {
+  const navigate = useNavigate();
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background Elements */}
@@ -21,11 +24,20 @@ const Hero = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-slide-up" style={{animationDelay: '0.2s'}}>
-            <Button size="lg" className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-lg px-8 py-4">
+            <Button 
+              size="lg" 
+              onClick={() => navigate("/products")}
+              className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-lg px-8 py-4"
+            >
               <ShoppingBag className="w-5 h-5 mr-2" />
               Start Shopping
             </Button>
-            <Button size="lg" variant="outline" className="social-button border-pink-200 text-pink-600 hover:bg-pink-50 text-lg px-8 py-4">
+            <Button 
+              size="lg" 
+              variant="outline" 
+              onClick={() => navigate("/groups")}
+              className="social-button border-pink-200 text-pink-600 hover:bg-pink-50 text-lg px-8 py-4"
+            >
               <Users className="w-5 h-5 mr-2" />
               Create Group
             </Button>
@@ -40,7 +52,11 @@ const Hero = () => {
               <p className="text-gray-600">Share your favorite finds with friends and discover new products through your social network.</p>
             </div>
             
-            <div className="smooth-card p-8 floating-card animate-slide-up" style={{animationDelay: '0.6s'}}>
+            <div 
+              className="smooth-card p-8 floating-card animate-slide-up cursor-pointer hover:scale-105 transition-transform duration-300" 
+              style={{animationDelay: '0.6s'}}
+              onClick={() => navigate("/groups")}
+            >
               <div className="w-16 h-16 bg-gradient-to-br from-pink-400 to-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <Users className="w-8 h-8 text-white" />
               </div>
@@ -48,7 +64,11 @@ const Hero = () => {
               <p className="text-gray-600">Create exclusive shopping groups for specific brands and invite your closest friends and family.</p>
             </div>
             
-            <div className="smooth-card p-8 floating-card animate-slide-up" style={{animationDelay: '0.8s'}}>
+            <div 
+              className="smooth-card p-8 floating-card animate-slide-up cursor-pointer hover:scale-105 transition-transform duration-300" 
+              style={{animationDelay: '0.8s'}}
+              onClick={() => navigate("/products")}
+            >
               <div className="w-16 h-16 bg-gradient-to-br from-pink-400 to-rose-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
                 <ShoppingBag className="w-8 h-8 text-white" />
               </div>
