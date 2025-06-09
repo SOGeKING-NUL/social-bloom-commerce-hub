@@ -31,7 +31,7 @@ const AdminDashboard = () => {
         .from('vendor_kyc')
         .select(`
           *,
-          profiles:vendor_id (
+          vendor_profile:profiles!vendor_id (
             email, 
             full_name
           )
@@ -66,7 +66,7 @@ const AdminDashboard = () => {
         .from('products')
         .select(`
           *,
-          profiles:vendor_id (
+          vendor_profile:profiles!vendor_id (
             email,
             full_name
           )
@@ -251,7 +251,7 @@ const AdminDashboard = () => {
                         <div className="flex justify-between items-start">
                           <div>
                             <h4 className="font-medium">
-                              {kyc.profiles?.full_name || kyc.profiles?.email}
+                              {kyc.vendor_profile?.full_name || kyc.vendor_profile?.email}
                             </h4>
                             <p className="text-sm text-gray-600">Business: {kyc.business_name}</p>
                             <p className="text-sm text-gray-600">
@@ -347,7 +347,7 @@ const AdminDashboard = () => {
                         {products?.map((product) => (
                           <tr key={product.id} className="border-b hover:bg-gray-50">
                             <td className="p-2">{product.name}</td>
-                            <td className="p-2">{product.profiles?.full_name || product.profiles?.email}</td>
+                            <td className="p-2">{product.vendor_profile?.full_name || product.vendor_profile?.email}</td>
                             <td className="p-2">${product.price}</td>
                             <td className="p-2">
                               <Badge 
@@ -420,11 +420,11 @@ const AdminDashboard = () => {
                   <div className="space-y-2">
                     <div>
                       <span className="text-sm text-gray-500">Name:</span>
-                      <p>{selectedKYC.profiles?.full_name || 'N/A'}</p>
+                      <p>{selectedKYC.vendor_profile?.full_name || 'N/A'}</p>
                     </div>
                     <div>
                       <span className="text-sm text-gray-500">Email:</span>
-                      <p>{selectedKYC.profiles?.email}</p>
+                      <p>{selectedKYC.vendor_profile?.email}</p>
                     </div>
                     <div>
                       <span className="text-sm text-gray-500">Submitted At:</span>
