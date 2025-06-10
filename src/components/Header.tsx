@@ -1,34 +1,20 @@
 
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Users, Heart } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Heart } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import UserProfileDropdown from "@/components/UserProfileDropdown";
 
 const Header = () => {
-  const [user, setUser] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+  const { user, signOut } = useAuth();
 
   const handleSignOut = async () => {
     try {
-      await supabase.auth.signOut();
+      await signOut();
       toast({
         title: "Signed out successfully",
         description: "You have been logged out.",
@@ -104,16 +90,7 @@ const Header = () => {
           
           <div className="flex items-center space-x-4">
             {user ? (
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-600">Welcome back!</span>
-                <Button 
-                  variant="outline" 
-                  onClick={handleSignOut}
-                  className="social-button border-pink-200 text-pink-600 hover:bg-pink-50"
-                >
-                  Sign Out
-                </Button>
-              </div>
+              <UserProfileDropdown />
             ) : (
               <>
                 <Button 
@@ -127,7 +104,7 @@ const Header = () => {
                   onClick={() => navigate("/auth")}
                   className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
                 >
-                  <Users className="w-4 h-4 mr-2" />
+                  <Heart className="w-4 h-4 mr-2" />
                   Join Now
                 </Button>
               </>
