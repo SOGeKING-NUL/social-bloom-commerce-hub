@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Heart, Users, ShoppingBag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +14,7 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [userType, setUserType] = useState("user");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -37,10 +39,16 @@ const Auth = () => {
           title: "Welcome back!",
           description: "You have successfully logged in.",
         });
-        navigate("/");
+        navigate("/dashboard");
       } else {
         const { error } = await signUp(email, password, fullName);
         if (error) throw error;
+        
+        // Update user role if vendor
+        if (userType === "vendor") {
+          // The role will be updated via the trigger, but we'll handle vendor-specific logic in the dashboard
+        }
+        
         toast({
           title: "Account created!",
           description: "Please check your email to verify your account.",
@@ -78,17 +86,40 @@ const Auth = () => {
 
           <form onSubmit={handleAuth} className="space-y-6">
             {!isLogin && (
-              <div>
-                <Label htmlFor="fullName">Full Name</Label>
-                <Input
-                  id="fullName"
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Enter your full name"
-                  className="mt-1"
-                />
-              </div>
+              <>
+                <div>
+                  <Label htmlFor="fullName">Full Name</Label>
+                  <Input
+                    id="fullName"
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Enter your full name"
+                    className="mt-1"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label>Account Type</Label>
+                  <RadioGroup value={userType} onValueChange={setUserType} className="mt-2">
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="user" id="user" />
+                      <Label htmlFor="user" className="flex items-center">
+                        <Users className="w-4 h-4 mr-2" />
+                        Regular User
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="vendor" id="vendor" />
+                      <Label htmlFor="vendor" className="flex items-center">
+                        <ShoppingBag className="w-4 h-4 mr-2" />
+                        Become a Vendor
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+              </>
             )}
             
             <div>

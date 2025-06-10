@@ -1,9 +1,11 @@
 
 import { Button } from "@/components/ui/button";
-import { Heart } from "lucide-react";
+import { Heart, ShoppingCart } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import UserProfileDropdown from "@/components/UserProfileDropdown";
 
 const Header = () => {
@@ -11,6 +13,23 @@ const Header = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { user, signOut } = useAuth();
+
+  // Fetch cart count
+  const { data: cartCount } = useQuery({
+    queryKey: ['cart-count', user?.id],
+    queryFn: async () => {
+      if (!user) return 0;
+      
+      const { data, error } = await supabase
+        .from('cart_items')
+        .select('quantity')
+        .eq('user_id', user.id);
+      
+      if (error) return 0;
+      return data.reduce((sum, item) => sum + item.quantity, 0);
+    },
+    enabled: !!user,
+  });
 
   const handleSignOut = async () => {
     try {
@@ -89,6 +108,22 @@ const Header = () => {
           </nav>
           
           <div className="flex items-center space-x-4">
+            {user && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate("/cart")}
+                className="relative"
+              >
+                <ShoppingCart className="w-4 h-4" />
+                {cartCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {cartCount}
+                  </span>
+                )}
+              </Button>
+            )}
+            
             {user ? (
               <UserProfileDropdown />
             ) : (

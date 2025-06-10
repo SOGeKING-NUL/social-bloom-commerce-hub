@@ -12,6 +12,7 @@ import Feed from "./pages/Feed";
 import Products from "./pages/Products";
 import Groups from "./pages/Groups";
 import Dashboard from "./pages/Dashboard";
+import Cart from "./pages/Cart";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +36,11 @@ const App = () => (
             <Route path="/groups" element={
               <ProtectedRoute>
                 <Groups />
+              </ProtectedRoute>
+            } />
+            <Route path="/cart" element={
+              <ProtectedRoute>
+                <Cart />
               </ProtectedRoute>
             } />
             <Route path="/dashboard" element={

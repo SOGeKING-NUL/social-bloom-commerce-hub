@@ -11,7 +11,7 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, fullName?: string, userType?: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<Profile>) => Promise<{ error: any }>;
@@ -73,17 +73,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, fullName?: string) => {
+  const signUp = async (email: string, password: string, fullName?: string, userType?: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           full_name: fullName || '',
+          user_type: userType || 'user',
         },
         emailRedirectTo: `${window.location.origin}/`,
       },
     });
+
+    // Update role if vendor after signup
+    if (!error && data.user && userType === 'vendor') {
+      setTimeout(async () => {
+        await supabase
+          .from('profiles')
+          .update({ role: 'vendor' })
+          .eq('id', data.user.id);
+      }, 1000);
+    }
+
     return { error };
   };
 
