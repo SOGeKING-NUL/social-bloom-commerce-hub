@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import Feed from "./pages/Feed";
 import Products from "./pages/Products";
 import Groups from "./pages/Groups";
+import GroupDetail from "./pages/GroupDetail";
 import Dashboard from "./pages/Dashboard";
 import Cart from "./pages/Cart";
 import NotFound from "./pages/NotFound";
@@ -36,6 +37,11 @@ const App = () => (
             <Route path="/groups" element={
               <ProtectedRoute>
                 <Groups />
+              </ProtectedRoute>
+            } />
+            <Route path="/groups/:groupId" element={
+              <ProtectedRoute>
+                <GroupDetail />
               </ProtectedRoute>
             } />
             <Route path="/cart" element={
