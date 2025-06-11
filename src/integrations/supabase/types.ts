@@ -69,6 +69,20 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fk_group_members_group"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_group_members_user"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "group_members_group_id_fkey"
             columns: ["group_id"]
             isOneToOne: false
@@ -116,6 +130,20 @@ export type Database = {
           product_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_groups_creator"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fk_groups_product"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "groups_creator_id_fkey"
             columns: ["creator_id"]
@@ -281,6 +309,45 @@ export type Database = {
           },
         ]
       }
+      post_views: {
+        Row: {
+          id: string
+          ip_address: unknown | null
+          post_id: string
+          user_id: string | null
+          viewed_at: string | null
+        }
+        Insert: {
+          id?: string
+          ip_address?: unknown | null
+          post_id: string
+          user_id?: string | null
+          viewed_at?: string | null
+        }
+        Update: {
+          id?: string
+          ip_address?: unknown | null
+          post_id?: string
+          user_id?: string | null
+          viewed_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_views_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_views_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       posts: {
         Row: {
           comments_count: number | null
@@ -294,6 +361,7 @@ export type Database = {
           shares_count: number | null
           updated_at: string | null
           user_id: string
+          views_count: number | null
         }
         Insert: {
           comments_count?: number | null
@@ -307,6 +375,7 @@ export type Database = {
           shares_count?: number | null
           updated_at?: string | null
           user_id: string
+          views_count?: number | null
         }
         Update: {
           comments_count?: number | null
@@ -320,6 +389,7 @@ export type Database = {
           shares_count?: number | null
           updated_at?: string | null
           user_id?: string
+          views_count?: number | null
         }
         Relationships: [
           {
@@ -420,9 +490,10 @@ export type Database = {
       }
       vendor_kyc: {
         Row: {
-          aadhar_number: string | null
+          aadhar_number: string
           business_address: string
           business_name: string
+          display_business_name: string | null
           documents_url: string[] | null
           gst_number: string | null
           id: string
@@ -434,9 +505,10 @@ export type Database = {
           vendor_id: string
         }
         Insert: {
-          aadhar_number?: string | null
+          aadhar_number: string
           business_address: string
           business_name: string
+          display_business_name?: string | null
           documents_url?: string[] | null
           gst_number?: string | null
           id?: string
@@ -448,9 +520,10 @@ export type Database = {
           vendor_id: string
         }
         Update: {
-          aadhar_number?: string | null
+          aadhar_number?: string
           business_address?: string
           business_name?: string
+          display_business_name?: string | null
           documents_url?: string[] | null
           gst_number?: string | null
           id?: string
@@ -472,6 +545,42 @@ export type Database = {
           {
             foreignKeyName: "vendor_kyc_vendor_id_fkey"
             columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wishlist: {
+        Row: {
+          added_at: string | null
+          id: string
+          product_id: string
+          user_id: string
+        }
+        Insert: {
+          added_at?: string | null
+          id?: string
+          product_id: string
+          user_id: string
+        }
+        Update: {
+          added_at?: string | null
+          id?: string
+          product_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wishlist_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wishlist_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

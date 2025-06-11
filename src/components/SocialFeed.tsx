@@ -2,12 +2,18 @@
 import { useState } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Heart, MessageCircle, Share } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { Heart, MessageCircle, Share, Eye } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 const SocialFeed = () => {
-  // Fetch posts from database
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch posts from database with user avatar
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ['social-feed-posts'],
     queryFn: async () => {
@@ -25,7 +31,7 @@ const SocialFeed = () => {
           )
         `)
         .order('created_at', { ascending: false })
-        .limit(3); // Limit to 3 posts for the home page preview
+        .limit(10);
       
       if (error) throw error;
       
@@ -36,8 +42,11 @@ const SocialFeed = () => {
         likes: post.likes_count || 0,
         comments: post.comments_count || 0,
         shares: post.shares_count || 0,
+        views: post.views_count || 0,
         timestamp: new Date(post.created_at).toLocaleDateString(),
+        isLiked: user ? post.post_likes.some((like: any) => like.user_id === user.id) : false,
         user: {
+          id: post.user_id,
           name: post.profiles?.full_name || post.profiles?.email?.split('@')[0] || 'Unknown User',
           avatar: post.profiles?.avatar_url || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face`,
           username: `@${post.profiles?.email?.split('@')[0] || 'user'}`
@@ -45,6 +54,64 @@ const SocialFeed = () => {
       }));
     },
   });
+
+  // Like/unlike post mutation
+  const likeMutation = useMutation({
+    mutationFn: async ({ postId, isLiked }: { postId: string; isLiked: boolean }) => {
+      if (!user) throw new Error('Please login to like posts');
+
+      if (isLiked) {
+        // Unlike
+        const { error } = await supabase
+          .from('post_likes')
+          .delete()
+          .eq('post_id', postId)
+          .eq('user_id', user.id);
+        
+        if (error) throw error;
+      } else {
+        // Like
+        const { error } = await supabase
+          .from('post_likes')
+          .insert({
+            post_id: postId,
+            user_id: user.id
+          });
+        
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['social-feed-posts'] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Track post view
+  const trackView = async (postId: string) => {
+    try {
+      await supabase
+        .from('post_views')
+        .insert({
+          post_id: postId,
+          user_id: user?.id || null,
+        });
+    } catch (error) {
+      // Silently fail for views tracking
+      console.log('View tracking failed:', error);
+    }
+  };
+
+  const handleLike = (postId: string, isLiked: boolean) => {
+    if (!user) {
+      toast({ title: "Please login to like posts" });
+      return;
+    }
+    
+    likeMutation.mutate({ postId, isLiked });
+  };
 
   if (isLoading) {
     return (
@@ -106,7 +173,11 @@ const SocialFeed = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {posts.map((post) => (
-              <div key={post.id} className="smooth-card p-6 floating-card animate-fade-in">
+              <div 
+                key={post.id} 
+                className="smooth-card p-6 floating-card animate-fade-in cursor-pointer"
+                onClick={() => trackView(post.id)}
+              >
                 <div className="flex items-center mb-4">
                   <Avatar className="w-10 h-10 mr-3">
                     <AvatarImage src={post.user.avatar} alt={post.user.name} />
@@ -131,10 +202,18 @@ const SocialFeed = () => {
                 )}
                 
                 <div className="flex items-center justify-between text-sm text-gray-500">
-                  <div className="flex items-center space-x-1">
-                    <Heart className="w-4 h-4" />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLike(post.id, post.isLiked);
+                    }}
+                    className={`flex items-center space-x-1 hover:text-red-500 transition-colors ${
+                      post.isLiked ? 'text-red-500' : ''
+                    }`}
+                  >
+                    <Heart className={`w-4 h-4 ${post.isLiked ? 'fill-current' : ''}`} />
                     <span>{post.likes}</span>
-                  </div>
+                  </button>
                   <div className="flex items-center space-x-1">
                     <MessageCircle className="w-4 h-4" />
                     <span>{post.comments}</span>
@@ -143,13 +222,20 @@ const SocialFeed = () => {
                     <Share className="w-4 h-4" />
                     <span>{post.shares}</span>
                   </div>
+                  <div className="flex items-center space-x-1">
+                    <Eye className="w-4 h-4" />
+                    <span>{post.views}</span>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
           
           <div className="text-center mt-12">
-            <Button className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500">
+            <Button 
+              onClick={() => window.location.href = '/feed'}
+              className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
+            >
               View All Posts
             </Button>
           </div>
