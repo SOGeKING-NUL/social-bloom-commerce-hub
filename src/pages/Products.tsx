@@ -6,11 +6,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Filter, ShoppingCart, Heart, Star } from "lucide-react";
 import Header from "@/components/Header";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 const Products = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortBy, setSortBy] = useState("featured");
@@ -50,21 +55,64 @@ const Products = () => {
     },
   });
 
+  const addToCartMutation = useMutation({
+    mutationFn: async (productId: string) => {
+      if (!user) throw new Error('Please sign in to add items to cart');
+      
+      // Check if item already exists in cart
+      const { data: existingItem } = await supabase
+        .from('cart_items')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('product_id', productId)
+        .single();
+
+      if (existingItem) {
+        // Update quantity
+        const { error } = await supabase
+          .from('cart_items')
+          .update({ quantity: existingItem.quantity + 1 })
+          .eq('id', existingItem.id);
+        if (error) throw error;
+      } else {
+        // Add new item
+        const { error } = await supabase
+          .from('cart_items')
+          .insert({
+            user_id: user.id,
+            product_id: productId,
+            quantity: 1
+          });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart-items'] });
+      toast({
+        title: "Added to Cart!",
+        description: "Product added to cart successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  });
+
   const categories = [
     { value: "all", label: "All Categories" },
     { value: "skincare", label: "Skincare" },
     { value: "home", label: "Home & Decor" },
     { value: "pets", label: "Pet Products" },
     { value: "electronics", label: "Electronics" },
+    { value: "fashion", label: "Fashion" },
+    { value: "books", label: "Books" },
+    { value: "sports", label: "Sports" },
     { value: "general", label: "General" }
   ];
-
-  const handleAddToCart = (productId: string) => {
-    toast({
-      title: "Added to Cart!",
-      description: "Product added to cart successfully",
-    });
-  };
 
   const handleToggleWishlist = (productId: string) => {
     toast({
@@ -172,6 +220,7 @@ const Products = () => {
                     src={product.image} 
                     alt={product.name}
                     className="w-full h-48 object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
+                    onClick={() => navigate(`/products/${product.id}`)}
                   />
                   <button
                     onClick={() => handleToggleWishlist(product.id)}
@@ -187,7 +236,12 @@ const Products = () => {
                 </div>
                 
                 <div className="p-4">
-                  <h3 className="font-semibold mb-1 text-gray-800">{product.name}</h3>
+                  <h3 
+                    className="font-semibold mb-1 text-gray-800 cursor-pointer hover:text-pink-600"
+                    onClick={() => navigate(`/products/${product.id}`)}
+                  >
+                    {product.name}
+                  </h3>
                   <p className="text-sm text-pink-600 mb-2">{product.brand}</p>
                   
                   <div className="flex items-center mb-2">
@@ -210,11 +264,12 @@ const Products = () => {
                   </div>
                   
                   <Button
-                    onClick={() => handleAddToCart(product.id)}
+                    onClick={() => addToCartMutation.mutate(product.id)}
+                    disabled={addToCartMutation.isPending}
                     className="w-full social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
                   >
                     <ShoppingCart className="w-4 h-4 mr-2" />
-                    Add to Cart
+                    {addToCartMutation.isPending ? 'Adding...' : 'Add to Cart'}
                   </Button>
                 </div>
               </div>

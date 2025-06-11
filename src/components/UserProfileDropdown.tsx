@@ -1,9 +1,8 @@
 
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,71 +10,70 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { User, LogOut, Settings, ShoppingBag, UserCog } from 'lucide-react';
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { User, Package, Settings, LogOut } from "lucide-react";
 
 const UserProfileDropdown = () => {
+  const { profile, signOut } = useAuth();
   const navigate = useNavigate();
-  const { user, profile, signOut } = useAuth();
-  const [initials, setInitials] = useState('');
-
-  useEffect(() => {
-    if (profile?.full_name) {
-      const names = profile.full_name.split(' ');
-      setInitials(
-        names
-          .map((n) => n.charAt(0))
-          .join('')
-          .toUpperCase()
-          .substring(0, 2)
-      );
-    } else if (user?.email) {
-      setInitials(user.email.charAt(0).toUpperCase());
-    } else {
-      setInitials('');
-    }
-  }, [user, profile]);
+  const { toast } = useToast();
 
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/');
+    try {
+      await signOut();
+      toast({
+        title: "Signed out successfully",
+        description: "You have been logged out.",
+      });
+      navigate("/");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
-
-  if (!user) return null;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          className="relative h-10 w-10 rounded-full"
-        >
-          <Avatar>
-            {profile?.avatar_url ? (
-              <AvatarImage src={profile.avatar_url} alt="Profile" />
-            ) : (
-              <AvatarFallback className="bg-pink-100 text-pink-800">
-                {initials}
-              </AvatarFallback>
-            )}
-          </Avatar>
-        </Button>
+        <Avatar className="cursor-pointer hover:ring-2 hover:ring-pink-200 transition-all">
+          <AvatarImage src={profile?.avatar_url} />
+          <AvatarFallback>
+            {profile?.full_name?.charAt(0) || profile?.email?.charAt(0) || 'U'}
+          </AvatarFallback>
+        </Avatar>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuLabel>My Account</DropdownMenuLabel>
+      <DropdownMenuContent className="w-56 bg-white border-pink-100" align="end">
+        <DropdownMenuLabel>
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">
+              {profile?.full_name || 'User'}
+            </p>
+            <p className="text-xs leading-none text-muted-foreground">
+              {profile?.email}
+            </p>
+          </div>
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+        <DropdownMenuItem onClick={() => navigate("/profile")} className="cursor-pointer">
           <User className="mr-2 h-4 w-4" />
-          <span>Profile</span>
+          <span>My Profile</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate('/dashboard')}>
-          <ShoppingBag className="mr-2 h-4 w-4" />
-          <span>Orders</span>
+        <DropdownMenuItem onClick={() => navigate("/orders")} className="cursor-pointer">
+          <Package className="mr-2 h-4 w-4" />
+          <span>My Orders</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/dashboard")} className="cursor-pointer">
+          <Settings className="mr-2 h-4 w-4" />
+          <span>Dashboard</span>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut}>
+        <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-red-600">
           <LogOut className="mr-2 h-4 w-4" />
-          <span>Log out</span>
+          <span>Sign out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
