@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -16,6 +17,8 @@ import { AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
 import { Check, Clock, X, AlertCircle, UsersRound, Package, FileText, Trash2, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Layout from '@/components/Layout';
+
+type UserRole = 'user' | 'vendor' | 'admin';
 
 const AdminDashboard = () => {
   const { profile } = useAuth();
@@ -210,7 +213,7 @@ const AdminDashboard = () => {
 
   // Update user role mutation
   const updateUserRoleMutation = useMutation({
-    mutationFn: async ({ userId, role }: { userId: string, role: 'user' | 'vendor' | 'admin' }) => {
+    mutationFn: async ({ userId, role }: { userId: string, role: UserRole }) => {
       const { error } = await supabase
         .from('profiles')
         .update({ role })
@@ -481,7 +484,7 @@ const AdminDashboard = () => {
                               <td className="p-2">
                                 <Select
                                   value={user.role}
-                                  onValueChange={(role) => updateUserRoleMutation.mutate({ userId: user.id, role })}
+                                  onValueChange={(role: UserRole) => updateUserRoleMutation.mutate({ userId: user.id, role })}
                                 >
                                   <SelectTrigger className="w-32">
                                     <SelectValue />
