@@ -1,104 +1,158 @@
 
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 import { Heart, MessageCircle, Share } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const SocialFeed = () => {
-  const posts = [
-    {
-      id: 1,
-      user: {
-        name: "Sarah Johnson",
-        avatar: "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
-        username: "@sarah_j"
-      },
-      content: "Just discovered this amazing skincare routine! The results are incredible after just 2 weeks. Perfect for my sensitive skin ✨",
-      image: "https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?w=500&h=400&fit=crop",
-      likes: 24,
-      comments: 8,
-      shares: 3,
-      product: "Gentle Skincare Set"
+  // Fetch posts from database
+  const { data: posts = [], isLoading } = useQuery({
+    queryKey: ['social-feed-posts'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          profiles:user_id (
+            full_name,
+            email,
+            avatar_url
+          ),
+          post_likes!left (
+            user_id
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(3); // Limit to 3 posts for the home page preview
+      
+      if (error) throw error;
+      
+      return data.map(post => ({
+        id: post.id,
+        content: post.content,
+        image: post.image_url,
+        likes: post.likes_count || 0,
+        comments: post.comments_count || 0,
+        shares: post.shares_count || 0,
+        timestamp: new Date(post.created_at).toLocaleDateString(),
+        user: {
+          name: post.profiles?.full_name || post.profiles?.email?.split('@')[0] || 'Unknown User',
+          avatar: post.profiles?.avatar_url || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face`,
+          username: `@${post.profiles?.email?.split('@')[0] || 'user'}`
+        }
+      }));
     },
-    {
-      id: 2,
-      user: {
-        name: "Mike Chen",
-        avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-        username: "@mike_chen"
-      },
-      content: "Found the perfect home decor pieces for my living room makeover! The quality is outstanding and they arrived so quickly.",
-      image: "https://images.unsplash.com/photo-1721322800607-8c38375eef04?w=500&h=400&fit=crop",
-      likes: 42,
-      comments: 12,
-      shares: 7,
-      product: "Modern Living Set"
-    },
-    {
-      id: 3,
-      user: {
-        name: "Emma Davis",
-        avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
-        username: "@emma_d"
-      },
-      content: "My furry friend absolutely loves these new organic treats! Made with all natural ingredients and he can't get enough 🐱",
-      image: "https://images.unsplash.com/photo-1582562124811-c09040d0a901?w=500&h=400&fit=crop",
-      likes: 67,
-      comments: 15,
-      shares: 9,
-      product: "Organic Pet Treats"
-    }
-  ];
+  });
+
+  if (isLoading) {
+    return (
+      <section className="py-20 bg-gradient-to-b from-white to-pink-50">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold mb-4">Community Feed</h2>
+              <p className="text-xl text-gray-600">See what our community is sharing</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="smooth-card animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // If no posts, show fallback message
+  if (posts.length === 0) {
+    return (
+      <section className="py-20 bg-gradient-to-b from-white to-pink-50">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold mb-4">Community Feed</h2>
+              <p className="text-xl text-gray-600">See what our community is sharing</p>
+            </div>
+            
+            <div className="text-center py-12">
+              <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-600 mb-2">No posts yet</h3>
+              <p className="text-gray-500">Be the first to share something with the community!</p>
+              <Button className="mt-4 social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500">
+                Join the Community
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section className="py-20 bg-gradient-to-b from-white to-pink-50">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold mb-4">Community Feed</h2>
-          <p className="text-xl text-gray-600">See what our community is sharing and discovering</p>
-        </div>
-        
-        <div className="max-w-2xl mx-auto space-y-8">
-          {posts.map((post) => (
-            <div key={post.id} className="smooth-card p-6 animate-fade-in">
-              <div className="flex items-center mb-4">
-                <Avatar className="w-12 h-12 mr-4">
-                  <AvatarImage src={post.user.avatar} alt={post.user.name} />
-                  <AvatarFallback>{post.user.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div>
-                  <h3 className="font-semibold">{post.user.name}</h3>
-                  <p className="text-sm text-gray-500">{post.user.username}</p>
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">Community Feed</h2>
+            <p className="text-xl text-gray-600">See what our community is sharing</p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {posts.map((post) => (
+              <div key={post.id} className="smooth-card p-6 floating-card animate-fade-in">
+                <div className="flex items-center mb-4">
+                  <Avatar className="w-10 h-10 mr-3">
+                    <AvatarImage src={post.user.avatar} alt={post.user.name} />
+                    <AvatarFallback>{post.user.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h4 className="font-medium text-sm">{post.user.name}</h4>
+                    <p className="text-xs text-gray-500">{post.user.username}</p>
+                  </div>
+                </div>
+                
+                <p className="text-gray-700 mb-4 text-sm line-clamp-3">{post.content}</p>
+                
+                {post.image && (
+                  <div className="mb-4 rounded-lg overflow-hidden">
+                    <img 
+                      src={post.image} 
+                      alt="Post content"
+                      className="w-full h-32 object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
+                    />
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-between text-sm text-gray-500">
+                  <div className="flex items-center space-x-1">
+                    <Heart className="w-4 h-4" />
+                    <span>{post.likes}</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <MessageCircle className="w-4 h-4" />
+                    <span>{post.comments}</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Share className="w-4 h-4" />
+                    <span>{post.shares}</span>
+                  </div>
                 </div>
               </div>
-              
-              <p className="mb-4 text-gray-700">{post.content}</p>
-              
-              <div className="mb-4 rounded-2xl overflow-hidden">
-                <img 
-                  src={post.image} 
-                  alt={post.product}
-                  className="w-full h-64 object-cover hover:scale-105 transition-transform duration-300"
-                />
-              </div>
-              
-              <div className="flex items-center justify-between border-t border-pink-100 pt-4">
-                <Button variant="ghost" className="flex items-center space-x-2 text-gray-600 hover:text-pink-500 hover:bg-pink-50 rounded-xl">
-                  <Heart className="w-5 h-5" />
-                  <span>{post.likes}</span>
-                </Button>
-                
-                <Button variant="ghost" className="flex items-center space-x-2 text-gray-600 hover:text-pink-500 hover:bg-pink-50 rounded-xl">
-                  <MessageCircle className="w-5 h-5" />
-                  <span>{post.comments}</span>
-                </Button>
-                
-                <Button variant="ghost" className="flex items-center space-x-2 text-gray-600 hover:text-pink-500 hover:bg-pink-50 rounded-xl">
-                  <Share className="w-5 h-5" />
-                  <span>{post.shares}</span>
-                </Button>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
+          
+          <div className="text-center mt-12">
+            <Button className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500">
+              View All Posts
+            </Button>
+          </div>
         </div>
       </div>
     </section>

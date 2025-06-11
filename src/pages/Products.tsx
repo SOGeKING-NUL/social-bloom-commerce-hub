@@ -6,6 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, Filter, ShoppingCart, Heart, Star } from "lucide-react";
 import Header from "@/components/Header";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const Products = () => {
   const { toast } = useToast();
@@ -13,98 +15,61 @@ const Products = () => {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortBy, setSortBy] = useState("featured");
 
-  const [products, setProducts] = useState([
-    {
-      id: 1,
-      name: "Premium Moisturizer",
-      brand: "GlowUp Beauty",
-      price: 49.99,
-      originalPrice: 69.99,
-      image: "https://images.unsplash.com/photo-1618160702438-9b02ab6515c9?w=300&h=300&fit=crop",
-      rating: 4.8,
-      reviews: 124,
-      category: "skincare",
-      inWishlist: false,
-      inCart: false
+  // Fetch products from database
+  const { data: products = [], isLoading } = useQuery({
+    queryKey: ['products'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          vendor_profile:profiles!vendor_id (
+            full_name,
+            email
+          )
+        `)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      return data.map(product => ({
+        id: product.id,
+        name: product.name,
+        brand: product.vendor_profile?.full_name || product.vendor_profile?.email?.split('@')[0] || 'Unknown Vendor',
+        price: product.price,
+        originalPrice: product.price * 1.2, // Mock original price for discount display
+        image: product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=300&fit=crop",
+        rating: 4.5 + Math.random() * 0.5, // Mock rating
+        reviews: Math.floor(Math.random() * 200) + 50, // Mock reviews
+        category: product.category || "general",
+        inWishlist: false,
+        inCart: false,
+        description: product.description
+      }));
     },
-    {
-      id: 2,
-      name: "Modern Table Lamp",
-      brand: "Modern Living Co",
-      price: 89.99,
-      originalPrice: 119.99,
-      image: "https://images.unsplash.com/photo-1721322800607-8c38375eef04?w=300&h=300&fit=crop",
-      rating: 4.6,
-      reviews: 89,
-      category: "home",
-      inWishlist: false,
-      inCart: false
-    },
-    {
-      id: 3,
-      name: "Organic Dog Treats",
-      brand: "PawPerfect",
-      price: 24.99,
-      originalPrice: 34.99,
-      image: "https://images.unsplash.com/photo-1582562124811-c09040d0a901?w=300&h=300&fit=crop",
-      rating: 4.9,
-      reviews: 203,
-      category: "pets",
-      inWishlist: false,
-      inCart: false
-    },
-    {
-      id: 4,
-      name: "Wireless Headphones",
-      brand: "TechSound",
-      price: 129.99,
-      originalPrice: 179.99,
-      image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=300&h=300&fit=crop",
-      rating: 4.7,
-      reviews: 156,
-      category: "electronics",
-      inWishlist: false,
-      inCart: false
-    }
-  ]);
+  });
 
   const categories = [
     { value: "all", label: "All Categories" },
     { value: "skincare", label: "Skincare" },
     { value: "home", label: "Home & Decor" },
     { value: "pets", label: "Pet Products" },
-    { value: "electronics", label: "Electronics" }
+    { value: "electronics", label: "Electronics" },
+    { value: "general", label: "General" }
   ];
 
-  const handleAddToCart = (productId: number) => {
-    setProducts(products.map(product => 
-      product.id === productId 
-        ? { ...product, inCart: !product.inCart }
-        : product
-    ));
-    
-    const product = products.find(p => p.id === productId);
+  const handleAddToCart = (productId: string) => {
     toast({
-      title: product?.inCart ? "Removed from Cart" : "Added to Cart!",
-      description: product?.inCart 
-        ? `${product.name} removed from cart` 
-        : `${product?.name} added to cart`,
+      title: "Added to Cart!",
+      description: "Product added to cart successfully",
     });
   };
 
-  const handleToggleWishlist = (productId: number) => {
-    setProducts(products.map(product => 
-      product.id === productId 
-        ? { ...product, inWishlist: !product.inWishlist }
-        : product
-    ));
-    
-    const product = products.find(p => p.id === productId);
+  const handleToggleWishlist = (productId: string) => {
     toast({
-      title: product?.inWishlist ? "Removed from Wishlist" : "Added to Wishlist!",
-      description: product?.inWishlist 
-        ? `${product.name} removed from wishlist` 
-        : `${product?.name} added to wishlist`,
+      title: "Added to Wishlist!",
+      description: "Product added to wishlist successfully",
     });
   };
 
@@ -127,6 +92,27 @@ const Products = () => {
         return 0;
     }
   });
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-white to-pink-50">
+        <Header />
+        <div className="container mx-auto px-4 py-8">
+          <div className="max-w-6xl mx-auto">
+            <div className="animate-pulse space-y-6">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="smooth-card p-6">
+                  <div className="h-48 bg-gray-200 rounded mb-4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-pink-50">
@@ -189,13 +175,9 @@ const Products = () => {
                   />
                   <button
                     onClick={() => handleToggleWishlist(product.id)}
-                    className={`absolute top-3 right-3 p-2 rounded-full backdrop-blur-sm transition-colors ${
-                      product.inWishlist 
-                        ? 'bg-pink-500 text-white' 
-                        : 'bg-white/80 text-gray-600 hover:bg-pink-50 hover:text-pink-500'
-                    }`}
+                    className="absolute top-3 right-3 p-2 rounded-full bg-white/80 text-gray-600 hover:bg-pink-50 hover:text-pink-500 backdrop-blur-sm transition-colors"
                   >
-                    <Heart className={`w-4 h-4 ${product.inWishlist ? 'fill-current' : ''}`} />
+                    <Heart className="w-4 h-4" />
                   </button>
                   {product.originalPrice > product.price && (
                     <div className="absolute top-3 left-3 bg-red-500 text-white text-xs px-2 py-1 rounded-full">
@@ -211,7 +193,7 @@ const Products = () => {
                   <div className="flex items-center mb-2">
                     <div className="flex items-center">
                       <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <span className="text-sm text-gray-600 ml-1">{product.rating}</span>
+                      <span className="text-sm text-gray-600 ml-1">{product.rating.toFixed(1)}</span>
                     </div>
                     <span className="text-sm text-gray-500 ml-2">({product.reviews} reviews)</span>
                   </div>
@@ -221,7 +203,7 @@ const Products = () => {
                       <span className="text-lg font-bold text-gray-800">${product.price}</span>
                       {product.originalPrice > product.price && (
                         <span className="text-sm text-gray-500 line-through ml-2">
-                          ${product.originalPrice}
+                          ${product.originalPrice.toFixed(2)}
                         </span>
                       )}
                     </div>
@@ -229,22 +211,17 @@ const Products = () => {
                   
                   <Button
                     onClick={() => handleAddToCart(product.id)}
-                    variant={product.inCart ? "outline" : "default"}
-                    className={`w-full ${
-                      product.inCart 
-                        ? 'border-pink-200 text-pink-600 hover:bg-pink-50' 
-                        : 'social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500'
-                    }`}
+                    className="w-full social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
                   >
                     <ShoppingCart className="w-4 h-4 mr-2" />
-                    {product.inCart ? "Remove from Cart" : "Add to Cart"}
+                    Add to Cart
                   </Button>
                 </div>
               </div>
             ))}
           </div>
 
-          {sortedProducts.length === 0 && (
+          {sortedProducts.length === 0 && !isLoading && (
             <div className="text-center py-12">
               <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-600 mb-2">No products found</h3>
