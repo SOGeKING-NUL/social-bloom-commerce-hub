@@ -210,7 +210,7 @@ const AdminDashboard = () => {
 
   // Update user role mutation
   const updateUserRoleMutation = useMutation({
-    mutationFn: async ({ userId, role }: { userId: string, role: string }) => {
+    mutationFn: async ({ userId, role }: { userId: string, role: 'user' | 'vendor' | 'admin' }) => {
       const { error } = await supabase
         .from('profiles')
         .update({ role })
