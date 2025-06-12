@@ -44,7 +44,11 @@ const Products = () => {
       const { data, error } = await query;
       
       if (error) throw error;
-      return data;
+      
+      // Filter out products with vendor_kyc errors and ensure proper structure
+      return (data || []).filter(product => 
+        !product.vendor_kyc || Array.isArray(product.vendor_kyc)
+      );
     },
   });
 

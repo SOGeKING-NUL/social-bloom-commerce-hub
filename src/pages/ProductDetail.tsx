@@ -86,7 +86,11 @@ const ProductDetail = () => {
         .limit(4);
       
       if (error) throw error;
-      return data || [];
+      
+      // Filter out products with vendor_kyc errors and ensure proper structure
+      return (data || []).filter(product => 
+        !product.vendor_kyc || Array.isArray(product.vendor_kyc)
+      );
     },
     enabled: !!product?.category,
   });

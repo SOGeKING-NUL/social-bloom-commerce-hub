@@ -25,14 +25,18 @@ interface ProductCardProps {
     name: string;
     price: number;
     image_url?: string;
+    category?: string;
+    description?: string;
+    stock_quantity?: number;
+    vendor_id: string;
     vendor_profile?: {
       full_name?: string;
       email?: string;
-    };
+    } | null;
     vendor_kyc?: Array<{
       display_business_name?: string;
       business_name?: string;
-    }>;
+    }> | null;
   };
 }
 
