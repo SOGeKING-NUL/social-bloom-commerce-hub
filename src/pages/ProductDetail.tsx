@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -88,9 +87,16 @@ const ProductDetail = () => {
       if (error) throw error;
       
       // Filter out products with vendor_kyc errors and ensure proper structure
-      return (data || []).filter(product => 
-        !product.vendor_kyc || Array.isArray(product.vendor_kyc)
-      );
+      return (data || []).filter(product => {
+        // Check if vendor_kyc is an error object
+        if (product.vendor_kyc && typeof product.vendor_kyc === 'object' && 'error' in product.vendor_kyc) {
+          return false;
+        }
+        return true;
+      }).map(product => ({
+        ...product,
+        vendor_kyc: Array.isArray(product.vendor_kyc) ? product.vendor_kyc : null
+      }));
     },
     enabled: !!product?.category,
   });
