@@ -33,9 +33,12 @@ const SocialFeed = () => {
         .order('created_at', { ascending: false })
         .limit(10);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching posts:', error);
+        return [];
+      }
       
-      return data.map(post => ({
+      return (data || []).map(post => ({
         id: post.id,
         content: post.content,
         image: post.image_url,
@@ -85,6 +88,7 @@ const SocialFeed = () => {
       queryClient.invalidateQueries({ queryKey: ['social-feed-posts'] });
     },
     onError: (error: any) => {
+      console.error('Like mutation error:', error);
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
@@ -92,12 +96,17 @@ const SocialFeed = () => {
   // Track post view
   const trackView = async (postId: string) => {
     try {
-      await supabase
+      const { error } = await supabase
         .from('post_views')
         .insert({
           post_id: postId,
           user_id: user?.id || null,
         });
+      
+      if (!error) {
+        // Refresh posts to update view count
+        queryClient.invalidateQueries({ queryKey: ['social-feed-posts'] });
+      }
     } catch (error) {
       // Silently fail for views tracking
       console.log('View tracking failed:', error);
@@ -111,6 +120,18 @@ const SocialFeed = () => {
     }
     
     likeMutation.mutate({ postId, isLiked });
+  };
+
+  const handleShare = (postId: string) => {
+    // Simple share functionality - copy link to clipboard
+    const postUrl = `${window.location.origin}/posts/${postId}`;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(postUrl).then(() => {
+        toast({ title: "Link copied to clipboard!" });
+      });
+    } else {
+      toast({ title: "Share feature coming soon!" });
+    }
   };
 
   if (isLoading) {
@@ -207,6 +228,7 @@ const SocialFeed = () => {
                       e.stopPropagation();
                       handleLike(post.id, post.isLiked);
                     }}
+                    disabled={likeMutation.isPending}
                     className={`flex items-center space-x-1 hover:text-red-500 transition-colors ${
                       post.isLiked ? 'text-red-500' : ''
                     }`}
@@ -218,10 +240,16 @@ const SocialFeed = () => {
                     <MessageCircle className="w-4 h-4" />
                     <span>{post.comments}</span>
                   </div>
-                  <div className="flex items-center space-x-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleShare(post.id);
+                    }}
+                    className="flex items-center space-x-1 hover:text-blue-500 transition-colors"
+                  >
                     <Share className="w-4 h-4" />
                     <span>{post.shares}</span>
-                  </div>
+                  </button>
                   <div className="flex items-center space-x-1">
                     <Eye className="w-4 h-4" />
                     <span>{post.views}</span>

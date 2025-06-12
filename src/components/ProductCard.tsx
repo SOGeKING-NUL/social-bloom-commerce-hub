@@ -36,7 +36,7 @@ interface ProductCardProps {
     vendor_kyc?: Array<{
       display_business_name?: string;
       business_name?: string;
-    }> | null;
+    }>;
   };
 }
 
@@ -52,7 +52,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
   });
 
   // Check if product is in wishlist
-  const { data: isInWishlist } = useQuery({
+  const { data: isInWishlist = false } = useQuery({
     queryKey: ['wishlist-status', product.id, user?.id],
     queryFn: async () => {
       if (!user) return false;
@@ -62,7 +62,12 @@ const ProductCard = ({ product }: ProductCardProps) => {
         .select('id')
         .eq('user_id', user.id)
         .eq('product_id', product.id)
-        .single();
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Wishlist check error:', error);
+        return false;
+      }
       
       return !!data;
     },
@@ -85,7 +90,12 @@ const ProductCard = ({ product }: ProductCardProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wishlist-status'] });
+      queryClient.invalidateQueries({ queryKey: ['wishlist-count'] });
       toast({ title: "Added to wishlist" });
+    },
+    onError: (error: any) => {
+      console.error('Add to wishlist error:', error);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -103,7 +113,12 @@ const ProductCard = ({ product }: ProductCardProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wishlist-status'] });
+      queryClient.invalidateQueries({ queryKey: ['wishlist-count'] });
       toast({ title: "Removed from wishlist" });
+    },
+    onError: (error: any) => {
+      console.error('Remove from wishlist error:', error);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -112,19 +127,43 @@ const ProductCard = ({ product }: ProductCardProps) => {
     mutationFn: async () => {
       if (!user) throw new Error('Please login to add to cart');
       
-      const { error } = await supabase
+      // Check if item already exists in cart
+      const { data: existingItem } = await supabase
         .from('cart_items')
-        .insert({
-          user_id: user.id,
-          product_id: product.id,
-          quantity: 1
-        });
-      
-      if (error) throw error;
+        .select('id, quantity')
+        .eq('user_id', user.id)
+        .eq('product_id', product.id)
+        .maybeSingle();
+
+      if (existingItem) {
+        // Update quantity
+        const { error } = await supabase
+          .from('cart_items')
+          .update({ quantity: existingItem.quantity + 1 })
+          .eq('id', existingItem.id);
+        
+        if (error) throw error;
+      } else {
+        // Insert new item
+        const { error } = await supabase
+          .from('cart_items')
+          .insert({
+            user_id: user.id,
+            product_id: product.id,
+            quantity: 1
+          });
+        
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cart-count'] });
+      queryClient.invalidateQueries({ queryKey: ['cart-items'] });
       toast({ title: "Added to cart" });
+    },
+    onError: (error: any) => {
+      console.error('Add to cart error:', error);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -150,6 +189,10 @@ const ProductCard = ({ product }: ProductCardProps) => {
       toast({ title: "Group created successfully!" });
       navigate('/groups');
     },
+    onError: (error: any) => {
+      console.error('Create group error:', error);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
   });
 
   const handleWishlistToggle = () => {
@@ -166,7 +209,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
   };
 
   const getVendorName = () => {
-    if (Array.isArray(product.vendor_kyc) && product.vendor_kyc.length > 0) {
+    if (product.vendor_kyc && Array.isArray(product.vendor_kyc) && product.vendor_kyc.length > 0) {
       return product.vendor_kyc[0]?.display_business_name || 
              product.vendor_kyc[0]?.business_name;
     }
@@ -187,6 +230,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
           size="sm"
           className="absolute top-2 right-2 bg-white/80 hover:bg-white"
           onClick={handleWishlistToggle}
+          disabled={addToWishlistMutation.isPending || removeFromWishlistMutation.isPending}
         >
           <Heart 
             className={`w-4 h-4 ${isInWishlist ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} 
@@ -216,7 +260,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
             disabled={addToCartMutation.isPending}
           >
             <ShoppingCart className="w-4 h-4 mr-2" />
-            Add to Cart
+            {addToCartMutation.isPending ? 'Adding...' : 'Add to Cart'}
           </Button>
           
           <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
@@ -258,7 +302,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
                   className="w-full"
                   disabled={!groupForm.name || createGroupMutation.isPending}
                 >
-                  Create Group
+                  {createGroupMutation.isPending ? 'Creating...' : 'Create Group'}
                 </Button>
               </div>
             </DialogContent>

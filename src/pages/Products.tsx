@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,18 +43,15 @@ const Products = () => {
 
       const { data, error } = await query;
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching products:', error);
+        return [];
+      }
       
-      // Filter out products with vendor_kyc errors and ensure proper structure
-      return (data || []).filter(product => {
-        // Check if vendor_kyc is an error object
-        if (product.vendor_kyc && typeof product.vendor_kyc === 'object' && !Array.isArray(product.vendor_kyc) && 'error' in product.vendor_kyc) {
-          return false;
-        }
-        return true;
-      }).map(product => ({
+      // Process the data to handle vendor_kyc properly
+      return (data || []).map(product => ({
         ...product,
-        vendor_kyc: Array.isArray(product.vendor_kyc) ? product.vendor_kyc : null
+        vendor_kyc: Array.isArray(product.vendor_kyc) ? product.vendor_kyc : []
       }));
     },
   });
