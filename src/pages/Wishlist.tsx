@@ -104,6 +104,14 @@ const Wishlist = () => {
     navigate('/cart');
   };
 
+  const getVendorName = (product: any) => {
+    if (Array.isArray(product?.vendor_kyc) && product.vendor_kyc.length > 0) {
+      return product.vendor_kyc[0]?.display_business_name || 
+             product.vendor_kyc[0]?.business_name;
+    }
+    return product?.vendor_profile?.full_name || 'Unknown Vendor';
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen">
@@ -172,10 +180,7 @@ const Wishlist = () => {
                         {item.products?.name}
                       </h3>
                       <p className="text-sm text-pink-600 mb-2">
-                        by {item.products?.vendor_kyc?.[0]?.display_business_name || 
-                             item.products?.vendor_kyc?.[0]?.business_name ||
-                             item.products?.vendor_profile?.full_name || 
-                             'Unknown Vendor'}
+                        by {getVendorName(item.products)}
                       </p>
                       
                       <div className="flex items-center justify-between mb-3">

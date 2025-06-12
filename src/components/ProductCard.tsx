@@ -2,10 +2,11 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Heart, ShoppingCart, Star, Users } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Heart, ShoppingCart, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -28,10 +29,10 @@ interface ProductCardProps {
       full_name?: string;
       email?: string;
     };
-    vendor_kyc?: {
+    vendor_kyc?: Array<{
       display_business_name?: string;
       business_name?: string;
-    }[];
+    }>;
   };
 }
 
@@ -64,7 +65,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
     enabled: !!user,
   });
 
-  // Add to wishlist mutation
+  // Wishlist mutations
   const addToWishlistMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Please login to add to wishlist');
@@ -80,15 +81,10 @@ const ProductCard = ({ product }: ProductCardProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wishlist-status'] });
-      queryClient.invalidateQueries({ queryKey: ['wishlist-count'] });
       toast({ title: "Added to wishlist" });
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
-  // Remove from wishlist mutation
   const removeFromWishlistMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('Please login');
@@ -103,11 +99,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['wishlist-status'] });
-      queryClient.invalidateQueries({ queryKey: ['wishlist-count'] });
       toast({ title: "Removed from wishlist" });
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -129,9 +121,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cart-count'] });
       toast({ title: "Added to cart" });
-    },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
@@ -157,9 +146,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
       toast({ title: "Group created successfully!" });
       navigate('/groups');
     },
-    onError: (error: any) => {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    },
   });
 
   const handleWishlistToggle = () => {
@@ -176,16 +162,16 @@ const ProductCard = ({ product }: ProductCardProps) => {
   };
 
   const getVendorName = () => {
-    return product.vendor_kyc?.[0]?.display_business_name || 
-           product.vendor_kyc?.[0]?.business_name ||
-           product.vendor_profile?.full_name || 
-           product.vendor_profile?.email?.split('@')[0] || 
-           'Unknown Vendor';
+    if (Array.isArray(product.vendor_kyc) && product.vendor_kyc.length > 0) {
+      return product.vendor_kyc[0]?.display_business_name || 
+             product.vendor_kyc[0]?.business_name;
+    }
+    return product.vendor_profile?.full_name || 'Unknown Vendor';
   };
 
   return (
-    <div className="smooth-card overflow-hidden floating-card animate-fade-in">
-      <div className="relative group">
+    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
+      <div className="relative">
         <img 
           src={product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=300&fit=crop"}
           alt={product.name}
@@ -204,9 +190,9 @@ const ProductCard = ({ product }: ProductCardProps) => {
         </Button>
       </div>
       
-      <div className="p-4">
+      <CardContent className="p-4">
         <h3 
-          className="font-semibold mb-1 text-gray-800 cursor-pointer hover:text-pink-600"
+          className="font-semibold mb-1 cursor-pointer hover:text-pink-600"
           onClick={() => navigate(`/products/${product.id}`)}
         >
           {product.name}
@@ -215,13 +201,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
           by {getVendorName()}
         </p>
         
-        <div className="flex items-center mb-2">
-          <div className="flex items-center">
-            <Star className="w-4 h-4 text-yellow-400 fill-current" />
-            <span className="text-sm text-gray-600 ml-1">4.5</span>
-          </div>
-        </div>
-        
         <div className="flex items-center justify-between mb-3">
           <span className="text-lg font-bold text-gray-800">${product.price}</span>
         </div>
@@ -229,7 +208,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
         <div className="space-y-2">
           <Button
             onClick={() => addToCartMutation.mutate()}
-            className="w-full social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
+            className="w-full bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
             disabled={addToCartMutation.isPending}
           >
             <ShoppingCart className="w-4 h-4 mr-2" />
@@ -241,6 +220,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
               <Button
                 variant="outline"
                 className="w-full border-pink-200 text-pink-600 hover:bg-pink-50"
+                size="sm"
               >
                 <Users className="w-4 h-4 mr-2" />
                 Create Group
@@ -280,8 +260,8 @@ const ProductCard = ({ product }: ProductCardProps) => {
             </DialogContent>
           </Dialog>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 

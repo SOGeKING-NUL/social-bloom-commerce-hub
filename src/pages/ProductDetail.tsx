@@ -86,7 +86,7 @@ const ProductDetail = () => {
         .limit(4);
       
       if (error) throw error;
-      return data;
+      return data || [];
     },
     enabled: !!product?.category,
   });
@@ -208,9 +208,11 @@ const ProductDetail = () => {
   };
 
   const getVendorName = () => {
-    return product?.vendor_kyc?.[0]?.display_business_name || 
-           product?.vendor_kyc?.[0]?.business_name ||
-           product?.vendor_profile?.full_name || 
+    if (Array.isArray(product?.vendor_kyc) && product.vendor_kyc.length > 0) {
+      return product.vendor_kyc[0]?.display_business_name || 
+             product.vendor_kyc[0]?.business_name;
+    }
+    return product?.vendor_profile?.full_name || 
            product?.vendor_profile?.email?.split('@')[0] || 
            'Unknown Vendor';
   };
