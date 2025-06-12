@@ -47,7 +47,7 @@ const Products = () => {
       // Filter out products with vendor_kyc errors and ensure proper structure
       return (data || []).filter(product => {
         // Check if vendor_kyc is an error object
-        if (product.vendor_kyc && typeof product.vendor_kyc === 'object' && 'error' in product.vendor_kyc) {
+        if (product.vendor_kyc && typeof product.vendor_kyc === 'object' && !Array.isArray(product.vendor_kyc) && 'error' in product.vendor_kyc) {
           return false;
         }
         return true;
