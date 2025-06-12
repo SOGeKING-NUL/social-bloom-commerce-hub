@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -172,18 +171,33 @@ const ProductCard = ({ product }: ProductCardProps) => {
     mutationFn: async () => {
       if (!user) throw new Error('Please login to create a group');
       
-      const { error } = await supabase
+      console.log('Creating group with data:', {
+        name: groupForm.name,
+        description: groupForm.description,
+        creator_id: user.id,
+        product_id: product.id,
+      });
+      
+      const { data, error } = await supabase
         .from('groups')
         .insert({
           name: groupForm.name,
           description: groupForm.description,
           creator_id: user.id,
           product_id: product.id,
-        });
+        })
+        .select()
+        .single();
       
-      if (error) throw error;
+      if (error) {
+        console.error('Group creation error:', error);
+        throw error;
+      }
+      
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Group created successfully:', data);
       setIsGroupDialogOpen(false);
       setGroupForm({ name: '', description: '' });
       toast({ title: "Group created successfully!" });
@@ -191,7 +205,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
     },
     onError: (error: any) => {
       console.error('Create group error:', error);
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      toast({ 
+        title: "Error creating group", 
+        description: error.message || "Please try again later",
+        variant: "destructive" 
+      });
     },
   });
 

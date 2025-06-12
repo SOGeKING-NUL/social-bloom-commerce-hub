@@ -17,6 +17,7 @@ const Products = () => {
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products', searchTerm, selectedCategory],
     queryFn: async () => {
+      console.log('Fetching products...');
       let query = supabase
         .from('products')
         .select(`
@@ -45,14 +46,30 @@ const Products = () => {
       
       if (error) {
         console.error('Error fetching products:', error);
-        return [];
+        throw error;
       }
       
-      // Process the data to handle vendor_kyc properly
-      return (data || []).map(product => ({
-        ...product,
-        vendor_kyc: Array.isArray(product.vendor_kyc) ? product.vendor_kyc : []
-      }));
+      console.log('Raw products data:', data);
+      
+      // Process the data to handle vendor_kyc properly and filter out problematic entries
+      const processedProducts = (data || [])
+        .filter(product => {
+          // Filter out products where vendor_kyc is an error object
+          if (product.vendor_kyc && typeof product.vendor_kyc === 'object' && !Array.isArray(product.vendor_kyc)) {
+            if ('error' in product.vendor_kyc) {
+              console.log('Filtering out product with vendor_kyc error:', product.id);
+              return false;
+            }
+          }
+          return true;
+        })
+        .map(product => ({
+          ...product,
+          vendor_kyc: Array.isArray(product.vendor_kyc) ? product.vendor_kyc : []
+        }));
+      
+      console.log('Processed products:', processedProducts);
+      return processedProducts;
     },
   });
 
@@ -72,6 +89,8 @@ const Products = () => {
       return uniqueCategories.filter(Boolean);
     },
   });
+
+  console.log('Products state:', { products, isLoading });
 
   return (
     <div className="min-h-screen">

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -10,13 +9,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import CommentsDialog from "@/components/CommentsDialog";
 
 const Feed = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [newPost, setNewPost] = useState("");
-  const [commentInputs, setCommentInputs] = useState<{[key: string]: string}>({});
+  const [selectedPostForComments, setSelectedPostForComments] = useState<string | null>(null);
 
   // Fetch posts from database
   const { data: posts = [], isLoading } = useQuery({
@@ -122,39 +122,6 @@ const Feed = () => {
     }
   });
 
-  // Comment mutation
-  const commentMutation = useMutation({
-    mutationFn: async ({ postId, content }: { postId: string; content: string }) => {
-      if (!user) throw new Error('Not authenticated');
-      
-      const { error } = await supabase
-        .from('post_comments')
-        .insert({
-          post_id: postId,
-          user_id: user.id,
-          content
-        });
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['posts'] });
-      setCommentInputs({});
-      toast({
-        title: "Comment added!",
-        description: "Your comment has been posted.",
-      });
-    },
-    onError: (error) => {
-      console.error('Error adding comment:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add comment. Please try again.",
-        variant: "destructive"
-      });
-    }
-  });
-
   const handleCreatePost = () => {
     if (newPost.trim()) {
       createPostMutation.mutate(newPost);
@@ -163,13 +130,6 @@ const Feed = () => {
 
   const handleLike = (postId: string, isLiked: boolean) => {
     likePostMutation.mutate({ postId, isLiked });
-  };
-
-  const handleComment = (postId: string) => {
-    const content = commentInputs[postId];
-    if (content && content.trim()) {
-      commentMutation.mutate({ postId, content: content.trim() });
-    }
   };
 
   const handleShare = (postId: string) => {
@@ -276,7 +236,7 @@ const Feed = () => {
                   )}
                   
                   <div className="border-t border-pink-100 pt-4">
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center justify-between">
                       <Button 
                         variant="ghost" 
                         onClick={() => handleLike(post.id, post.liked)}
@@ -293,6 +253,7 @@ const Feed = () => {
                       
                       <Button 
                         variant="ghost" 
+                        onClick={() => setSelectedPostForComments(post.id)}
                         className="flex items-center space-x-2 text-gray-600 hover:text-pink-500 hover:bg-pink-50 rounded-xl"
                       >
                         <MessageCircle className="w-5 h-5" />
@@ -306,32 +267,6 @@ const Feed = () => {
                       >
                         <Share className="w-5 h-5" />
                         <span>{post.shares_count || 0}</span>
-                      </Button>
-                    </div>
-
-                    {/* Comment Input */}
-                    <div className="flex space-x-2">
-                      <Input
-                        placeholder="Write a comment..."
-                        value={commentInputs[post.id] || ''}
-                        onChange={(e) => setCommentInputs({
-                          ...commentInputs,
-                          [post.id]: e.target.value
-                        })}
-                        className="flex-1"
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter') {
-                            handleComment(post.id);
-                          }
-                        }}
-                      />
-                      <Button
-                        onClick={() => handleComment(post.id)}
-                        disabled={commentMutation.isPending || !commentInputs[post.id]?.trim()}
-                        size="sm"
-                        className="bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
-                      >
-                        Comment
                       </Button>
                     </div>
                   </div>
@@ -349,6 +284,13 @@ const Feed = () => {
           </div>
         </div>
       </div>
+
+      {/* Comments Dialog */}
+      <CommentsDialog
+        postId={selectedPostForComments || ""}
+        isOpen={!!selectedPostForComments}
+        onOpenChange={(open) => !open && setSelectedPostForComments(null)}
+      />
     </Layout>
   );
 };
