@@ -30,10 +30,22 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
       }
 
       try {
-        // Get pending join requests first
+        // Get pending join requests with user profiles
         const { data: joinRequests, error: requestsError } = await supabase
           .from('group_join_requests')
-          .select('*')
+          .select(`
+            id,
+            user_id,
+            status,
+            requested_at,
+            message,
+            profiles!user_id (
+              id,
+              full_name,
+              email,
+              avatar_url
+            )
+          `)
           .eq('group_id', groupId)
           .eq('status', 'pending')
           .order('requested_at', { ascending: false });
@@ -43,28 +55,6 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
         if (requestsError) {
           console.error('JoinRequestsDialog: Error fetching requests:', requestsError);
           throw requestsError;
-        }
-
-        // Get user profiles for the requests
-        let requestsWithProfiles = [];
-        if (joinRequests && joinRequests.length > 0) {
-          const userIds = joinRequests.map(req => req.user_id);
-          const { data: profiles, error: profilesError } = await supabase
-            .from('profiles')
-            .select('id, full_name, email, avatar_url')
-            .in('id', userIds);
-          
-          if (profilesError) {
-            console.error('JoinRequestsDialog: Error fetching profiles:', profilesError);
-            throw profilesError;
-          }
-
-          // Combine requests with profiles
-          requestsWithProfiles = joinRequests.map(request => ({
-            ...request,
-            type: 'request' as const,
-            user_profile: profiles?.find(p => p.id === request.user_id)
-          }));
         }
 
         // Get pending invites
@@ -82,16 +72,23 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
           console.error('JoinRequestsDialog: Error fetching invites:', invitesError);
         }
 
+        // Process requests
+        const processedRequests = (joinRequests || []).map(request => ({
+          ...request,
+          type: 'request' as const,
+          user_profile: request.profiles
+        }));
+
         // Process invites
         const processedInvites = (invites || []).map(invite => ({
           ...invite,
           type: 'invite' as const
         }));
 
-        const finalResult = [...requestsWithProfiles, ...processedInvites];
+        const finalResult = [...processedRequests, ...processedInvites];
         
         console.log('JoinRequestsDialog: Final result:', {
-          requestsCount: requestsWithProfiles.length,
+          requestsCount: processedRequests.length,
           invitesCount: processedInvites.length,
           totalItems: finalResult.length
         });
