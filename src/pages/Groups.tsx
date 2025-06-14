@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,13 +6,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Users, Lock, Plus, Search, ShoppingBag, ArrowRight, Globe } from "lucide-react";
+import { Users, Lock, Plus, Search, ShoppingBag, ArrowRight, Globe, UserPlus } from "lucide-react";
 import Layout from "@/components/Layout";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import InviteMembersDialog from "@/components/InviteMembersDialog";
 
 const Groups = () => {
   const { toast } = useToast();
@@ -22,12 +22,15 @@ const Groups = () => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [selectedGroupForInvite, setSelectedGroupForInvite] = useState<any>(null);
   const [newGroupForm, setNewGroupForm] = useState({
     name: "",
     description: "",
     product_id: "",
     is_private: true,
     auto_approve_requests: false,
+    invite_only: false,
     max_members: 50
   });
 
@@ -135,6 +138,7 @@ const Groups = () => {
           description: formData.description,
           is_private: formData.is_private,
           auto_approve_requests: formData.auto_approve_requests,
+          invite_only: formData.invite_only,
           max_members: formData.max_members
         })
         .select()
@@ -166,6 +170,7 @@ const Groups = () => {
         product_id: "",
         is_private: true,
         auto_approve_requests: false,
+        invite_only: false,
         max_members: 50
       });
       setShowCreateForm(false);
@@ -198,8 +203,13 @@ const Groups = () => {
         
         if (error) throw error;
       } else {
+        // Check if group requires invites only
+        if (group.invite_only) {
+          throw new Error('This group is invite-only. Please ask for an invitation.');
+        }
+        
         // Check if group is private and requires approval
-        if (group.is_private || !group.auto_approve_requests) {
+        if (group.is_private && !group.auto_approve_requests) {
           // Create join request
           const { error } = await supabase
             .from('group_join_requests')
@@ -245,7 +255,7 @@ const Groups = () => {
       console.error('Error toggling group membership:', error);
       toast({
         title: "Error",
-        description: "Failed to update group membership. Please try again.",
+        description: error.message,
         variant: "destructive"
       });
     }
@@ -263,6 +273,11 @@ const Groups = () => {
 
   const handleGroupClick = (groupId: string) => {
     navigate(`/groups/${groupId}`);
+  };
+
+  const handleInviteMembers = (group: any) => {
+    setSelectedGroupForInvite(group);
+    setShowInviteDialog(true);
   };
 
   const filteredGroups = groups.filter(group =>
@@ -369,7 +384,16 @@ const Groups = () => {
                         />
                       </div>
                       
-                      {!newGroupForm.is_private && (
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="invite_only">Invite Only</Label>
+                        <Switch
+                          id="invite_only"
+                          checked={newGroupForm.invite_only}
+                          onCheckedChange={(checked) => setNewGroupForm({ ...newGroupForm, invite_only: checked })}
+                        />
+                      </div>
+                      
+                      {!newGroupForm.invite_only && !newGroupForm.is_private && (
                         <div className="flex items-center justify-between">
                           <Label htmlFor="auto_approve">Auto-approve Join Requests</Label>
                           <Switch
@@ -437,6 +461,11 @@ const Groups = () => {
                         Joined
                       </div>
                     )}
+                    {group.invite_only && (
+                      <div className="absolute bottom-4 left-4 bg-purple-500 text-white text-xs px-2 py-1 rounded-full">
+                        Invite Only
+                      </div>
+                    )}
                   </div>
                   
                   <div className="p-6">
@@ -449,29 +478,45 @@ const Groups = () => {
                         <Users className="w-4 h-4 mr-1" />
                         <span className="text-sm">{group.members} members</span>
                       </div>
+                      {group.creator_id === user?.id && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleInviteMembers(group)}
+                          className="border-pink-200 text-pink-600 hover:bg-pink-50"
+                        >
+                          <UserPlus className="w-4 h-4 mr-1" />
+                          Invite
+                        </Button>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
                       <Button 
                         size="sm" 
                         onClick={() => handleJoinGroup(group.id, group.isJoined, group)}
                         disabled={toggleGroupMembershipMutation.isPending}
                         variant={group.isJoined ? "outline" : "default"}
-                        className={group.isJoined 
+                        className={`w-full ${group.isJoined 
                           ? "border-pink-200 text-pink-600 hover:bg-pink-50" 
                           : "social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
-                        }
+                        }`}
                       >
-                        {group.isJoined ? "Leave" : (group.is_private || !group.auto_approve_requests) ? "Request to Join" : "Join Group"}
+                        {group.isJoined ? "Leave" : 
+                         group.invite_only ? "Invite Only" :
+                         (group.is_private && !group.auto_approve_requests) ? "Request to Join" : "Join Group"}
+                      </Button>
+                      
+                      <Button 
+                        size="sm" 
+                        variant="ghost"
+                        onClick={() => handleGroupClick(group.id)}
+                        className="w-full text-pink-600 hover:bg-pink-50"
+                      >
+                        <ArrowRight className="w-4 h-4 mr-2" />
+                        View Group
                       </Button>
                     </div>
-                    
-                    <Button 
-                      size="sm" 
-                      variant="ghost"
-                      onClick={() => handleGroupClick(group.id)}
-                      className="w-full text-pink-600 hover:bg-pink-50"
-                    >
-                      <ArrowRight className="w-4 h-4 mr-2" />
-                      View Group
-                    </Button>
                   </div>
                 </div>
               ))}
@@ -487,6 +532,16 @@ const Groups = () => {
           </div>
         </div>
       </div>
+
+      {/* Invite Members Dialog */}
+      {selectedGroupForInvite && (
+        <InviteMembersDialog
+          groupId={selectedGroupForInvite.id}
+          groupName={selectedGroupForInvite.name}
+          open={showInviteDialog}
+          onOpenChange={setShowInviteDialog}
+        />
+      )}
     </Layout>
   );
 };

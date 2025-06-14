@@ -3,46 +3,75 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, X, Clock } from "lucide-react";
+import { Check, X, Clock, Mail } from "lucide-react";
 
 interface JoinRequestsDialogProps {
   groupId: string;
+  groupName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const JoinRequestsDialog = ({ groupId, open, onOpenChange }: JoinRequestsDialogProps) => {
+const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequestsDialogProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: joinRequests = [], isLoading } = useQuery({
+  const { data: requests = [], isLoading } = useQuery({
     queryKey: ['join-requests', groupId],
     queryFn: async () => {
-      const { data: requests, error } = await supabase
+      // Get join requests
+      const { data: joinRequests, error: requestError } = await supabase
         .from('group_join_requests')
         .select('*')
         .eq('group_id', groupId)
         .eq('status', 'pending')
         .order('requested_at', { ascending: false });
       
-      if (error) throw error;
+      if (requestError) throw requestError;
+
+      // Get pending invites
+      const { data: invites, error: inviteError } = await supabase
+        .from('group_invites')
+        .select('*')
+        .eq('group_id', groupId)
+        .eq('status', 'pending')
+        .gt('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false });
       
-      if (!requests || requests.length === 0) return [];
+      if (inviteError) throw inviteError;
       
-      // Get user profiles for the requests
-      const userIds = requests.map(r => r.user_id);
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, avatar_url')
-        .in('id', userIds);
+      if (!joinRequests && !invites) return { joinRequests: [], invites: [] };
       
-      return requests.map(request => ({
+      // Get user profiles for join requests
+      const userIds = (joinRequests || []).map(r => r.user_id);
+      let profiles = [];
+      if (userIds.length > 0) {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, avatar_url')
+          .in('id', userIds);
+        profiles = profileData || [];
+      }
+      
+      const requestsWithProfiles = (joinRequests || []).map(request => ({
         ...request,
-        user_profile: profiles?.find(p => p.id === request.user_id)
+        type: 'request',
+        user_profile: profiles.find(p => p.id === request.user_id)
       }));
+
+      const invitesWithType = (invites || []).map(invite => ({
+        ...invite,
+        type: 'invite'
+      }));
+      
+      return { 
+        joinRequests: requestsWithProfiles, 
+        invites: invitesWithType 
+      };
     },
     enabled: open && !!groupId
   });
@@ -90,6 +119,31 @@ const JoinRequestsDialog = ({ groupId, open, onOpenChange }: JoinRequestsDialogP
     }
   });
 
+  const cancelInviteMutation = useMutation({
+    mutationFn: async (inviteId: string) => {
+      const { error } = await supabase
+        .from('group_invites')
+        .update({ status: 'expired' })
+        .eq('id', inviteId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['join-requests', groupId] });
+      toast({
+        title: "Invite Cancelled",
+        description: "The invite has been cancelled.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
   const handleApprove = (requestId: string, userId: string) => {
     handleRequestMutation.mutate({ requestId, status: 'approved', userId });
   };
@@ -98,56 +152,111 @@ const JoinRequestsDialog = ({ groupId, open, onOpenChange }: JoinRequestsDialogP
     handleRequestMutation.mutate({ requestId, status: 'rejected', userId });
   };
 
+  const handleCancelInvite = (inviteId: string) => {
+    cancelInviteMutation.mutate(inviteId);
+  };
+
+  const allRequests = [...(requests.joinRequests || []), ...(requests.invites || [])];
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Join Requests</DialogTitle>
+          <DialogTitle>Manage {groupName} Requests & Invites</DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4">
           {isLoading ? (
-            <p className="text-center text-gray-500">Loading requests...</p>
-          ) : joinRequests.length === 0 ? (
-            <p className="text-center text-gray-500">No pending requests</p>
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500 mx-auto"></div>
+              <p className="mt-2 text-gray-500">Loading...</p>
+            </div>
+          ) : allRequests.length === 0 ? (
+            <div className="text-center py-8">
+              <Mail className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500">No pending requests or invites</p>
+            </div>
           ) : (
-            joinRequests.map((request) => (
-              <div key={request.id} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <Avatar className="w-10 h-10">
-                    <AvatarImage src={request.user_profile?.avatar_url} />
-                    <AvatarFallback>
-                      {request.user_profile?.full_name?.charAt(0) || request.user_profile?.email?.charAt(0) || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">
-                      {request.user_profile?.full_name || request.user_profile?.email?.split('@')[0] || 'User'}
-                    </p>
-                    <p className="text-sm text-gray-500 flex items-center">
-                      <Clock className="w-3 h-3 mr-1" />
-                      {new Date(request.requested_at).toLocaleDateString()}
-                    </p>
-                  </div>
+            allRequests.map((item) => (
+              <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
+                <div className="flex items-center space-x-3 flex-1">
+                  {item.type === 'request' ? (
+                    <>
+                      <Avatar className="w-12 h-12">
+                        <AvatarImage src={item.user_profile?.avatar_url} />
+                        <AvatarFallback className="bg-gradient-to-r from-pink-500 to-rose-400 text-white">
+                          {item.user_profile?.full_name?.charAt(0) || item.user_profile?.email?.charAt(0) || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">
+                            {item.user_profile?.full_name || item.user_profile?.email?.split('@')[0] || 'User'}
+                          </p>
+                          <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                            Request
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-500 flex items-center">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {new Date(item.requested_at).toLocaleDateString()}
+                        </p>
+                        {item.message && (
+                          <p className="text-sm text-gray-600 mt-1 italic">"{item.message}"</p>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="w-12 h-12 rounded-full bg-gradient-to-r from-green-500 to-emerald-400 flex items-center justify-center">
+                        <Mail className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{item.invited_email}</p>
+                          <Badge variant="secondary" className="bg-green-100 text-green-800">
+                            Invite
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-500">
+                          Expires: {new Date(item.expires_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </>
+                  )}
                 </div>
                 
                 <div className="flex space-x-2">
-                  <Button
-                    size="sm"
-                    onClick={() => handleApprove(request.id, request.user_id)}
-                    disabled={handleRequestMutation.isPending}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    <Check className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleReject(request.id, request.user_id)}
-                    disabled={handleRequestMutation.isPending}
-                  >
-                    <X className="w-4 h-4" />
-                  </Button>
+                  {item.type === 'request' ? (
+                    <>
+                      <Button
+                        size="sm"
+                        onClick={() => handleApprove(item.id, item.user_id)}
+                        disabled={handleRequestMutation.isPending}
+                        className="bg-green-600 hover:bg-green-700 text-white"
+                      >
+                        <Check className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleReject(item.id, item.user_id)}
+                        disabled={handleRequestMutation.isPending}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleCancelInvite(item.id)}
+                      disabled={cancelInviteMutation.isPending}
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                    >
+                      Cancel
+                    </Button>
+                  )}
                 </div>
               </div>
             ))

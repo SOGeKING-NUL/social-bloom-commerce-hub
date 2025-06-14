@@ -1,14 +1,15 @@
-
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Users, Lock, ArrowLeft, ShoppingBag, Plus } from "lucide-react";
+import { Users, Lock, ArrowLeft, ShoppingBag, UserPlus, Settings } from "lucide-react";
 import Layout from "@/components/Layout";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import JoinRequestsDialog from "@/components/JoinRequestsDialog";
+import InviteMembersDialog from "@/components/InviteMembersDialog";
 
 const GroupDetail = () => {
   const { groupId } = useParams();
@@ -16,6 +17,8 @@ const GroupDetail = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [showJoinRequests, setShowJoinRequests] = useState(false);
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
 
   console.log('GroupDetail: Component loading with groupId:', groupId, 'user:', user?.id);
 
@@ -210,24 +213,52 @@ const GroupDetail = () => {
         
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from('group_members')
-          .insert({
-            group_id: groupId,
-            user_id: user.id
-          });
+        // Check if group requires invites only
+        if (group?.invite_only) {
+          throw new Error('This group is invite-only. Please ask for an invitation.');
+        }
         
-        if (error) throw error;
+        // Check if group is private and requires approval
+        if (group?.is_private && !group?.auto_approve_requests) {
+          // Create join request
+          const { error } = await supabase
+            .from('group_join_requests')
+            .insert({
+              group_id: groupId,
+              user_id: user.id
+            });
+          
+          if (error) throw error;
+          return { isRequest: true };
+        } else {
+          // Direct join
+          const { error } = await supabase
+            .from('group_members')
+            .insert({
+              group_id: groupId,
+              user_id: user.id
+            });
+          
+          if (error) throw error;
+          return { isRequest: false };
+        }
       }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+      
+      if (result?.isRequest) {
+        toast({
+          title: "Request Sent",
+          description: `Your request to join ${group?.name} has been sent.`,
+        });
+      }
     },
     onError: (error) => {
       console.error('Error toggling group membership:', error);
       toast({
         title: "Error",
-        description: "Failed to update group membership.",
+        description: error.message,
         variant: "destructive"
       });
     }
@@ -236,12 +267,12 @@ const GroupDetail = () => {
   const handleJoinGroup = () => {
     if (group) {
       toggleGroupMembershipMutation.mutate(group.isJoined);
-      toast({
-        title: group.isJoined ? "Left Group" : "Joined Group!",
-        description: group.isJoined 
-          ? `You left ${group.name}` 
-          : `Welcome to ${group.name}!`,
-      });
+      if (group.isJoined) {
+        toast({
+          title: "Left Group",
+          description: `You left ${group.name}`,
+        });
+      }
     }
   };
 
@@ -250,6 +281,10 @@ const GroupDetail = () => {
       addToCartMutation.mutate(group.product.id);
     }
   };
+
+  const isCreator = group?.creator_id === user?.id;
+  const canViewMembers = !group?.is_private || group?.isJoined || isCreator;
+  const canViewProduct = !group?.is_private || group?.isJoined || isCreator;
 
   if (isLoading) {
     return (
@@ -364,6 +399,11 @@ const GroupDetail = () => {
                         <span className="text-sm text-gray-500">Private Group</span>
                       </>
                     )}
+                    {group.invite_only && (
+                      <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">
+                        Invite Only
+                      </span>
+                    )}
                     {group.isJoined && (
                       <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
                         Joined
@@ -378,27 +418,67 @@ const GroupDetail = () => {
                       <Users className="w-5 h-5 mr-2" />
                       <span>{group.members.length} members</span>
                     </div>
+                    {isCreator && (
+                      <p className="text-sm text-pink-600 font-medium">You created this group</p>
+                    )}
                   </div>
 
-                  <div className="flex gap-4">
-                    <Button 
-                      onClick={handleJoinGroup}
-                      disabled={toggleGroupMembershipMutation.isPending}
-                      variant={group.isJoined ? "outline" : "default"}
-                      className={group.isJoined 
-                        ? "border-pink-200 text-pink-600 hover:bg-pink-50" 
-                        : "social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
-                      }
-                    >
-                      {group.isJoined ? "Leave Group" : "Join Group"}
-                    </Button>
+                  <div className="flex flex-wrap gap-3">
+                    {!group.isJoined && !group.invite_only && (
+                      <Button 
+                        onClick={handleJoinGroup}
+                        disabled={toggleGroupMembershipMutation.isPending}
+                        className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
+                      >
+                        {group.is_private && !group.auto_approve_requests ? "Request to Join" : "Join Group"}
+                      </Button>
+                    )}
+                    
+                    {group.isJoined && !isCreator && (
+                      <Button 
+                        onClick={handleJoinGroup}
+                        disabled={toggleGroupMembershipMutation.isPending}
+                        variant="outline"
+                        className="border-pink-200 text-pink-600 hover:bg-pink-50"
+                      >
+                        Leave Group
+                      </Button>
+                    )}
+
+                    {group.invite_only && !group.isJoined && !isCreator && (
+                      <div className="text-center">
+                        <p className="text-gray-600 mb-2">This is an invite-only group</p>
+                        <p className="text-sm text-gray-500">Contact the group creator for an invitation</p>
+                      </div>
+                    )}
+
+                    {isCreator && (
+                      <>
+                        <Button 
+                          onClick={() => setShowInviteDialog(true)}
+                          variant="outline"
+                          className="border-pink-200 text-pink-600 hover:bg-pink-50"
+                        >
+                          <UserPlus className="w-4 h-4 mr-2" />
+                          Invite Members
+                        </Button>
+                        <Button 
+                          onClick={() => setShowJoinRequests(true)}
+                          variant="outline"
+                          className="border-pink-200 text-pink-600 hover:bg-pink-50"
+                        >
+                          <Settings className="w-4 h-4 mr-2" />
+                          Manage Requests
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Product Section */}
-            {group.product && (
+            {canViewProduct && group.product && (
               <div className="smooth-card p-6 mb-8">
                 <h2 className="text-2xl font-semibold mb-4">Featured Product</h2>
                 <div className="flex flex-col md:flex-row gap-6">
@@ -432,31 +512,54 @@ const GroupDetail = () => {
               </div>
             )}
 
+            {!canViewProduct && (
+              <div className="smooth-card p-6 mb-8 text-center">
+                <Lock className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-600 mb-2">Private Group Content</h3>
+                <p className="text-gray-500">Join the group to see the featured product and other exclusive content.</p>
+              </div>
+            )}
+
             {/* Members Section */}
             <div className="smooth-card p-6">
-              <h2 className="text-2xl font-semibold mb-4">Members ({group.members.length})</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {group.members.map((member) => (
-                  <div key={member.user_id} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50">
-                    <Avatar className="w-10 h-10">
-                      <AvatarImage src={member.user_profile?.avatar_url} />
-                      <AvatarFallback>
-                        {member.user_profile?.full_name?.charAt(0) || member.user_profile?.email?.charAt(0) || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium">
-                        {member.user_profile?.full_name || member.user_profile?.email?.split('@')[0] || 'User'}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        Joined {new Date(member.joined_at).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <h2 className="text-2xl font-semibold mb-4">
+                Members ({canViewMembers ? group.members.length : '?'})
+              </h2>
               
-              {group.members.length === 0 && (
+              {canViewMembers ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {group.members.map((member) => (
+                    <div key={member.user_id} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50">
+                      <Avatar className="w-10 h-10">
+                        <AvatarImage src={member.user_profile?.avatar_url} />
+                        <AvatarFallback>
+                          {member.user_profile?.full_name?.charAt(0) || member.user_profile?.email?.charAt(0) || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">
+                          {member.user_profile?.full_name || member.user_profile?.email?.split('@')[0] || 'User'}
+                          {member.user_id === group.creator_id && (
+                            <span className="ml-2 text-xs bg-pink-100 text-pink-800 px-2 py-1 rounded-full">
+                              Creator
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          Joined {new Date(member.joined_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Lock className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p className="text-gray-500">Member list is private. Join the group to see who's in it!</p>
+                </div>
+              )}
+              
+              {canViewMembers && group.members.length === 0 && (
                 <div className="text-center py-8">
                   <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-gray-500">No members yet. Be the first to join!</p>
@@ -466,6 +569,24 @@ const GroupDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* Dialogs */}
+      {isCreator && (
+        <>
+          <JoinRequestsDialog
+            groupId={groupId!}
+            groupName={group.name}
+            open={showJoinRequests}
+            onOpenChange={setShowJoinRequests}
+          />
+          <InviteMembersDialog
+            groupId={groupId!}
+            groupName={group.name}
+            open={showInviteDialog}
+            onOpenChange={setShowInviteDialog}
+          />
+        </>
+      )}
     </Layout>
   );
 };

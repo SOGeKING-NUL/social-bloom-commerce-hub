@@ -84,10 +84,47 @@ export type Database = {
           },
         ]
       }
+      group_invites: {
+        Row: {
+          created_at: string
+          expires_at: string
+          group_id: string
+          id: string
+          invite_code: string
+          invited_by: string
+          invited_email: string
+          status: string
+          used_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          group_id: string
+          id?: string
+          invite_code?: string
+          invited_by: string
+          invited_email: string
+          status?: string
+          used_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          group_id?: string
+          id?: string
+          invite_code?: string
+          invited_by?: string
+          invited_email?: string
+          status?: string
+          used_at?: string | null
+        }
+        Relationships: []
+      }
       group_join_requests: {
         Row: {
           group_id: string
           id: string
+          invite_code: string | null
           message: string | null
           requested_at: string
           reviewed_at: string | null
@@ -98,6 +135,7 @@ export type Database = {
         Insert: {
           group_id: string
           id?: string
+          invite_code?: string | null
           message?: string | null
           requested_at?: string
           reviewed_at?: string | null
@@ -108,6 +146,7 @@ export type Database = {
         Update: {
           group_id?: string
           id?: string
+          invite_code?: string | null
           message?: string | null
           requested_at?: string
           reviewed_at?: string | null
@@ -174,6 +213,7 @@ export type Database = {
           creator_id: string
           description: string | null
           id: string
+          invite_only: boolean | null
           is_private: boolean | null
           max_members: number | null
           member_limit: number | null
@@ -186,6 +226,7 @@ export type Database = {
           creator_id: string
           description?: string | null
           id?: string
+          invite_only?: boolean | null
           is_private?: boolean | null
           max_members?: number | null
           member_limit?: number | null
@@ -198,6 +239,7 @@ export type Database = {
           creator_id?: string
           description?: string | null
           id?: string
+          invite_only?: boolean | null
           is_private?: boolean | null
           max_members?: number | null
           member_limit?: number | null
