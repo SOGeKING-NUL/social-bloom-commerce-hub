@@ -189,7 +189,7 @@ const Groups = () => {
     }
   });
 
-  // Join/Leave group mutation
+  // Join/Leave group mutation with duplicate check
   const toggleGroupMembershipMutation = useMutation({
     mutationFn: async ({ groupId, isJoined, group }: { groupId: string; isJoined: boolean; group: any }) => {
       if (!user) throw new Error('Not authenticated');
@@ -210,6 +210,19 @@ const Groups = () => {
         
         // Check if group is private and requires approval
         if (group.is_private && !group.auto_approve_requests) {
+          // Check for existing join request first
+          const { data: existingRequest } = await supabase
+            .from('group_join_requests')
+            .select('id')
+            .eq('group_id', groupId)
+            .eq('user_id', user.id)
+            .eq('status', 'pending')
+            .single();
+          
+          if (existingRequest) {
+            throw new Error('You already have a pending request for this group.');
+          }
+          
           // Create join request
           const { error } = await supabase
             .from('group_join_requests')

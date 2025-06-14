@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -29,6 +28,10 @@ const AdminDashboard = () => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [showCreatePost, setShowCreatePost] = useState(false);
   const [newPostContent, setNewPostContent] = useState('');
+  const [selectedGroupForAction, setSelectedGroupForAction] = useState<any>(null);
+  const [showGroupActionDialog, setShowGroupActionDialog] = useState(false);
+  const [groupActionType, setGroupActionType] = useState<'warn' | 'restrict' | 'delete'>('warn');
+  const [groupActionReason, setGroupActionReason] = useState('');
 
   // Fetch pending KYCs
   const { data: pendingKYCs } = useQuery({
@@ -85,6 +88,61 @@ const AdminDashboard = () => {
     },
   });
 
+  // Enhanced groups query for admins
+  const { data: groups } = useQuery({
+    queryKey: ['all-groups'],
+    queryFn: async () => {
+      // For admins, we need to fetch all groups regardless of membership
+      const { data: groupsData, error: groupsError } = await supabase
+        .from('groups')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (groupsError) throw groupsError;
+      
+      if (!groupsData || groupsData.length === 0) {
+        return [];
+      }
+      
+      // Get related data
+      const creatorIds = [...new Set(groupsData.map(g => g.creator_id))];
+      const productIds = [...new Set(groupsData.map(g => g.product_id).filter(Boolean))];
+      const groupIds = groupsData.map(g => g.id);
+      
+      // Get creators
+      const { data: creators } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', creatorIds);
+      
+      // Get products
+      const { data: products } = await supabase
+        .from('products')
+        .select('id, name')
+        .in('id', productIds);
+      
+      // Get member counts
+      const { data: memberCounts } = await supabase
+        .from('group_members')
+        .select('group_id')
+        .in('group_id', groupIds);
+      
+      // Process groups with additional data
+      return groupsData.map(group => {
+        const creator = creators?.find(c => c.id === group.creator_id);
+        const product = products?.find(p => p.id === group.product_id);
+        const memberCount = memberCounts?.filter(m => m.group_id === group.id).length || 0;
+        
+        return {
+          ...group,
+          creator_profile: creator,
+          product: product,
+          member_count: memberCount
+        };
+      });
+    },
+  });
+
   // Fetch all posts
   const { data: posts } = useQuery({
     queryKey: ['all-posts'],
@@ -96,29 +154,6 @@ const AdminDashboard = () => {
           user_profile:profiles!user_id (
             email,
             full_name
-          )
-        `)
-        .order('created_at', { ascending: false });
-      
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Fetch all groups
-  const { data: groups } = useQuery({
-    queryKey: ['all-groups'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('groups')
-        .select(`
-          *,
-          creator_profile:profiles!creator_id (
-            email,
-            full_name
-          ),
-          product:products!product_id (
-            name
           )
         `)
         .order('created_at', { ascending: false });
@@ -320,6 +355,82 @@ const AdminDashboard = () => {
       });
     },
   });
+
+  // Group action mutation for warnings, restrictions, and deletions
+  const groupActionMutation = useMutation({
+    mutationFn: async ({ groupId, action, reason }: { groupId: string, action: 'warn' | 'restrict' | 'delete', reason: string }) => {
+      if (action === 'delete') {
+        // Delete all related data first
+        await supabase.from('group_members').delete().eq('group_id', groupId);
+        await supabase.from('group_join_requests').delete().eq('group_id', groupId);
+        await supabase.from('group_invites').delete().eq('group_id', groupId);
+        
+        // Delete the group
+        const { error } = await supabase
+          .from('groups')
+          .delete()
+          .eq('id', groupId);
+        
+        if (error) throw error;
+      } else if (action === 'restrict') {
+        // Set group to private and invite-only
+        const { error } = await supabase
+          .from('groups')
+          .update({ 
+            is_private: true, 
+            invite_only: true,
+            auto_approve_requests: false 
+          })
+          .eq('id', groupId);
+        
+        if (error) throw error;
+      }
+      
+      // TODO: Implement warning system - could be done via notifications or email
+      // For now, we'll just log the action
+      console.log(`Admin action: ${action} on group ${groupId} - Reason: ${reason}`);
+    },
+    onSuccess: (_, { action }) => {
+      queryClient.invalidateQueries({ queryKey: ['all-groups'] });
+      setShowGroupActionDialog(false);
+      setSelectedGroupForAction(null);
+      setGroupActionReason('');
+      
+      const actionMessages = {
+        warn: 'Warning sent to group creator',
+        restrict: 'Group has been restricted',
+        delete: 'Group has been deleted'
+      };
+      
+      toast({
+        title: 'Action Completed',
+        description: actionMessages[action],
+      });
+    },
+    onError: () => {
+      toast({
+        title: 'Error',
+        description: 'Failed to perform action on group',
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const handleGroupAction = (group: any, action: 'warn' | 'restrict' | 'delete') => {
+    setSelectedGroupForAction(group);
+    setGroupActionType(action);
+    setShowGroupActionDialog(true);
+  };
+
+  const executeGroupAction = () => {
+    if (selectedGroupForAction && groupActionReason.trim()) {
+      groupActionMutation.mutate({
+        groupId: selectedGroupForAction.id,
+        action: groupActionType,
+        reason: groupActionReason
+      });
+    }
+  };
 
   return (
     <Layout>
@@ -639,6 +750,12 @@ const AdminDashboard = () => {
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
                               <span className="font-medium">{group.name}</span>
+                              <Badge variant={group.is_private ? "secondary" : "default"}>
+                                {group.is_private ? "Private" : "Public"}
+                              </Badge>
+                              {group.invite_only && (
+                                <Badge variant="outline">Invite Only</Badge>
+                              )}
                               <span className="text-sm text-gray-500">
                                 Created {new Date(group.created_at!).toLocaleDateString()}
                               </span>
@@ -647,15 +764,35 @@ const AdminDashboard = () => {
                             <div className="flex items-center gap-4 text-sm text-gray-500">
                               <span>Creator: {group.creator_profile?.full_name || group.creator_profile?.email}</span>
                               <span>Product: {group.product?.name}</span>
+                              <span>Members: {group.member_count}</span>
                             </div>
                           </div>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => deleteGroupMutation.mutate(group.id)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleGroupAction(group, 'warn')}
+                              className="text-yellow-600 border-yellow-200 hover:bg-yellow-50"
+                            >
+                              <AlertCircle className="w-4 h-4 mr-1" />
+                              Warn
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleGroupAction(group, 'restrict')}
+                              className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                            >
+                              Restrict
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleGroupAction(group, 'delete')}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -803,6 +940,48 @@ const AdminDashboard = () => {
               >
                 <X className="w-4 h-4 mr-2" />
                 Reject Application
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Group Action Dialog */}
+        <AlertDialog open={showGroupActionDialog} onOpenChange={setShowGroupActionDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {groupActionType === 'delete' ? 'Delete Group' : 
+                 groupActionType === 'restrict' ? 'Restrict Group' : 'Send Warning'}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {groupActionType === 'delete' ? 
+                  'This will permanently delete the group and all associated data. This action cannot be undone.' :
+                 groupActionType === 'restrict' ? 
+                  'This will make the group private and invite-only, preventing new members from joining freely.' :
+                  'This will send a warning to the group creator about policy violations.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <div className="py-4">
+              <Label htmlFor="reason">Reason</Label>
+              <Textarea
+                id="reason"
+                value={groupActionReason}
+                onChange={(e) => setGroupActionReason(e.target.value)}
+                placeholder="Please provide a reason for this action..."
+                className="min-h-24"
+              />
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setShowGroupActionDialog(false)}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={executeGroupAction}
+                className={groupActionType === 'delete' ? "bg-red-600 hover:bg-red-700" : ""}
+                disabled={!groupActionReason.trim()}
+              >
+                {groupActionType === 'delete' ? 'Delete Group' : 
+                 groupActionType === 'restrict' ? 'Restrict Group' : 'Send Warning'}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
