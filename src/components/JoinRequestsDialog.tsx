@@ -183,15 +183,15 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
                   {item.type === 'request' ? (
                     <>
                       <Avatar className="w-12 h-12">
-                        <AvatarImage src={item.user_profile?.avatar_url} />
+                        <AvatarImage src={(item as any).user_profile?.avatar_url} />
                         <AvatarFallback className="bg-gradient-to-r from-pink-500 to-rose-400 text-white">
-                          {item.user_profile?.full_name?.charAt(0) || item.user_profile?.email?.charAt(0) || 'U'}
+                          {(item as any).user_profile?.full_name?.charAt(0) || (item as any).user_profile?.email?.charAt(0) || 'U'}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <p className="font-medium">
-                            {item.user_profile?.full_name || item.user_profile?.email?.split('@')[0] || 'User'}
+                            {(item as any).user_profile?.full_name || (item as any).user_profile?.email?.split('@')[0] || 'User'}
                           </p>
                           <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                             Request
@@ -199,10 +199,10 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
                         </div>
                         <p className="text-sm text-gray-500 flex items-center">
                           <Clock className="w-3 h-3 mr-1" />
-                          {new Date(item.requested_at).toLocaleDateString()}
+                          {new Date((item as any).requested_at).toLocaleDateString()}
                         </p>
-                        {item.message && (
-                          <p className="text-sm text-gray-600 mt-1 italic">"{item.message}"</p>
+                        {(item as any).message && (
+                          <p className="text-sm text-gray-600 mt-1 italic">"{(item as any).message}"</p>
                         )}
                       </div>
                     </>
@@ -213,13 +213,13 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <p className="font-medium">{item.invited_email}</p>
+                          <p className="font-medium">{(item as any).invited_email}</p>
                           <Badge variant="secondary" className="bg-green-100 text-green-800">
                             Invite
                           </Badge>
                         </div>
                         <p className="text-sm text-gray-500">
-                          Expires: {new Date(item.expires_at).toLocaleDateString()}
+                          Expires: {new Date((item as any).expires_at).toLocaleDateString()}
                         </p>
                       </div>
                     </>
@@ -231,7 +231,7 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
                     <>
                       <Button
                         size="sm"
-                        onClick={() => handleApprove(item.id, item.user_id)}
+                        onClick={() => handleApprove(item.id, (item as any).user_id)}
                         disabled={handleRequestMutation.isPending}
                         className="bg-green-600 hover:bg-green-700 text-white"
                       >
@@ -240,7 +240,7 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
                       <Button
                         size="sm"
                         variant="destructive"
-                        onClick={() => handleReject(item.id, item.user_id)}
+                        onClick={() => handleReject(item.id, (item as any).user_id)}
                         disabled={handleRequestMutation.isPending}
                       >
                         <X className="w-4 h-4" />
