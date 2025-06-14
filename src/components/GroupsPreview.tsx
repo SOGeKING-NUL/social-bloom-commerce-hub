@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Users, Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -17,7 +16,7 @@ const GroupsPreview = () => {
             full_name,
             email
           ),
-          product:products!product_id (
+          product:products!groups_product_id_fkey (
             name,
             image_url
           ),

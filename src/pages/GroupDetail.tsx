@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -29,7 +28,7 @@ const GroupDetail = () => {
             full_name,
             email
           ),
-          product:products!product_id (
+          product:products!groups_product_id_fkey (
             *,
             vendor_profile:profiles!vendor_id (
               full_name,
