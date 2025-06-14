@@ -20,7 +20,7 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: requests = [], isLoading } = useQuery({
+  const { data: requests = { joinRequests: [], invites: [] }, isLoading } = useQuery({
     queryKey: ['join-requests', groupId],
     queryFn: async () => {
       // Get join requests

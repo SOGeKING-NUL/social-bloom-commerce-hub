@@ -29,12 +29,19 @@ const InviteMembersDialog = ({ groupId, groupName, open, onOpenChange }: InviteM
         throw new Error('Please enter at least one valid email address');
       }
 
-      const invitePromises = validEmails.map(email => 
+      // Get the current user first
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('You must be logged in to send invites');
+      }
+
+      const invitePromises = validEmails.map(async (email) => 
         supabase
           .from('group_invites')
           .insert({
             group_id: groupId,
-            invited_by: (await supabase.auth.getUser()).data.user?.id,
+            invited_by: user.id,
             invited_email: email.trim()
           })
       );

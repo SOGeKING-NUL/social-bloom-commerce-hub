@@ -23,7 +23,7 @@ const Profile = () => {
   const queryClient = useQueryClient();
   const [editingProfile, setEditingProfile] = useState(false);
   const [selectedGroupForEdit, setSelectedGroupForEdit] = useState(null);
-  const [selectedGroupForRequests, setSelectedGroupForRequests] = useState(null);
+  const [selectedGroupForRequests, setSelectedGroupForRequests] = useState<{id: string, name: string} | null>(null);
   const [profileForm, setProfileForm] = useState({
     full_name: profile?.full_name || '',
     avatar_url: profile?.avatar_url || '',
@@ -436,7 +436,7 @@ const Profile = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => setSelectedGroupForRequests(group.id)}
+                              onClick={() => setSelectedGroupForRequests({id: group.id, name: group.name})}
                               className="text-orange-600 border-orange-200"
                             >
                               <UserPlus className="w-4 h-4" />
@@ -584,7 +584,8 @@ const Profile = () => {
       {/* Join Requests Dialog */}
       {selectedGroupForRequests && (
         <JoinRequestsDialog
-          groupId={selectedGroupForRequests}
+          groupId={selectedGroupForRequests.id}
+          groupName={selectedGroupForRequests.name}
           open={!!selectedGroupForRequests}
           onOpenChange={(open) => !open && setSelectedGroupForRequests(null)}
         />
