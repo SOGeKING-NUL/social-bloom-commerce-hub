@@ -199,51 +199,55 @@ const GroupDetail = () => {
     }
   });
 
-  // Join/Leave group mutation
+  // Join/Leave group mutation with proper cleanup
   const toggleGroupMembershipMutation = useMutation({
     mutationFn: async (isJoined: boolean) => {
       if (!user || !groupId) throw new Error('Missing required data');
       
       if (isJoined) {
-        // When leaving a group, clean up both membership and any pending join requests
+        console.log('Leaving group:', groupId);
+        
+        // First, clean up any pending join requests for this user and group
+        const { error: requestCleanupError } = await supabase
+          .from('group_join_requests')
+          .delete()
+          .eq('group_id', groupId)
+          .eq('user_id', user.id);
+        
+        console.log('Join request cleanup result:', requestCleanupError);
+        
+        // Then remove the membership
         const { error: memberError } = await supabase
           .from('group_members')
           .delete()
           .eq('group_id', groupId)
           .eq('user_id', user.id);
         
-        if (memberError) throw memberError;
+        if (memberError) {
+          console.error('Error removing membership:', memberError);
+          throw memberError;
+        }
         
-        // Also clean up any pending join requests for this user and group
-        const { error: requestError } = await supabase
-          .from('group_join_requests')
-          .delete()
-          .eq('group_id', groupId)
-          .eq('user_id', user.id);
-        
-        // Don't throw error for request cleanup as it might not exist
-        console.log('Cleaned up join requests:', requestError);
+        console.log('Successfully left group');
         
       } else {
+        console.log('Attempting to join group:', groupId);
+        
         // Check if group requires invites only
         if (group?.invite_only) {
           throw new Error('This group is invite-only. Please ask for an invitation.');
         }
         
+        // Always clean up any existing requests first to prevent duplicates
+        await supabase
+          .from('group_join_requests')
+          .delete()
+          .eq('group_id', groupId)
+          .eq('user_id', user.id);
+        
         // Check if group is private and requires approval
         if (group?.is_private && !group?.auto_approve_requests) {
-          // Check for existing join request first
-          const { data: existingRequest } = await supabase
-            .from('group_join_requests')
-            .select('id')
-            .eq('group_id', groupId)
-            .eq('user_id', user.id)
-            .eq('status', 'pending')
-            .maybeSingle();
-          
-          if (existingRequest) {
-            throw new Error('You already have a pending request for this group.');
-          }
+          console.log('Creating join request for private group');
           
           // Create join request
           const { error } = await supabase
@@ -253,9 +257,15 @@ const GroupDetail = () => {
               user_id: user.id
             });
           
-          if (error) throw error;
+          if (error) {
+            console.error('Error creating join request:', error);
+            throw error;
+          }
+          
           return { isRequest: true };
         } else {
+          console.log('Direct join for public group with auto-approval');
+          
           // Direct join
           const { error } = await supabase
             .from('group_members')
@@ -264,7 +274,11 @@ const GroupDetail = () => {
               user_id: user.id
             });
           
-          if (error) throw error;
+          if (error) {
+            console.error('Error joining group:', error);
+            throw error;
+          }
+          
           return { isRequest: false };
         }
       }
@@ -283,7 +297,7 @@ const GroupDetail = () => {
       console.error('Error toggling group membership:', error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "An error occurred. Please try again.",
         variant: "destructive"
       });
     }
