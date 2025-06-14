@@ -189,19 +189,31 @@ const Groups = () => {
     }
   });
 
-  // Join/Leave group mutation with duplicate check
+  // Join/Leave group mutation with duplicate check and cleanup
   const toggleGroupMembershipMutation = useMutation({
     mutationFn: async ({ groupId, isJoined, group }: { groupId: string; isJoined: boolean; group: any }) => {
       if (!user) throw new Error('Not authenticated');
       
       if (isJoined) {
-        const { error } = await supabase
+        // When leaving a group, clean up both membership and any pending join requests
+        const { error: memberError } = await supabase
           .from('group_members')
           .delete()
           .eq('group_id', groupId)
           .eq('user_id', user.id);
         
-        if (error) throw error;
+        if (memberError) throw memberError;
+        
+        // Also clean up any pending join requests for this user and group
+        const { error: requestError } = await supabase
+          .from('group_join_requests')
+          .delete()
+          .eq('group_id', groupId)
+          .eq('user_id', user.id);
+        
+        // Don't throw error for request cleanup as it might not exist
+        console.log('Cleaned up join requests:', requestError);
+        
       } else {
         // Check if group requires invites only
         if (group.invite_only) {
@@ -217,7 +229,7 @@ const Groups = () => {
             .eq('group_id', groupId)
             .eq('user_id', user.id)
             .eq('status', 'pending')
-            .single();
+            .maybeSingle();
           
           if (existingRequest) {
             throw new Error('You already have a pending request for this group.');

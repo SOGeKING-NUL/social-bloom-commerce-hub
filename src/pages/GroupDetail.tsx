@@ -205,13 +205,25 @@ const GroupDetail = () => {
       if (!user || !groupId) throw new Error('Missing required data');
       
       if (isJoined) {
-        const { error } = await supabase
+        // When leaving a group, clean up both membership and any pending join requests
+        const { error: memberError } = await supabase
           .from('group_members')
           .delete()
           .eq('group_id', groupId)
           .eq('user_id', user.id);
         
-        if (error) throw error;
+        if (memberError) throw memberError;
+        
+        // Also clean up any pending join requests for this user and group
+        const { error: requestError } = await supabase
+          .from('group_join_requests')
+          .delete()
+          .eq('group_id', groupId)
+          .eq('user_id', user.id);
+        
+        // Don't throw error for request cleanup as it might not exist
+        console.log('Cleaned up join requests:', requestError);
+        
       } else {
         // Check if group requires invites only
         if (group?.invite_only) {
@@ -220,6 +232,19 @@ const GroupDetail = () => {
         
         // Check if group is private and requires approval
         if (group?.is_private && !group?.auto_approve_requests) {
+          // Check for existing join request first
+          const { data: existingRequest } = await supabase
+            .from('group_join_requests')
+            .select('id')
+            .eq('group_id', groupId)
+            .eq('user_id', user.id)
+            .eq('status', 'pending')
+            .maybeSingle();
+          
+          if (existingRequest) {
+            throw new Error('You already have a pending request for this group.');
+          }
+          
           // Create join request
           const { error } = await supabase
             .from('group_join_requests')
