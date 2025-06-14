@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,18 +16,18 @@ const Products = () => {
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products', searchTerm, selectedCategory],
     queryFn: async () => {
-      console.log('Fetching products...');
+      console.log('Fetching products with searchTerm:', searchTerm, 'category:', selectedCategory);
       let query = supabase
         .from('products')
         .select(`
           *,
           vendor_profile:profiles!vendor_id (
             full_name,
-            email
-          ),
-          vendor_kyc:vendor_kyc!vendor_id (
-            display_business_name,
-            business_name
+            email,
+            vendor_kyc_data:vendor_kyc!vendor_id ( 
+              display_business_name,
+              business_name
+            )
           )
         `)
         .eq('is_active', true)
@@ -45,30 +44,35 @@ const Products = () => {
       const { data, error } = await query;
       
       if (error) {
-        console.error('Error fetching products:', error);
+        console.error('Error fetching products:', error.message, error.details, error.hint);
         throw error;
       }
       
-      console.log('Raw products data:', data);
+      console.log('Raw products data from Supabase:', data);
       
-      // Process the data to handle vendor_kyc properly and filter out problematic entries
-      const processedProducts = (data || [])
-        .filter(product => {
-          // Filter out products where vendor_kyc is an error object
-          if (product.vendor_kyc && typeof product.vendor_kyc === 'object' && !Array.isArray(product.vendor_kyc)) {
-            if ('error' in product.vendor_kyc) {
-              console.log('Filtering out product with vendor_kyc error:', product.id);
-              return false;
-            }
-          }
-          return true;
-        })
-        .map(product => ({
-          ...product,
-          vendor_kyc: Array.isArray(product.vendor_kyc) ? product.vendor_kyc : []
-        }));
+      const processedProducts = (data || []).map(product => {
+        const profileData = product.vendor_profile;
+        const kycDataFromProfile = profileData?.vendor_kyc_data || [];
+        
+        // Ensure kycDataForCard is always an array
+        const kycDataForCard = Array.isArray(kycDataFromProfile) 
+          ? kycDataFromProfile 
+          : (kycDataFromProfile ? [kycDataFromProfile] : []);
+
+        // Create a clean vendor_profile object for the card, without vendor_kyc_data nested inside
+        const cleanVendorProfile = profileData ? {
+          full_name: profileData.full_name,
+          email: profileData.email
+        } : null;
+
+        return {
+          ...product, // original product fields from 'products' table
+          vendor_profile: cleanVendorProfile, // Pass the cleaned profile
+          vendor_kyc: kycDataForCard // Pass the extracted and formatted KYC data
+        };
+      });
       
-      console.log('Processed products:', processedProducts);
+      console.log('Processed products for display:', processedProducts);
       return processedProducts;
     },
   });
