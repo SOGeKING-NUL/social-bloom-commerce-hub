@@ -464,8 +464,7 @@ const GroupDetail = () => {
       console.error('MUTATION FAILED:', error);
       console.log('ERROR DETAILS:', {
         message: error.message,
-        stack: error.stack,
-        cause: error.cause
+        stack: error.stack
       });
       
       toast({
