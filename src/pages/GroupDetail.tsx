@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -87,16 +88,18 @@ const GroupDetail = () => {
             .then(result => ({ type: 'members', ...result }))
         );
         
-        // Join requests for current user
-        promises.push(
-          supabase
-            .from('group_join_requests')
-            .select('id, status')
-            .eq('group_id', groupId)
-            .eq('user_id', user?.id)
-            .eq('status', 'pending')
-            .then(result => ({ type: 'join_requests', ...result }))
-        );
+        // CRITICAL: Check for pending join requests for current user
+        if (user?.id) {
+          promises.push(
+            supabase
+              .from('group_join_requests')
+              .select('id, status, requested_at')
+              .eq('group_id', groupId)
+              .eq('user_id', user.id)
+              .eq('status', 'pending')
+              .then(result => ({ type: 'join_requests', ...result }))
+          );
+        }
         
         const results = await Promise.allSettled(promises);
         console.log('GroupDetail: Parallel queries results:', results);
@@ -119,7 +122,9 @@ const GroupDetail = () => {
                 members = result.value.data || [];
                 break;
               case 'join_requests':
-                hasPendingRequest = (result.value.data || []).length > 0;
+                const pendingRequests = result.value.data || [];
+                hasPendingRequest = pendingRequests.length > 0;
+                console.log('GroupDetail: Pending request check:', { pendingRequests, hasPendingRequest });
                 break;
             }
           }
@@ -179,7 +184,9 @@ const GroupDetail = () => {
         throw error;
       }
     },
-    enabled: !!user && !!groupId
+    enabled: !!user && !!groupId,
+    staleTime: 0, // Always fetch fresh data
+    refetchOnWindowFocus: true
   });
 
   // Add to cart mutation
@@ -215,7 +222,7 @@ const GroupDetail = () => {
     }
   });
 
-  // Join/Leave group mutation with proper cleanup
+  // Join/Leave group mutation with proper cleanup and immediate UI update
   const toggleGroupMembershipMutation = useMutation({
     mutationFn: async (isJoined: boolean) => {
       if (!user || !groupId) throw new Error('Missing required data');
@@ -342,9 +349,14 @@ const GroupDetail = () => {
     },
     onSuccess: (result) => {
       console.log('GroupDetail toggleMembershipMutation: Success with result:', result);
+      
+      // CRITICAL: Invalidate queries to refresh the UI immediately
       queryClient.invalidateQueries({ queryKey: ['group', groupId] });
       queryClient.invalidateQueries({ queryKey: ['groups'] });
       queryClient.invalidateQueries({ queryKey: ['join-requests', groupId] });
+      
+      // Force refetch the current group data
+      queryClient.refetchQueries({ queryKey: ['group', groupId] });
       
       if (result?.isRequest) {
         toast({
@@ -384,6 +396,15 @@ const GroupDetail = () => {
   const isCreator = group?.creator_id === user?.id;
   const canViewMembers = !group?.is_private || group?.isJoined || isCreator;
   const canViewProduct = !group?.is_private || group?.isJoined || isCreator;
+
+  // Debug logging for button state
+  console.log('GroupDetail: Button state debug:', {
+    isJoined: group?.isJoined,
+    hasPendingRequest: group?.hasPendingRequest,
+    inviteOnly: group?.invite_only,
+    isCreator,
+    userId: user?.id
+  });
 
   if (isLoading) {
     return (
@@ -534,7 +555,7 @@ const GroupDetail = () => {
                         disabled={toggleGroupMembershipMutation.isPending}
                         className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
                       >
-                        {group.is_private && !group.auto_approve_requests ? "Request to Join" : "Join Group"}
+                        {toggleGroupMembershipMutation.isPending ? "Processing..." : (group.is_private && !group.auto_approve_requests ? "Request to Join" : "Join Group")}
                       </Button>
                     )}
                     
