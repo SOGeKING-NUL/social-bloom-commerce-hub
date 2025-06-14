@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -88,7 +87,7 @@ const GroupDetail = () => {
             .then(result => ({ type: 'members', ...result }))
         );
         
-        // CRITICAL: Check for pending join requests for current user
+        // CRITICAL: Check for ALL join requests for current user (not just pending)
         if (user?.id) {
           promises.push(
             supabase
@@ -96,7 +95,8 @@ const GroupDetail = () => {
               .select('id, status, requested_at')
               .eq('group_id', groupId)
               .eq('user_id', user.id)
-              .eq('status', 'pending')
+              .order('requested_at', { ascending: false })
+              .limit(1)
               .then(result => ({ type: 'join_requests', ...result }))
           );
         }
@@ -107,7 +107,7 @@ const GroupDetail = () => {
         let creatorProfile = null;
         let product = null;
         let members = [];
-        let hasPendingRequest = false;
+        let latestJoinRequest = null;
         
         results.forEach((result) => {
           if (result.status === 'fulfilled' && result.value.data) {
@@ -122,9 +122,9 @@ const GroupDetail = () => {
                 members = result.value.data || [];
                 break;
               case 'join_requests':
-                const pendingRequests = result.value.data || [];
-                hasPendingRequest = pendingRequests.length > 0;
-                console.log('GroupDetail: Pending request check:', { pendingRequests, hasPendingRequest });
+                const requests = result.value.data || [];
+                latestJoinRequest = requests.length > 0 ? requests[0] : null;
+                console.log('GroupDetail: Latest join request:', latestJoinRequest);
                 break;
             }
           }
@@ -162,6 +162,14 @@ const GroupDetail = () => {
         }
         
         const isJoined = members.some(member => member.user_id === user?.id);
+        const hasPendingRequest = latestJoinRequest?.status === 'pending';
+        
+        console.log('GroupDetail: Final state calculation:', {
+          isJoined,
+          hasPendingRequest,
+          latestJoinRequest,
+          membersCount: members.length
+        });
         
         const result = {
           ...groupData,
@@ -173,7 +181,8 @@ const GroupDetail = () => {
           group_members: memberProfiles,
           isJoined,
           hasPendingRequest,
-          members: memberProfiles
+          members: memberProfiles,
+          latestJoinRequest
         };
         
         console.log('GroupDetail: Final result:', result);
@@ -403,7 +412,8 @@ const GroupDetail = () => {
     hasPendingRequest: group?.hasPendingRequest,
     inviteOnly: group?.invite_only,
     isCreator,
-    userId: user?.id
+    userId: user?.id,
+    latestJoinRequest: group?.latestJoinRequest
   });
 
   if (isLoading) {
