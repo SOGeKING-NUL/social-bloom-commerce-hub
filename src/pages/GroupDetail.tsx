@@ -19,7 +19,7 @@ const GroupDetail = () => {
 
   console.log('GroupDetail: Component loading with groupId:', groupId, 'user:', user?.id);
 
-  // Fetch group details with simplified approach
+  // Fetch group details with error handling
   const { data: group, isLoading, error } = useQuery({
     queryKey: ['group', groupId],
     queryFn: async () => {
@@ -29,111 +29,136 @@ const GroupDetail = () => {
         throw new Error('Group ID is required');
       }
       
-      // Get basic group data
-      const { data: groupData, error: groupError } = await supabase
-        .from('groups')
-        .select('*')
-        .eq('id', groupId)
-        .single();
-      
-      console.log('GroupDetail: Basic group query result:', { groupData, groupError });
-      
-      if (groupError) {
-        console.error('GroupDetail: Group query error:', groupError);
-        throw groupError;
-      }
-      
-      if (!groupData) {
-        throw new Error('Group not found');
-      }
-      
-      // Get creator profile
-      let creatorProfile = null;
-      if (groupData.creator_id) {
-        const { data: creator, error: creatorError } = await supabase
-          .from('profiles')
-          .select('full_name, email')
-          .eq('id', groupData.creator_id)
-          .single();
-        
-        console.log('GroupDetail: Creator query result:', { creator, creatorError });
-        creatorProfile = creator;
-      }
-      
-      // Get product details
-      let product = null;
-      let vendorProfile = null;
-      if (groupData.product_id) {
-        const { data: productData, error: productError } = await supabase
-          .from('products')
+      try {
+        // Get basic group data
+        const { data: groupData, error: groupError } = await supabase
+          .from('groups')
           .select('*')
-          .eq('id', groupData.product_id)
+          .eq('id', groupId)
           .single();
         
-        console.log('GroupDetail: Product query result:', { productData, productError });
-        product = productData;
+        console.log('GroupDetail: Basic group query result:', { groupData, groupError });
+        
+        if (groupError) {
+          console.error('GroupDetail: Group query error:', groupError);
+          throw groupError;
+        }
+        
+        if (!groupData) {
+          throw new Error('Group not found');
+        }
+        
+        // Get creator, product, vendor, and members data in parallel
+        const promises = [];
+        
+        // Creator profile
+        if (groupData.creator_id) {
+          promises.push(
+            supabase
+              .from('profiles')
+              .select('full_name, email')
+              .eq('id', groupData.creator_id)
+              .single()
+              .then(result => ({ type: 'creator', ...result }))
+          );
+        }
+        
+        // Product details
+        if (groupData.product_id) {
+          promises.push(
+            supabase
+              .from('products')
+              .select('*')
+              .eq('id', groupData.product_id)
+              .single()
+              .then(result => ({ type: 'product', ...result }))
+          );
+        }
+        
+        // Group members
+        promises.push(
+          supabase
+            .from('group_members')
+            .select('user_id, joined_at')
+            .eq('group_id', groupId)
+            .then(result => ({ type: 'members', ...result }))
+        );
+        
+        const results = await Promise.allSettled(promises);
+        console.log('GroupDetail: Parallel queries results:', results);
+        
+        let creatorProfile = null;
+        let product = null;
+        let members = [];
+        
+        results.forEach((result) => {
+          if (result.status === 'fulfilled' && result.value.data) {
+            switch (result.value.type) {
+              case 'creator':
+                creatorProfile = result.value.data;
+                break;
+              case 'product':
+                product = result.value.data;
+                break;
+              case 'members':
+                members = result.value.data || [];
+                break;
+            }
+          }
+        });
         
         // Get vendor profile if product exists
-        if (productData && productData.vendor_id) {
-          const { data: vendor, error: vendorError } = await supabase
+        let vendorProfile = null;
+        if (product && product.vendor_id) {
+          const { data: vendor } = await supabase
             .from('profiles')
             .select('full_name, email')
-            .eq('id', productData.vendor_id)
+            .eq('id', product.vendor_id)
             .single();
-          
-          console.log('GroupDetail: Vendor query result:', { vendor, vendorError });
           vendorProfile = vendor;
         }
-      }
-      
-      // Get group members
-      const { data: membersData, error: membersError } = await supabase
-        .from('group_members')
-        .select('user_id, joined_at')
-        .eq('group_id', groupId);
-      
-      console.log('GroupDetail: Members query result:', { membersData, membersError });
-      
-      const members = membersData || [];
-      
-      // Get member profiles
-      let memberProfiles = [];
-      if (members.length > 0) {
-        const memberIds = members.map(m => m.user_id);
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('id, full_name, email, avatar_url')
-          .in('id', memberIds);
         
-        console.log('GroupDetail: Member profiles query result:', { profiles, profilesError });
+        // Get member profiles
+        let memberProfiles = [];
+        if (members.length > 0) {
+          const memberIds = members.map(m => m.user_id);
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, full_name, email, avatar_url')
+            .in('id', memberIds);
+          
+          // Combine member data with profiles
+          memberProfiles = members.map(member => {
+            const profile = profiles?.find(p => p.id === member.user_id);
+            return {
+              user_id: member.user_id,
+              joined_at: member.joined_at,
+              user_profile: profile
+            };
+          });
+        }
         
-        // Combine member data with profiles
-        memberProfiles = members.map(member => {
-          const profile = profiles?.find(p => p.id === member.user_id);
-          return {
-            user_id: member.user_id,
-            joined_at: member.joined_at,
-            user_profile: profile
-          };
-        });
+        const isJoined = members.some(member => member.user_id === user?.id);
+        
+        const result = {
+          ...groupData,
+          creator_profile: creatorProfile,
+          product: product ? {
+            ...product,
+            vendor_profile: vendorProfile
+          } : null,
+          group_members: memberProfiles,
+          isJoined,
+          members: memberProfiles
+        };
+        
+        console.log('GroupDetail: Final result:', result);
+        return result;
+        
+      } catch (error) {
+        console.error('GroupDetail: Error in query function:', error);
+        throw error;
       }
-      
-      const isJoined = members.some(member => member.user_id === user?.id);
-      
-      const result = {
-        ...groupData,
-        creator_profile: creatorProfile,
-        product: product ? {
-          ...product,
-          vendor_profile: vendorProfile
-        } : null,
-        group_members: memberProfiles,
-        isJoined,
-        members: memberProfiles
-      };
-      
-      console.log('GroupDetail: Final result:', result);
-      return result;
     },
     enabled: !!user && !!groupId
   });
@@ -333,8 +358,12 @@ const GroupDetail = () => {
                 </div>
                 <div className="md:w-1/2">
                   <div className="flex items-center gap-2 mb-2">
-                    <Lock className="w-5 h-5 text-pink-500" />
-                    <span className="text-sm text-gray-500">Private Group</span>
+                    {group.is_private && (
+                      <>
+                        <Lock className="w-5 h-5 text-pink-500" />
+                        <span className="text-sm text-gray-500">Private Group</span>
+                      </>
+                    )}
                     {group.isJoined && (
                       <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
                         Joined

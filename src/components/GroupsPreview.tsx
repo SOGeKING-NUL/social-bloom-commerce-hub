@@ -14,95 +14,93 @@ const GroupsPreview = () => {
     queryFn: async () => {
       console.log('GroupsPreview: Starting fetch...');
       
-      // First, let's get ALL groups to see if there are any
-      const { data: allGroups, error: groupsError } = await supabase
-        .from('groups')
-        .select('*');
-      
-      console.log('GroupsPreview: All groups in database:', { allGroups, groupsError });
-      
-      if (groupsError) {
-        console.error('GroupsPreview: Error fetching groups:', groupsError);
-        throw groupsError;
-      }
+      try {
+        // Get basic group data with a simple query
+        const { data: groupsData, error: groupsError } = await supabase
+          .from('groups')
+          .select('*')
+          .limit(3);
+        
+        console.log('GroupsPreview: Groups query result:', { groupsData, groupsError });
+        
+        if (groupsError) {
+          console.error('GroupsPreview: Error fetching groups:', groupsError);
+          throw groupsError;
+        }
 
-      if (!allGroups || allGroups.length === 0) {
-        console.log('GroupsPreview: No groups found in database');
-        return [];
-      }
+        if (!groupsData || groupsData.length === 0) {
+          console.log('GroupsPreview: No groups found in database');
+          return [];
+        }
 
-      // Get the first 3 groups for preview
-      const previewGroups = allGroups.slice(0, 3);
-      
-      // Get all unique creator IDs and product IDs
-      const creatorIds = [...new Set(previewGroups.map(g => g.creator_id))];
-      const productIds = [...new Set(previewGroups.map(g => g.product_id).filter(Boolean))];
-      
-      console.log('GroupsPreview: Processing groups:', { previewGroups, creatorIds, productIds });
-      
-      // Get creators
-      let creators = [];
-      if (creatorIds.length > 0) {
-        const { data: creatorsData, error: creatorsError } = await supabase
-          .from('profiles')
-          .select('id, full_name, email')
-          .in('id', creatorIds);
+        // Get all unique creator IDs and product IDs
+        const creatorIds = [...new Set(groupsData.map(g => g.creator_id))];
+        const productIds = [...new Set(groupsData.map(g => g.product_id).filter(Boolean))];
         
-        console.log('GroupsPreview: Creators result:', { creatorsData, creatorsError });
-        creators = creatorsData || [];
-      }
-      
-      // Get products
-      let products = [];
-      if (productIds.length > 0) {
-        const { data: productsData, error: productsError } = await supabase
-          .from('products')
-          .select('id, name, image_url')
-          .in('id', productIds);
+        console.log('GroupsPreview: Processing groups:', { groupsData, creatorIds, productIds });
         
-        console.log('GroupsPreview: Products result:', { productsData, productsError });
-        products = productsData || [];
-      }
-      
-      // Get group members count
-      const groupIds = previewGroups.map(g => g.id);
-      let memberCounts = {};
-      if (groupIds.length > 0) {
-        const { data: membersData, error: membersError } = await supabase
-          .from('group_members')
-          .select('group_id')
-          .in('group_id', groupIds);
+        // Get creators in parallel
+        const creatorsPromise = creatorIds.length > 0 
+          ? supabase.from('profiles').select('id, full_name, email').in('id', creatorIds)
+          : Promise.resolve({ data: [], error: null });
         
-        console.log('GroupsPreview: Members result:', { membersData, membersError });
+        // Get products in parallel  
+        const productsPromise = productIds.length > 0
+          ? supabase.from('products').select('id, name, image_url').in('id', productIds)
+          : Promise.resolve({ data: [], error: null });
+        
+        // Get group members count in parallel
+        const groupIds = groupsData.map(g => g.id);
+        const membersPromise = groupIds.length > 0
+          ? supabase.from('group_members').select('group_id').in('group_id', groupIds)
+          : Promise.resolve({ data: [], error: null });
+        
+        const [creatorsResult, productsResult, membersResult] = await Promise.all([
+          creatorsPromise,
+          productsPromise, 
+          membersPromise
+        ]);
+        
+        console.log('GroupsPreview: Parallel queries results:', { 
+          creators: creatorsResult, 
+          products: productsResult, 
+          members: membersResult 
+        });
+        
+        const creators = creatorsResult.data || [];
+        const products = productsResult.data || [];
+        const membersData = membersResult.data || [];
         
         // Count members per group
-        if (membersData) {
-          memberCounts = membersData.reduce((acc, member) => {
-            acc[member.group_id] = (acc[member.group_id] || 0) + 1;
-            return acc;
-          }, {});
-        }
-      }
-      
-      // Combine all data
-      const processedGroups = previewGroups.map(group => {
-        const creator = creators.find(c => c.id === group.creator_id);
-        const product = products.find(p => p.id === group.product_id);
-        const memberCount = memberCounts[group.id] || 0;
+        const memberCounts = membersData.reduce((acc, member) => {
+          acc[member.group_id] = (acc[member.group_id] || 0) + 1;
+          return acc;
+        }, {});
         
-        return {
-          id: group.id,
-          name: group.name,
-          description: group.description,
-          members: memberCount,
-          image: product?.image_url || `https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop`,
-          productName: product?.name || 'Unknown Product',
-          creatorName: creator?.full_name || creator?.email?.split('@')[0] || 'Unknown Creator'
-        };
-      });
-      
-      console.log('GroupsPreview: Final processed groups:', processedGroups);
-      return processedGroups;
+        // Combine all data
+        const processedGroups = groupsData.map(group => {
+          const creator = creators.find(c => c.id === group.creator_id);
+          const product = products.find(p => p.id === group.product_id);
+          const memberCount = memberCounts[group.id] || 0;
+          
+          return {
+            id: group.id,
+            name: group.name,
+            description: group.description || 'A great shopping group',
+            members: memberCount,
+            image: product?.image_url || `https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop`,
+            productName: product?.name || 'Product',
+            creatorName: creator?.full_name || creator?.email?.split('@')[0] || 'User'
+          };
+        });
+        
+        console.log('GroupsPreview: Final processed groups:', processedGroups);
+        return processedGroups;
+        
+      } catch (error) {
+        console.error('GroupsPreview: Error in query function:', error);
+        throw error;
+      }
     },
   });
 
@@ -157,7 +155,10 @@ const GroupsPreview = () => {
                 <h3 className="text-lg font-semibold text-red-800 mb-2">Error loading groups</h3>
                 <p className="text-red-600">{error.message}</p>
               </div>
-              <Button className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500">
+              <Button 
+                onClick={() => window.location.reload()}
+                className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
+              >
                 Retry
               </Button>
             </div>

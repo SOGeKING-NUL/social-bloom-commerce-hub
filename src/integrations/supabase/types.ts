@@ -671,6 +671,10 @@ export type Database = {
         Args: { user_uuid: string }
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      is_group_creator: {
+        Args: { group_uuid: string }
+        Returns: boolean
+      }
     }
     Enums: {
       kyc_status: "pending" | "approved" | "rejected"
