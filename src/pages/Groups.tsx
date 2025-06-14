@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,51 +23,73 @@ const Groups = () => {
   const [newGroupDescription, setNewGroupDescription] = useState("");
   const [selectedProductId, setSelectedProductId] = useState("");
 
-  // Fetch groups from database
+  // Fetch groups from database using separate queries to avoid foreign key conflicts
   const { data: groups = [], isLoading, error } = useQuery({
-    queryKey: ['groups'],
+    queryKey: ['groups', user?.id],
     queryFn: async () => {
-      console.log('Groups: Fetching groups for user:', user?.id);
+      console.log('Groups: Starting fetch for user:', user?.id);
       
-      const { data, error } = await supabase
+      // Get basic groups data first
+      const { data: basicGroups, error: basicError } = await supabase
         .from('groups')
-        .select(`
-          id,
-          name,
-          description,
-          created_at,
-          creator_id,
-          product_id,
-          creator_profile:profiles!creator_id (
-            full_name,
-            email
-          ),
-          product:products!product_id (
-            name,
-            image_url,
-            price
-          ),
-          group_members (
-            user_id
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
       
-      console.log('Groups query result:', { data, error });
+      console.log('Groups: Basic groups query result:', { basicGroups, basicError });
       
-      if (error) {
-        console.error('Groups query error:', error);
-        throw error;
+      if (basicError) {
+        console.error('Groups: Basic query failed:', basicError);
+        throw basicError;
       }
+
+      if (!basicGroups || basicGroups.length === 0) {
+        console.log('Groups: No groups found in database');
+        return [];
+      }
+
+      // Get related data separately
+      const groupIds = basicGroups.map(g => g.id);
+      const creatorIds = [...new Set(basicGroups.map(g => g.creator_id))];
+      const productIds = [...new Set(basicGroups.map(g => g.product_id).filter(Boolean))];
       
-      const processedGroups = data.map(group => ({
-        ...group,
-        members: group.group_members?.length || 0,
-        isJoined: group.group_members?.some(member => member.user_id === user?.id) || false,
-        image: group.product?.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=200&fit=crop"
-      }));
+      // Get creator profiles
+      const { data: creators } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', creatorIds);
       
-      console.log('Groups processed groups:', processedGroups);
+      // Get products
+      const { data: products } = await supabase
+        .from('products')
+        .select('id, name, image_url, price')
+        .in('id', productIds);
+      
+      // Get group members
+      const { data: allMembers } = await supabase
+        .from('group_members')
+        .select('group_id, user_id')
+        .in('group_id', groupIds);
+      
+      console.log('Groups: Related data:', { creators, products, allMembers });
+      
+      // Combine all data
+      const processedGroups = basicGroups.map(group => {
+        const creator = creators?.find(c => c.id === group.creator_id);
+        const product = products?.find(p => p.id === group.product_id);
+        const groupMembers = allMembers?.filter(m => m.group_id === group.id) || [];
+        const isJoined = groupMembers.some(member => member.user_id === user?.id);
+        
+        return {
+          ...group,
+          members: groupMembers.length,
+          isJoined,
+          image: product?.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=200&fit=crop",
+          product: product,
+          creator_profile: creator
+        };
+      });
+      
+      console.log('Groups: Final processed groups:', processedGroups);
       return processedGroups;
     },
     enabled: !!user

@@ -43,7 +43,7 @@ const Profile = () => {
     enabled: !!user,
   });
 
-  // Fetch user's groups with proper foreign key
+  // Fetch user's groups with separate queries to avoid foreign key conflicts
   const { data: userGroups = [], error: groupsError } = useQuery({
     queryKey: ['user-groups', user?.id],
     queryFn: async () => {
@@ -51,33 +51,57 @@ const Profile = () => {
       
       console.log('Profile: Fetching user groups for:', user.id);
       
-      const { data, error } = await supabase
+      // Get basic groups created by user
+      const { data: basicGroups, error: basicError } = await supabase
         .from('groups')
-        .select(`
-          id,
-          name,
-          description,
-          created_at,
-          creator_id,
-          product_id,
-          product:products!product_id (
-            name,
-            image_url
-          ),
-          group_members (
-            user_id
-          )
-        `)
+        .select('*')
         .eq('creator_id', user.id)
         .order('created_at', { ascending: false });
       
-      console.log('Profile: User groups query result:', { data, error });
+      console.log('Profile: Basic user groups query result:', { basicGroups, basicError });
       
-      if (error) {
-        console.error('Profile: User groups query error:', error);
-        throw error;
+      if (basicError) {
+        console.error('Profile: User groups query error:', basicError);
+        throw basicError;
       }
-      return data;
+      
+      if (!basicGroups || basicGroups.length === 0) {
+        console.log('Profile: No groups found for user');
+        return [];
+      }
+
+      // Get related data separately
+      const groupIds = basicGroups.map(g => g.id);
+      const productIds = [...new Set(basicGroups.map(g => g.product_id).filter(Boolean))];
+      
+      // Get products
+      const { data: products } = await supabase
+        .from('products')
+        .select('id, name, image_url')
+        .in('id', productIds);
+      
+      // Get group members count
+      const { data: allMembers } = await supabase
+        .from('group_members')
+        .select('group_id, user_id')
+        .in('group_id', groupIds);
+      
+      console.log('Profile: Related data for user groups:', { products, allMembers });
+      
+      // Combine all data
+      const processedGroups = basicGroups.map(group => {
+        const product = products?.find(p => p.id === group.product_id);
+        const groupMembers = allMembers?.filter(m => m.group_id === group.id) || [];
+        
+        return {
+          ...group,
+          product: product,
+          group_members: groupMembers
+        };
+      });
+      
+      console.log('Profile: Final processed user groups:', processedGroups);
+      return processedGroups;
     },
     enabled: !!user,
   });

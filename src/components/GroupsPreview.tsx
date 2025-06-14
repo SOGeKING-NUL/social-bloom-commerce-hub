@@ -5,56 +5,86 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 const GroupsPreview = () => {
-  // Fetch groups from database
-  const { data: groups = [], isLoading } = useQuery({
+  // Fetch groups from database with explicit foreign key names
+  const { data: groups = [], isLoading, error } = useQuery({
     queryKey: ['groups-preview'],
     queryFn: async () => {
-      console.log('GroupsPreview: Fetching groups...');
+      console.log('GroupsPreview: Starting fetch...');
       
-      const { data, error } = await supabase
+      // First, let's try a simpler query to see if we can get basic group data
+      const { data: basicGroups, error: basicError } = await supabase
         .from('groups')
-        .select(`
-          id,
-          name,
-          description,
-          created_at,
-          creator_id,
-          product_id,
-          creator_profile:profiles!creator_id (
-            full_name,
-            email
-          ),
-          product:products!product_id (
-            name,
-            image_url
-          ),
-          group_members (
-            user_id
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(3);
       
-      console.log('GroupsPreview query result:', { data, error });
+      console.log('GroupsPreview: Basic groups query result:', { basicGroups, basicError });
       
-      if (error) {
-        console.error('GroupsPreview query error:', error);
-        throw error;
+      if (basicError) {
+        console.error('GroupsPreview: Basic query failed:', basicError);
+        throw basicError;
       }
+
+      if (!basicGroups || basicGroups.length === 0) {
+        console.log('GroupsPreview: No groups found in database');
+        return [];
+      }
+
+      // Now try to get related data separately
+      const groupIds = basicGroups.map(g => g.id);
       
-      const processedGroups = data.map(group => ({
-        id: group.id,
-        name: group.name,
-        description: group.description,
-        members: group.group_members?.length || 0,
-        image: group.product?.image_url || `https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop`,
-        productName: group.product?.name || 'Unknown Product',
-        creatorName: group.creator_profile?.full_name || group.creator_profile?.email?.split('@')[0] || 'Unknown Creator'
-      }));
+      // Get creator profiles
+      const creatorIds = [...new Set(basicGroups.map(g => g.creator_id))];
+      const { data: creators, error: creatorsError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', creatorIds);
       
-      console.log('GroupsPreview processed groups:', processedGroups);
+      console.log('GroupsPreview: Creators query result:', { creators, creatorsError });
+      
+      // Get products
+      const productIds = [...new Set(basicGroups.map(g => g.product_id).filter(Boolean))];
+      const { data: products, error: productsError } = await supabase
+        .from('products')
+        .select('id, name, image_url')
+        .in('id', productIds);
+      
+      console.log('GroupsPreview: Products query result:', { products, productsError });
+      
+      // Get group members count
+      const { data: members, error: membersError } = await supabase
+        .from('group_members')
+        .select('group_id, user_id')
+        .in('group_id', groupIds);
+      
+      console.log('GroupsPreview: Members query result:', { members, membersError });
+      
+      // Combine all data
+      const processedGroups = basicGroups.map(group => {
+        const creator = creators?.find(c => c.id === group.creator_id);
+        const product = products?.find(p => p.id === group.product_id);
+        const groupMembers = members?.filter(m => m.group_id === group.id) || [];
+        
+        return {
+          id: group.id,
+          name: group.name,
+          description: group.description,
+          members: groupMembers.length,
+          image: product?.image_url || `https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop`,
+          productName: product?.name || 'Unknown Product',
+          creatorName: creator?.full_name || creator?.email?.split('@')[0] || 'Unknown Creator'
+        };
+      });
+      
+      console.log('GroupsPreview: Final processed groups:', processedGroups);
       return processedGroups;
     },
+  });
+
+  console.log('GroupsPreview: Component render state:', { 
+    groupsCount: groups.length, 
+    isLoading, 
+    error: error?.message 
   });
 
   if (isLoading) {
@@ -75,6 +105,31 @@ const GroupsPreview = () => {
                   <div className="h-4 bg-gray-200 rounded w-1/2"></div>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="py-20 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold mb-4">Active Groups</h2>
+              <p className="text-xl text-gray-600">Join groups and share experiences</p>
+            </div>
+            
+            <div className="text-center py-12">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-4">
+                <h3 className="text-lg font-semibold text-red-800 mb-2">Error loading groups</h3>
+                <p className="text-red-600">{error.message}</p>
+              </div>
+              <Button className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500">
+                Retry
+              </Button>
             </div>
           </div>
         </div>
