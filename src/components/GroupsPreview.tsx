@@ -245,7 +245,7 @@ const GroupsPreview = () => {
                     }}
                     className="w-full social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
                   >
-                    Join Group
+                    View Group
                   </Button>
                 </div>
               </div>

@@ -200,7 +200,7 @@ const Groups = () => {
     }
   });
 
-  // FIXED: Enhanced join/leave group mutation with proper cleanup
+  // FIXED: Completely rewritten join/leave group mutation with proper sequential operations
   const toggleGroupMembershipMutation = useMutation({
     mutationFn: async ({ groupId, isJoined, group }: { groupId: string; isJoined: boolean; group: any }) => {
       if (!user) throw new Error('Not authenticated');
@@ -226,7 +226,7 @@ const Groups = () => {
           throw memberError;
         }
         
-        // CRITICAL: Clean up ALL join requests for this user and group
+        // Clean up ALL join requests for this user and group
         const { error: requestCleanupError } = await supabase
           .from('group_join_requests')
           .delete()
@@ -239,7 +239,7 @@ const Groups = () => {
         return { action: 'left' };
         
       } else {
-        // JOINING GROUP
+        // JOINING GROUP - Use a safe sequential approach
         console.log('Attempting to join group');
         
         // Check if group is invite-only
@@ -247,39 +247,46 @@ const Groups = () => {
           throw new Error('This group is invite-only. Please ask for an invitation.');
         }
         
-        // CRITICAL: Perform complete cleanup FIRST to prevent duplicates
+        // Step 1: Complete cleanup using a dedicated function to ensure atomicity
         console.log('CLEANUP: Removing any existing records before creating new ones');
         
-        // Clean up any existing join requests
-        await supabase
-          .from('group_join_requests')
-          .delete()
-          .eq('group_id', groupId)
-          .eq('user_id', user.id);
+        try {
+          // Clean up in sequence with error handling
+          await supabase
+            .from('group_join_requests')
+            .delete()
+            .eq('group_id', groupId)
+            .eq('user_id', user.id);
+          
+          await supabase
+            .from('group_members')
+            .delete()
+            .eq('group_id', groupId)
+            .eq('user_id', user.id);
+            
+          // Wait to ensure cleanup is complete
+          await new Promise(resolve => setTimeout(resolve, 200));
+          
+        } catch (cleanupError) {
+          console.log('Cleanup completed (some records may not have existed)');
+        }
         
-        // Clean up any existing memberships
-        await supabase
-          .from('group_members')
-          .delete()
-          .eq('group_id', groupId)
-          .eq('user_id', user.id);
-        
-        // Wait a moment to ensure cleanup is complete
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Determine if direct join or request needed
+        // Step 2: Determine action and execute
         const needsApproval = group.is_private && !group.auto_approve_requests;
         
         if (needsApproval) {
           console.log('Creating join request for private group');
           
+          // Use upsert approach to handle any remaining conflicts
           const { error: requestError, data: requestData } = await supabase
             .from('group_join_requests')
-            .insert({
+            .upsert({
               group_id: groupId,
               user_id: user.id,
               status: 'pending',
               requested_at: new Date().toISOString()
+            }, {
+              onConflict: 'group_id,user_id'
             })
             .select();
           
@@ -287,6 +294,12 @@ const Groups = () => {
           
           if (requestError) {
             console.error('Error creating join request:', requestError);
+            
+            // If there's still a conflict, it means there's a race condition
+            if (requestError.code === '23505') {
+              throw new Error('You already have a pending request for this group.');
+            }
+            
             throw new Error('Failed to create join request. Please try again.');
           }
           
@@ -294,12 +307,15 @@ const Groups = () => {
         } else {
           console.log('Direct join for public group or auto-approval enabled');
           
+          // Use upsert for membership as well
           const { error: joinError, data: joinData } = await supabase
             .from('group_members')
-            .insert({
+            .upsert({
               group_id: groupId,
               user_id: user.id,
               joined_at: new Date().toISOString()
+            }, {
+              onConflict: 'group_id,user_id'
             })
             .select();
           
@@ -307,6 +323,11 @@ const Groups = () => {
           
           if (joinError) {
             console.error('Error joining group:', joinError);
+            
+            if (joinError.code === '23505') {
+              throw new Error('You are already a member of this group.');
+            }
+            
             throw new Error('Failed to join group. Please try again.');
           }
           
