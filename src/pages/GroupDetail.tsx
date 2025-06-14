@@ -87,12 +87,24 @@ const GroupDetail = () => {
             .then(result => ({ type: 'members', ...result }))
         );
         
+        // Join requests for current user
+        promises.push(
+          supabase
+            .from('group_join_requests')
+            .select('id, status')
+            .eq('group_id', groupId)
+            .eq('user_id', user?.id)
+            .eq('status', 'pending')
+            .then(result => ({ type: 'join_requests', ...result }))
+        );
+        
         const results = await Promise.allSettled(promises);
         console.log('GroupDetail: Parallel queries results:', results);
         
         let creatorProfile = null;
         let product = null;
         let members = [];
+        let hasPendingRequest = false;
         
         results.forEach((result) => {
           if (result.status === 'fulfilled' && result.value.data) {
@@ -105,6 +117,9 @@ const GroupDetail = () => {
                 break;
               case 'members':
                 members = result.value.data || [];
+                break;
+              case 'join_requests':
+                hasPendingRequest = (result.value.data || []).length > 0;
                 break;
             }
           }
@@ -152,6 +167,7 @@ const GroupDetail = () => {
           } : null,
           group_members: memberProfiles,
           isJoined,
+          hasPendingRequest,
           members: memberProfiles
         };
         
@@ -238,6 +254,11 @@ const GroupDetail = () => {
         // Check if group requires invites only
         if (group?.invite_only) {
           throw new Error('This group is invite-only. Please ask for an invitation.');
+        }
+        
+        // Check if there's already a pending request
+        if (group?.hasPendingRequest) {
+          throw new Error('You already have a pending request to join this group.');
         }
         
         // CRITICAL: Always clean up any existing requests first to prevent duplicates
@@ -487,6 +508,11 @@ const GroupDetail = () => {
                         Joined
                       </span>
                     )}
+                    {group.hasPendingRequest && (
+                      <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">
+                        Requested
+                      </span>
+                    )}
                   </div>
                   <h1 className="text-3xl font-bold mb-4">{group.name}</h1>
                   <p className="text-gray-600 mb-4">{group.description || "A shopping group for exclusive products"}</p>
@@ -502,13 +528,22 @@ const GroupDetail = () => {
                   </div>
 
                   <div className="flex flex-wrap gap-3">
-                    {!group.isJoined && !group.invite_only && (
+                    {!group.isJoined && !group.invite_only && !group.hasPendingRequest && (
                       <Button 
                         onClick={handleJoinGroup}
                         disabled={toggleGroupMembershipMutation.isPending}
                         className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
                       >
                         {group.is_private && !group.auto_approve_requests ? "Request to Join" : "Join Group"}
+                      </Button>
+                    )}
+                    
+                    {group.hasPendingRequest && (
+                      <Button 
+                        disabled
+                        className="bg-yellow-500 text-white cursor-not-allowed"
+                      >
+                        Requested
                       </Button>
                     )}
                     
@@ -523,7 +558,7 @@ const GroupDetail = () => {
                       </Button>
                     )}
 
-                    {group.invite_only && !group.isJoined && !isCreator && (
+                    {group.invite_only && !group.isJoined && !isCreator && !group.hasPendingRequest && (
                       <div className="text-center">
                         <p className="text-gray-600 mb-2">This is an invite-only group</p>
                         <p className="text-sm text-gray-500">Contact the group creator for an invitation</p>

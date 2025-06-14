@@ -81,7 +81,15 @@ const Groups = () => {
         .select('group_id, user_id')
         .in('group_id', groupIds);
       
-      console.log('Groups: Related data:', { creators, products, allMembers });
+      // Get existing join requests for this user
+      const { data: joinRequests } = await supabase
+        .from('group_join_requests')
+        .select('group_id, status')
+        .eq('user_id', user?.id)
+        .in('group_id', groupIds)
+        .eq('status', 'pending');
+      
+      console.log('Groups: Related data:', { creators, products, allMembers, joinRequests });
       
       // Combine all data
       const processedGroups = basicGroups.map(group => {
@@ -89,11 +97,13 @@ const Groups = () => {
         const product = products?.find(p => p.id === group.product_id);
         const groupMembers = allMembers?.filter(m => m.group_id === group.id) || [];
         const isJoined = groupMembers.some(member => member.user_id === user?.id);
+        const hasPendingRequest = joinRequests?.some(req => req.group_id === group.id);
         
         return {
           ...group,
           members: groupMembers.length,
           isJoined,
+          hasPendingRequest,
           image: product?.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=200&fit=crop",
           product: product,
           creator_profile: creator
@@ -228,6 +238,11 @@ const Groups = () => {
         // Check if group requires invites only
         if (group.invite_only) {
           throw new Error('This group is invite-only. Please ask for an invitation.');
+        }
+        
+        // Check if there's already a pending request
+        if (group.hasPendingRequest) {
+          throw new Error('You already have a pending request to join this group.');
         }
         
         // CRITICAL: Always clean up any existing requests first to prevent duplicates
@@ -538,6 +553,11 @@ const Groups = () => {
                         Joined
                       </div>
                     )}
+                    {group.hasPendingRequest && (
+                      <div className="absolute top-4 left-4 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">
+                        Requested
+                      </div>
+                    )}
                     {group.invite_only && (
                       <div className="absolute bottom-4 left-4 bg-purple-500 text-white text-xs px-2 py-1 rounded-full">
                         Invite Only
@@ -572,14 +592,17 @@ const Groups = () => {
                       <Button 
                         size="sm" 
                         onClick={() => handleJoinGroup(group.id, group.isJoined, group)}
-                        disabled={toggleGroupMembershipMutation.isPending}
+                        disabled={toggleGroupMembershipMutation.isPending || group.hasPendingRequest}
                         variant={group.isJoined ? "outline" : "default"}
                         className={`w-full ${group.isJoined 
                           ? "border-pink-200 text-pink-600 hover:bg-pink-50" 
+                          : group.hasPendingRequest
+                          ? "bg-yellow-500 text-white cursor-not-allowed"
                           : "social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
                         }`}
                       >
                         {group.isJoined ? "Leave" : 
+                         group.hasPendingRequest ? "Requested" :
                          group.invite_only ? "Invite Only" :
                          (group.is_private && !group.auto_approve_requests) ? "Request to Join" : "Join Group"}
                       </Button>
