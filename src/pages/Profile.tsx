@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -44,11 +43,13 @@ const Profile = () => {
     enabled: !!user,
   });
 
-  // Fetch user's groups
-  const { data: userGroups = [] } = useQuery({
+  // Fetch user's groups with proper foreign key
+  const { data: userGroups = [], error: groupsError } = useQuery({
     queryKey: ['user-groups', user?.id],
     queryFn: async () => {
       if (!user) return [];
+      
+      console.log('Fetching user groups for:', user.id);
       
       const { data, error } = await supabase
         .from('groups')
@@ -65,7 +66,12 @@ const Profile = () => {
         .eq('creator_id', user.id)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      console.log('User groups query result:', { data, error });
+      
+      if (error) {
+        console.error('User groups query error:', error);
+        throw error;
+      }
       return data;
     },
     enabled: !!user,
@@ -130,6 +136,13 @@ const Profile = () => {
   const totalLikes = posts.reduce((sum, post) => sum + (post.likes_count || 0), 0);
   const totalViews = posts.reduce((sum, post) => sum + (post.views_count || 0), 0);
   const totalComments = posts.reduce((sum, post) => sum + (post.comments_count || 0), 0);
+
+  // Add logging
+  console.log('Profile component rendering with:', { 
+    userId: user?.id, 
+    userGroupsCount: userGroups.length,
+    groupsError 
+  });
 
   return (
     <div className="min-h-screen">
@@ -280,6 +293,16 @@ const Profile = () => {
                   <CardTitle>Groups I Created ({userGroups.length})</CardTitle>
                 </CardHeader>
                 <CardContent>
+                  {/* Debug info */}
+                  <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-blue-600">
+                      Debug: Found {userGroups.length} groups created by user {user?.id}
+                    </p>
+                    {groupsError && (
+                      <p className="text-sm text-red-600">Error: {groupsError.message}</p>
+                    )}
+                  </div>
+                  
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {userGroups.map((group) => (
                       <div key={group.id} className="border rounded-lg p-4">

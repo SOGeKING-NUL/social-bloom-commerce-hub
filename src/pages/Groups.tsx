@@ -23,9 +23,11 @@ const Groups = () => {
   const [selectedProductId, setSelectedProductId] = useState("");
 
   // Fetch groups from database
-  const { data: groups = [], isLoading } = useQuery({
+  const { data: groups = [], isLoading, error } = useQuery({
     queryKey: ['groups'],
     queryFn: async () => {
+      console.log('Fetching groups for user:', user?.id);
+      
       const { data, error } = await supabase
         .from('groups')
         .select(`
@@ -45,17 +47,32 @@ const Groups = () => {
         `)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      console.log('Groups query result:', { data, error });
       
-      return data.map(group => ({
+      if (error) {
+        console.error('Groups query error:', error);
+        throw error;
+      }
+      
+      const processedGroups = data.map(group => ({
         ...group,
         members: group.group_members?.length || 0,
         isJoined: group.group_members?.some(member => member.user_id === user?.id) || false,
         image: group.product?.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=200&fit=crop"
       }));
+      
+      console.log('Processed groups:', processedGroups);
+      return processedGroups;
     },
     enabled: !!user
   });
+
+  // Log any query errors
+  useEffect(() => {
+    if (error) {
+      console.error('Groups query error:', error);
+    }
+  }, [error]);
 
   // Fetch products for group creation
   const { data: products = [] } = useQuery({
@@ -78,6 +95,8 @@ const Groups = () => {
     mutationFn: async ({ name, description, productId }: { name: string; description: string; productId: string }) => {
       if (!user) throw new Error('Not authenticated');
       
+      console.log('Creating group with:', { name, description, productId, userId: user.id });
+      
       const { data: group, error } = await supabase
         .from('groups')
         .insert({
@@ -89,6 +108,8 @@ const Groups = () => {
         .select()
         .single();
       
+      console.log('Group creation result:', { group, error });
+      
       if (error) throw error;
       
       // Auto-join the creator to the group
@@ -98,6 +119,8 @@ const Groups = () => {
           group_id: group.id,
           user_id: user.id
         });
+      
+      console.log('Group member creation result:', { memberError });
       
       if (memberError) throw memberError;
       
@@ -190,6 +213,15 @@ const Groups = () => {
     group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     group.product?.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Add logging for render
+  console.log('Groups component rendering with:', { 
+    user: user?.id, 
+    groupsCount: groups.length, 
+    filteredGroupsCount: filteredGroups.length,
+    isLoading,
+    error 
+  });
 
   if (isLoading) {
     return (
@@ -288,6 +320,16 @@ const Groups = () => {
                   </div>
                 </DialogContent>
               </Dialog>
+            </div>
+
+            {/* Debug info */}
+            <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-600">
+                Debug: Found {groups.length} total groups, {filteredGroups.length} after filtering
+              </p>
+              {error && (
+                <p className="text-sm text-red-600">Error: {error.message}</p>
+              )}
             </div>
 
             {/* Groups Grid */}
