@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -36,7 +37,7 @@ const Groups = () => {
             full_name,
             email
           ),
-          product:products!product_id (
+          product:products!groups_product_id_fkey (
             name,
             image_url,
             price
