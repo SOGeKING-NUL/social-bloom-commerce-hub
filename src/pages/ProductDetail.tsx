@@ -1,4 +1,3 @@
-
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,7 +22,7 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 
 const ProductDetail = () => {
-  const { id } = useParams();
+  const { productId: id } = useParams(); // Changed: Use productId from params and alias as id
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -40,7 +39,7 @@ const ProductDetail = () => {
     queryFn: async () => {
       if (!id) throw new Error('Product ID is required');
       
-      console.log('Fetching product with ID:', id);
+      console.log('Fetching product details for ID:', id);
       
       const { data, error } = await supabase
         .from('products')
@@ -60,19 +59,19 @@ const ProductDetail = () => {
         .maybeSingle();
       
       if (error) {
-        console.error('Error fetching product:', error);
+        console.error('Error fetching product details:', error);
         throw error;
       }
       
       if (!data) {
+        console.warn('Product not found in Supabase for ID:', id);
         throw new Error('Product not found');
       }
       
-      console.log('Raw product data:', data);
+      console.log('Raw product data from Supabase:', data);
       
-      // Process the vendor data similar to Products page
       const profileData = data.vendor_profile;
-      const kycDataFromProfile = profileData?.vendor_kyc_data || [];
+      const kycDataFromProfile = profileData?.vendor_kyc_data;
       
       const kycDataForCard = Array.isArray(kycDataFromProfile) 
         ? kycDataFromProfile 
@@ -89,7 +88,7 @@ const ProductDetail = () => {
         vendor_kyc: kycDataForCard
       };
       
-      console.log('Processed product:', processedProduct);
+      console.log('Processed product for detail page:', processedProduct);
       return processedProduct;
     },
     enabled: !!id,
@@ -133,7 +132,7 @@ const ProductDetail = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['wishlist-status'] });
+      queryClient.invalidateQueries({ queryKey: ['wishlist-status', id, user?.id] });
       queryClient.invalidateQueries({ queryKey: ['wishlist-count'] });
       toast({ title: "Added to wishlist" });
     },
@@ -156,7 +155,7 @@ const ProductDetail = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['wishlist-status'] });
+      queryClient.invalidateQueries({ queryKey: ['wishlist-status', id, user?.id] });
       queryClient.invalidateQueries({ queryKey: ['wishlist-count'] });
       toast({ title: "Removed from wishlist" });
     },
@@ -212,12 +211,13 @@ const ProductDetail = () => {
   const createGroupMutation = useMutation({
     mutationFn: async () => {
       if (!user || !id) throw new Error('Please login to create a group');
+      if (!product) throw new Error('Product data is not available'); // Added check
       
       console.log('Creating group with data:', {
         name: groupForm.name,
         description: groupForm.description,
         creator_id: user.id,
-        product_id: id,
+        product_id: product.id, // Use product.id here
       });
       
       const { data, error } = await supabase
@@ -226,7 +226,7 @@ const ProductDetail = () => {
           name: groupForm.name,
           description: groupForm.description,
           creator_id: user.id,
-          product_id: id,
+          product_id: product.id, // Ensure this is the correct product ID
         })
         .select()
         .single();
@@ -307,8 +307,10 @@ const ProductDetail = () => {
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-6xl mx-auto">
             <div className="text-center py-12">
-              <h1 className="text-2xl font-bold mb-4">Product not found</h1>
-              <p className="text-gray-600 mb-6">The product you're looking for doesn't exist or has been removed.</p>
+              <h1 className="text-2xl font-bold mb-4">{error ? 'Error loading product' : 'Product not found'}</h1>
+              <p className="text-gray-600 mb-6">
+                {error ? error.message : "The product you're looking for doesn't exist or has been removed."}
+              </p>
               <Button onClick={() => navigate('/products')}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Products
@@ -404,6 +406,7 @@ const ProductDetail = () => {
                       variant="outline"
                       className="w-full border-pink-200 text-pink-600 hover:bg-pink-50"
                       size="lg"
+                      disabled={!user} // Disable if user not logged in
                     >
                       <Users className="w-5 h-5 mr-2" />
                       Create Group for this Product
@@ -433,9 +436,15 @@ const ProductDetail = () => {
                         />
                       </div>
                       <Button
-                        onClick={() => createGroupMutation.mutate()}
+                        onClick={() => {
+                          if (!user) {
+                            toast({ title: "Please login to create a group.", variant: "destructive"});
+                            return;
+                          }
+                          createGroupMutation.mutate();
+                        }}
                         className="w-full"
-                        disabled={!groupForm.name || createGroupMutation.isPending}
+                        disabled={!groupForm.name || createGroupMutation.isPending || !user}
                       >
                         {createGroupMutation.isPending ? 'Creating...' : 'Create Group'}
                       </Button>
