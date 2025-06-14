@@ -19,85 +19,137 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: requests = [], isLoading } = useQuery({
+  const { data: requests = [], isLoading, error } = useQuery({
     queryKey: ['join-requests', groupId],
     queryFn: async () => {
-      console.log('JoinRequestsDialog: Starting fetch for group:', groupId);
+      console.log('=== JoinRequestsDialog DEBUG START ===');
+      console.log('JoinRequestsDialog: Fetching for group:', groupId);
+      console.log('JoinRequestsDialog: Dialog open state:', open);
       
-      // First, let's just get the basic join requests to see what we have
-      const { data: rawRequests, error: rawError } = await supabase
-        .from('group_join_requests')
-        .select('*')
-        .eq('group_id', groupId);
-      
-      console.log('JoinRequestsDialog: Raw requests data:', { rawRequests, rawError });
-      
-      if (rawError) {
-        console.error('JoinRequestsDialog: Error fetching raw requests:', rawError);
-        throw rawError;
+      if (!groupId) {
+        console.log('JoinRequestsDialog: No groupId provided');
+        throw new Error('Group ID is required');
       }
 
-      // Filter for pending requests only
-      const pendingRequests = (rawRequests || []).filter(req => req.status === 'pending');
-      console.log('JoinRequestsDialog: Pending requests:', pendingRequests);
+      try {
+        // Step 1: Get ALL join requests for this group (don't filter by status yet)
+        console.log('JoinRequestsDialog: Step 1 - Fetching ALL join requests');
+        const { data: allRequests, error: requestsError } = await supabase
+          .from('group_join_requests')
+          .select('*')
+          .eq('group_id', groupId);
+        
+        console.log('JoinRequestsDialog: All requests result:', { 
+          allRequests, 
+          requestsError,
+          count: allRequests?.length || 0 
+        });
+        
+        if (requestsError) {
+          console.error('JoinRequestsDialog: Error fetching requests:', requestsError);
+          throw requestsError;
+        }
 
-      if (pendingRequests.length === 0) {
-        console.log('JoinRequestsDialog: No pending requests found');
-        return [];
+        // Step 2: Filter for pending requests
+        const pendingRequests = (allRequests || []).filter(req => req.status === 'pending');
+        console.log('JoinRequestsDialog: Pending requests:', {
+          total: allRequests?.length || 0,
+          pending: pendingRequests.length,
+          pendingRequests
+        });
+
+        if (pendingRequests.length === 0) {
+          console.log('JoinRequestsDialog: No pending requests found');
+          console.log('=== JoinRequestsDialog DEBUG END (no pending) ===');
+          return [];
+        }
+
+        // Step 3: Get user profiles for pending requests
+        const userIds = pendingRequests.map(req => req.user_id);
+        console.log('JoinRequestsDialog: Step 3 - Fetching profiles for user IDs:', userIds);
+        
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, avatar_url')
+          .in('id', userIds);
+        
+        console.log('JoinRequestsDialog: Profiles result:', { 
+          profiles, 
+          profilesError,
+          profileCount: profiles?.length || 0 
+        });
+        
+        if (profilesError) {
+          console.error('JoinRequestsDialog: Error fetching profiles:', profilesError);
+          // Continue without profiles if there's an error
+        }
+
+        // Step 4: Combine requests with profiles
+        const requestsWithProfiles = pendingRequests.map(request => {
+          const profile = profiles?.find(p => p.id === request.user_id);
+          console.log('JoinRequestsDialog: Mapping request:', {
+            requestId: request.id,
+            userId: request.user_id,
+            foundProfile: !!profile,
+            profileName: profile?.full_name || profile?.email
+          });
+          
+          return {
+            ...request,
+            type: 'request' as const,
+            user_profile: profile
+          };
+        });
+
+        console.log('JoinRequestsDialog: Final requests with profiles:', requestsWithProfiles);
+
+        // Step 5: Get pending invites
+        console.log('JoinRequestsDialog: Step 5 - Fetching pending invites');
+        const { data: invites, error: invitesError } = await supabase
+          .from('group_invites')
+          .select('*')
+          .eq('group_id', groupId)
+          .eq('status', 'pending')
+          .gt('expires_at', new Date().toISOString());
+        
+        console.log('JoinRequestsDialog: Invites result:', { 
+          invites, 
+          invitesError,
+          inviteCount: invites?.length || 0 
+        });
+        
+        if (invitesError) {
+          console.error('JoinRequestsDialog: Error fetching invites:', invitesError);
+          // Continue without invites if there's an error
+        }
+
+        // Step 6: Process invites
+        const processedInvites = (invites || []).map(invite => ({
+          ...invite,
+          type: 'invite' as const
+        }));
+
+        const finalResult = [...requestsWithProfiles, ...processedInvites];
+        
+        console.log('JoinRequestsDialog: Final combined result:', {
+          requestsCount: requestsWithProfiles.length,
+          invitesCount: processedInvites.length,
+          totalItems: finalResult.length,
+          finalResult
+        });
+        console.log('=== JoinRequestsDialog DEBUG END ===');
+        
+        return finalResult;
+        
+      } catch (error) {
+        console.error('JoinRequestsDialog: Query function error:', error);
+        console.log('=== JoinRequestsDialog DEBUG END (error) ===');
+        throw error;
       }
-
-      // Get user profiles for the pending requests
-      const userIds = pendingRequests.map(req => req.user_id);
-      const { data: profiles, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, avatar_url')
-        .in('id', userIds);
-      
-      console.log('JoinRequestsDialog: Profiles data:', { profiles, profileError });
-      
-      if (profileError) {
-        console.error('JoinRequestsDialog: Error fetching profiles:', profileError);
-        // Continue without profiles if there's an error
-      }
-
-      // Combine requests with profile data
-      const requestsWithProfiles = pendingRequests.map(request => {
-        const profile = profiles?.find(p => p.id === request.user_id);
-        return {
-          ...request,
-          type: 'request' as const,
-          user_profile: profile
-        };
-      });
-
-      // Get pending invites
-      const { data: invites, error: inviteError } = await supabase
-        .from('group_invites')
-        .select('*')
-        .eq('group_id', groupId)
-        .eq('status', 'pending')
-        .gt('expires_at', new Date().toISOString());
-      
-      console.log('JoinRequestsDialog: Invites data:', { invites, inviteError });
-      
-      if (inviteError) {
-        console.error('JoinRequestsDialog: Error fetching invites:', inviteError);
-        // Continue without invites if there's an error
-      }
-
-      // Process invites
-      const processedInvites = (invites || []).map(invite => ({
-        ...invite,
-        type: 'invite' as const
-      }));
-      
-      const allItems = [...requestsWithProfiles, ...processedInvites];
-      
-      console.log('JoinRequestsDialog: Final result with', allItems.length, 'items:', allItems);
-      
-      return allItems;
     },
-    enabled: open && !!groupId
+    enabled: open && !!groupId,
+    refetchOnWindowFocus: false,
+    staleTime: 0 // Always fetch fresh data
   });
 
   const handleRequestMutation = useMutation({
@@ -190,7 +242,13 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
     cancelInviteMutation.mutate(inviteId);
   };
 
-  console.log('JoinRequestsDialog: Rendering with', requests.length, 'requests:', requests);
+  console.log('JoinRequestsDialog: Rendering with state:', { 
+    open,
+    groupId,
+    requestsLength: requests.length, 
+    isLoading,
+    error: error?.message
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -200,10 +258,21 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
         </DialogHeader>
         
         <div className="space-y-4">
+          {/* Debug info */}
+          <div className="text-xs text-gray-400 p-2 bg-gray-50 rounded">
+            Debug: Group ID: {groupId} | Requests: {requests.length} | Loading: {isLoading ? 'Yes' : 'No'}
+            {error && <div className="text-red-500">Error: {error.message}</div>}
+          </div>
+          
           {isLoading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500 mx-auto"></div>
               <p className="mt-2 text-gray-500">Loading...</p>
+            </div>
+          ) : error ? (
+            <div className="text-center py-8">
+              <div className="text-red-500 mb-4">Error loading requests</div>
+              <p className="text-sm text-gray-500">{error.message}</p>
             </div>
           ) : requests.length === 0 ? (
             <div className="text-center py-8">
