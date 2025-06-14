@@ -25,7 +25,7 @@ const GroupDetail = () => {
         .from('groups')
         .select(`
           *,
-          creator_profile:profiles!creator_id (
+          creator_profile:profiles!groups_creator_id_fkey (
             full_name,
             email
           ),

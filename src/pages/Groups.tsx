@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,7 +30,7 @@ const Groups = () => {
         .from('groups')
         .select(`
           *,
-          creator_profile:profiles!creator_id (
+          creator_profile:profiles!groups_creator_id_fkey (
             full_name,
             email
           ),
