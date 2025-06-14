@@ -20,16 +20,21 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: requests = { joinRequests: [], invites: [] }, isLoading } = useQuery({
+  const { data: requests = [], isLoading } = useQuery({
     queryKey: ['join-requests', groupId],
     queryFn: async () => {
       console.log('JoinRequestsDialog: Fetching requests for group:', groupId);
       
-      // Get join requests with user profiles
+      // Get join requests with user profiles - using a simpler approach
       const { data: joinRequestsData, error: requestError } = await supabase
         .from('group_join_requests')
         .select(`
-          *,
+          id,
+          user_id,
+          group_id,
+          status,
+          requested_at,
+          message,
           profiles!group_join_requests_user_id_fkey (
             id,
             full_name,
@@ -41,7 +46,7 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
         .eq('status', 'pending')
         .order('requested_at', { ascending: false });
       
-      console.log('JoinRequestsDialog: Join requests result:', { joinRequestsData, requestError });
+      console.log('JoinRequestsDialog: Join requests query result:', { joinRequestsData, requestError });
       
       if (requestError) {
         console.error('JoinRequestsDialog: Error fetching join requests:', requestError);
@@ -57,30 +62,31 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
       
-      console.log('JoinRequestsDialog: Invites result:', { invites, inviteError });
+      console.log('JoinRequestsDialog: Invites query result:', { invites, inviteError });
       
       if (inviteError) {
         console.error('JoinRequestsDialog: Error fetching invites:', inviteError);
         throw inviteError;
       }
       
-      const joinRequests = (joinRequestsData || []).map(request => ({
+      // Process join requests with user data
+      const processedRequests = (joinRequestsData || []).map(request => ({
         ...request,
-        type: 'request',
+        type: 'request' as const,
         user_profile: request.profiles
       }));
 
-      const invitesWithType = (invites || []).map(invite => ({
+      // Process invites
+      const processedInvites = (invites || []).map(invite => ({
         ...invite,
-        type: 'invite'
+        type: 'invite' as const
       }));
       
-      console.log('JoinRequestsDialog: Final result:', { joinRequests, invites: invitesWithType });
+      const allRequests = [...processedRequests, ...processedInvites];
       
-      return { 
-        joinRequests, 
-        invites: invitesWithType 
-      };
+      console.log('JoinRequestsDialog: Final processed requests:', allRequests);
+      
+      return allRequests;
     },
     enabled: open && !!groupId
   });
@@ -175,9 +181,7 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
     cancelInviteMutation.mutate(inviteId);
   };
 
-  const allRequests = [...(requests.joinRequests || []), ...(requests.invites || [])];
-
-  console.log('JoinRequestsDialog: Rendering with requests:', allRequests);
+  console.log('JoinRequestsDialog: Rendering with requests:', requests);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -192,13 +196,13 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500 mx-auto"></div>
               <p className="mt-2 text-gray-500">Loading...</p>
             </div>
-          ) : allRequests.length === 0 ? (
+          ) : requests.length === 0 ? (
             <div className="text-center py-8">
               <Mail className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <p className="text-gray-500">No pending requests or invites</p>
             </div>
           ) : (
-            allRequests.map((item) => (
+            requests.map((item) => (
               <div key={item.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
                 <div className="flex items-center space-x-3 flex-1">
                   {item.type === 'request' ? (
