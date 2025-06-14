@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Users, Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -8,15 +9,22 @@ const GroupsPreview = () => {
   const { data: groups = [], isLoading } = useQuery({
     queryKey: ['groups-preview'],
     queryFn: async () => {
+      console.log('GroupsPreview: Fetching groups...');
+      
       const { data, error } = await supabase
         .from('groups')
         .select(`
-          *,
-          creator_profile:profiles!groups_creator_id_fkey (
+          id,
+          name,
+          description,
+          created_at,
+          creator_id,
+          product_id,
+          creator_profile:profiles!creator_id (
             full_name,
             email
           ),
-          product:products!groups_product_id_fkey (
+          product:products!product_id (
             name,
             image_url
           ),
@@ -25,11 +33,16 @@ const GroupsPreview = () => {
           )
         `)
         .order('created_at', { ascending: false })
-        .limit(3); // Limit to 3 groups for preview
+        .limit(3);
       
-      if (error) throw error;
+      console.log('GroupsPreview query result:', { data, error });
       
-      return data.map(group => ({
+      if (error) {
+        console.error('GroupsPreview query error:', error);
+        throw error;
+      }
+      
+      const processedGroups = data.map(group => ({
         id: group.id,
         name: group.name,
         description: group.description,
@@ -38,6 +51,9 @@ const GroupsPreview = () => {
         productName: group.product?.name || 'Unknown Product',
         creatorName: group.creator_profile?.full_name || group.creator_profile?.email?.split('@')[0] || 'Unknown Creator'
       }));
+      
+      console.log('GroupsPreview processed groups:', processedGroups);
+      return processedGroups;
     },
   });
 

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,17 +26,22 @@ const Groups = () => {
   const { data: groups = [], isLoading, error } = useQuery({
     queryKey: ['groups'],
     queryFn: async () => {
-      console.log('Fetching groups for user:', user?.id);
+      console.log('Groups: Fetching groups for user:', user?.id);
       
       const { data, error } = await supabase
         .from('groups')
         .select(`
-          *,
-          creator_profile:profiles!groups_creator_id_fkey (
+          id,
+          name,
+          description,
+          created_at,
+          creator_id,
+          product_id,
+          creator_profile:profiles!creator_id (
             full_name,
             email
           ),
-          product:products!groups_product_id_fkey (
+          product:products!product_id (
             name,
             image_url,
             price
@@ -62,7 +66,7 @@ const Groups = () => {
         image: group.product?.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=200&fit=crop"
       }));
       
-      console.log('Processed groups:', processedGroups);
+      console.log('Groups processed groups:', processedGroups);
       return processedGroups;
     },
     enabled: !!user
@@ -331,6 +335,9 @@ const Groups = () => {
               {error && (
                 <p className="text-sm text-red-600">Error: {error.message}</p>
               )}
+              <p className="text-sm text-blue-600">
+                User ID: {user?.id || 'Not logged in'}
+              </p>
             </div>
 
             {/* Groups Grid */}

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -50,13 +49,18 @@ const Profile = () => {
     queryFn: async () => {
       if (!user) return [];
       
-      console.log('Fetching user groups for:', user.id);
+      console.log('Profile: Fetching user groups for:', user.id);
       
       const { data, error } = await supabase
         .from('groups')
         .select(`
-          *,
-          product:products!groups_product_id_fkey (
+          id,
+          name,
+          description,
+          created_at,
+          creator_id,
+          product_id,
+          product:products!product_id (
             name,
             image_url
           ),
@@ -67,10 +71,10 @@ const Profile = () => {
         .eq('creator_id', user.id)
         .order('created_at', { ascending: false });
       
-      console.log('User groups query result:', { data, error });
+      console.log('Profile: User groups query result:', { data, error });
       
       if (error) {
-        console.error('User groups query error:', error);
+        console.error('Profile: User groups query error:', error);
         throw error;
       }
       return data;

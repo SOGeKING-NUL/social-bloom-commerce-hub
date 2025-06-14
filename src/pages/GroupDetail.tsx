@@ -20,16 +20,28 @@ const GroupDetail = () => {
   const { data: group, isLoading } = useQuery({
     queryKey: ['group', groupId],
     queryFn: async () => {
+      console.log('GroupDetail: Fetching group details for:', groupId);
+      
       const { data, error } = await supabase
         .from('groups')
         .select(`
-          *,
-          creator_profile:profiles!groups_creator_id_fkey (
+          id,
+          name,
+          description,
+          created_at,
+          creator_id,
+          product_id,
+          creator_profile:profiles!creator_id (
             full_name,
             email
           ),
-          product:products!groups_product_id_fkey (
-            *,
+          product:products!product_id (
+            id,
+            name,
+            description,
+            price,
+            image_url,
+            vendor_id,
             vendor_profile:profiles!vendor_id (
               full_name,
               email
@@ -48,7 +60,12 @@ const GroupDetail = () => {
         .eq('id', groupId)
         .single();
       
-      if (error) throw error;
+      console.log('GroupDetail query result:', { data, error });
+      
+      if (error) {
+        console.error('GroupDetail query error:', error);
+        throw error;
+      }
       
       return {
         ...data,
