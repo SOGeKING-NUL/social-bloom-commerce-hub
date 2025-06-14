@@ -194,6 +194,8 @@ const Groups = () => {
     mutationFn: async ({ groupId, isJoined, group }: { groupId: string; isJoined: boolean; group: any }) => {
       if (!user) throw new Error('Not authenticated');
       
+      console.log('toggleGroupMembershipMutation: Starting with:', { groupId, isJoined, userId: user.id });
+      
       if (isJoined) {
         console.log('Leaving group:', groupId);
         
@@ -229,31 +231,57 @@ const Groups = () => {
         }
         
         // CRITICAL: Always clean up any existing requests first to prevent duplicates
-        console.log('Cleaning up existing requests before creating new one');
-        const { error: cleanupError } = await supabase
+        console.log('CLEANUP STEP 1: Removing any existing join requests');
+        const { error: cleanupError, count: cleanupCount } = await supabase
           .from('group_join_requests')
           .delete()
           .eq('group_id', groupId)
           .eq('user_id', user.id);
         
-        console.log('Cleanup result:', cleanupError);
+        console.log('Cleanup result:', { cleanupError, cleanupCount });
+        
+        if (cleanupError) {
+          console.error('Cleanup failed:', cleanupError);
+          throw new Error('Failed to cleanup existing requests: ' + cleanupError.message);
+        }
+        
+        // ADDITIONAL CLEANUP: Remove any existing memberships too
+        console.log('CLEANUP STEP 2: Removing any existing memberships');
+        const { error: memberCleanupError } = await supabase
+          .from('group_members')
+          .delete()
+          .eq('group_id', groupId)
+          .eq('user_id', user.id);
+        
+        console.log('Member cleanup result:', memberCleanupError);
+        
+        // Small delay to ensure cleanup is complete
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         // Check if group is private and requires approval
         if (group.is_private && !group.auto_approve_requests) {
           console.log('Creating join request for private group');
           
-          // Create join request
-          const { error } = await supabase
+          // Create join request with explicit fields
+          const { error: insertError, data: insertData } = await supabase
             .from('group_join_requests')
             .insert({
               group_id: groupId,
               user_id: user.id,
-              status: 'pending'
-            });
+              status: 'pending',
+              requested_at: new Date().toISOString()
+            })
+            .select();
           
-          if (error) {
-            console.error('Error creating join request:', error);
-            throw error;
+          console.log('Insert join request result:', { insertError, insertData });
+          
+          if (insertError) {
+            console.error('Error creating join request:', insertError);
+            // Check if it's a duplicate key error and provide specific feedback
+            if (insertError.code === '23505') {
+              throw new Error('A join request already exists for this group. Please refresh the page and try again.');
+            }
+            throw insertError;
           }
           
           return { isRequest: true };
@@ -261,16 +289,20 @@ const Groups = () => {
           console.log('Direct join for public group with auto-approval');
           
           // Direct join for public groups with auto-approval
-          const { error } = await supabase
+          const { error: joinError, data: joinData } = await supabase
             .from('group_members')
             .insert({
               group_id: groupId,
-              user_id: user.id
-            });
+              user_id: user.id,
+              joined_at: new Date().toISOString()
+            })
+            .select();
           
-          if (error) {
-            console.error('Error joining group:', error);
-            throw error;
+          console.log('Direct join result:', { joinError, joinData });
+          
+          if (joinError) {
+            console.error('Error joining group:', joinError);
+            throw joinError;
           }
           
           return { isRequest: false };
@@ -278,6 +310,7 @@ const Groups = () => {
       }
     },
     onSuccess: (result, { isJoined, group }) => {
+      console.log('toggleGroupMembershipMutation: Success with result:', result);
       queryClient.invalidateQueries({ queryKey: ['groups'] });
       queryClient.invalidateQueries({ queryKey: ['join-requests', group.id] });
       
@@ -296,7 +329,7 @@ const Groups = () => {
       }
     },
     onError: (error) => {
-      console.error('Error toggling group membership:', error);
+      console.error('toggleGroupMembershipMutation: Error:', error);
       toast({
         title: "Error",
         description: error.message || "An error occurred. Please try again.",
