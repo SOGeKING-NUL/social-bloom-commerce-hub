@@ -30,7 +30,7 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
       }
 
       try {
-        // Get pending join requests first
+        // Get pending join requests
         const { data: joinRequests, error: requestsError } = await supabase
           .from('group_join_requests')
           .select('*')
@@ -45,7 +45,7 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
           throw requestsError;
         }
 
-        // Get user profiles for the requests
+        // Get user profiles for the requests separately
         let requestsWithProfiles = [];
         if (joinRequests && joinRequests.length > 0) {
           const userIds = joinRequests.map(req => req.user_id);
@@ -129,6 +129,13 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
       
       // If approved, add user to group
       if (status === 'approved') {
+        // First clean up any existing membership to prevent duplicates
+        await supabase
+          .from('group_members')
+          .delete()
+          .eq('group_id', groupId)
+          .eq('user_id', userId);
+        
         const { error: memberError } = await supabase
           .from('group_members')
           .insert({

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -23,7 +22,7 @@ const GroupDetail = () => {
 
   console.log('GroupDetail: Component loading with groupId:', groupId, 'user:', user?.id);
 
-  // Fetch group details with error handling
+  // Fetch group details with proper error handling and separate queries
   const { data: group, isLoading, error } = useQuery({
     queryKey: ['group', groupId],
     queryFn: async () => {
@@ -33,178 +32,143 @@ const GroupDetail = () => {
         throw new Error('Group ID is required');
       }
       
-      try {
-        // Get basic group data
-        const { data: groupData, error: groupError } = await supabase
-          .from('groups')
-          .select('*')
-          .eq('id', groupId)
-          .single();
-        
-        console.log('GroupDetail: Basic group query result:', { groupData, groupError });
-        
-        if (groupError) {
-          console.error('GroupDetail: Group query error:', groupError);
-          throw groupError;
-        }
-        
-        if (!groupData) {
-          throw new Error('Group not found');
-        }
-        
-        // Get creator, product, vendor, and members data in parallel
-        const promises = [];
-        
+      // Get basic group data
+      const { data: groupData, error: groupError } = await supabase
+        .from('groups')
+        .select('*')
+        .eq('id', groupId)
+        .single();
+      
+      console.log('GroupDetail: Basic group query result:', { groupData, groupError });
+      
+      if (groupError) {
+        console.error('GroupDetail: Group query error:', groupError);
+        throw groupError;
+      }
+      
+      if (!groupData) {
+        throw new Error('Group not found');
+      }
+      
+      // Get related data in parallel
+      const [creatorResult, productResult, membersResult, joinRequestsResult] = await Promise.allSettled([
         // Creator profile
-        if (groupData.creator_id) {
-          promises.push(
-            supabase
-              .from('profiles')
-              .select('full_name, email')
-              .eq('id', groupData.creator_id)
-              .single()
-              .then(result => ({ type: 'creator', ...result }))
-          );
-        }
+        supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', groupData.creator_id)
+          .single(),
         
         // Product details
-        if (groupData.product_id) {
-          promises.push(
-            supabase
-              .from('products')
-              .select('*')
-              .eq('id', groupData.product_id)
-              .single()
-              .then(result => ({ type: 'product', ...result }))
-          );
-        }
+        groupData.product_id ? supabase
+          .from('products')
+          .select('*')
+          .eq('id', groupData.product_id)
+          .single() : Promise.resolve({ data: null }),
         
         // Group members
-        promises.push(
-          supabase
-            .from('group_members')
-            .select('user_id, joined_at')
-            .eq('group_id', groupId)
-            .then(result => ({ type: 'members', ...result }))
-        );
+        supabase
+          .from('group_members')
+          .select('user_id, joined_at')
+          .eq('group_id', groupId),
         
-        // Get user's join request status if user exists
-        if (user?.id) {
-          console.log('GroupDetail: Fetching join requests for user:', user.id, 'in group:', groupId);
-          promises.push(
-            supabase
-              .from('group_join_requests')
-              .select('id, status, requested_at')
-              .eq('group_id', groupId)
-              .eq('user_id', user.id)
-              .order('requested_at', { ascending: false })
-              .limit(1)
-              .then(result => {
-                console.log('GroupDetail: Join request query result:', result);
-                return { type: 'join_requests', ...result };
-              })
-          );
-        }
-        
-        const results = await Promise.allSettled(promises);
-        console.log('GroupDetail: Parallel queries results:', results);
-        
-        let creatorProfile = null;
-        let product = null;
-        let members = [];
-        let joinRequests = [];
-        
-        results.forEach((result) => {
-          if (result.status === 'fulfilled' && result.value.data) {
-            switch (result.value.type) {
-              case 'creator':
-                creatorProfile = result.value.data;
-                break;
-              case 'product':
-                product = result.value.data;
-                break;
-              case 'members':
-                members = result.value.data || [];
-                break;
-              case 'join_requests':
-                joinRequests = result.value.data || [];
-                console.log('GroupDetail: Join requests found:', joinRequests);
-                break;
-            }
-          } else if (result.status === 'rejected') {
-            console.error('GroupDetail: Promise rejected:', result.reason);
-          }
-        });
-        
-        // Get vendor profile if product exists
-        let vendorProfile = null;
-        if (product && product.vendor_id) {
-          const { data: vendor } = await supabase
-            .from('profiles')
-            .select('full_name, email')
-            .eq('id', product.vendor_id)
-            .single();
-          vendorProfile = vendor;
-        }
-        
-        // Get member profiles
-        let memberProfiles = [];
-        if (members.length > 0) {
-          const memberIds = members.map(m => m.user_id);
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id, full_name, email, avatar_url')
-            .in('id', memberIds);
-          
-          // Combine member data with profiles
-          memberProfiles = members.map(member => {
-            const profile = profiles?.find(p => p.id === member.user_id);
-            return {
-              user_id: member.user_id,
-              joined_at: member.joined_at,
-              user_profile: profile
-            };
-          });
-        }
-        
-        // Calculate user states
-        const isJoined = members.some(member => member.user_id === user?.id);
-        const latestJoinRequest = joinRequests.length > 0 ? joinRequests[0] : null;
-        const hasPendingRequest = latestJoinRequest?.status === 'pending';
-        
-        console.log('GroupDetail: FINAL STATE CALCULATION:', {
-          userId: user?.id,
-          groupId: groupId,
-          isJoined,
-          hasPendingRequest,
-          latestJoinRequest,
-          allJoinRequests: joinRequests,
-          membersCount: members.length,
-          memberIds: members.map(m => m.user_id)
-        });
-        
-        const result = {
-          ...groupData,
-          creator_profile: creatorProfile,
-          product: product ? {
-            ...product,
-            vendor_profile: vendorProfile
-          } : null,
-          group_members: memberProfiles,
-          isJoined,
-          hasPendingRequest,
-          members: memberProfiles,
-          latestJoinRequest,
-          allJoinRequests: joinRequests
-        };
-        
-        console.log('GroupDetail: FINAL RESULT OBJECT:', result);
-        return result;
-        
-      } catch (error) {
-        console.error('GroupDetail: Error in query function:', error);
-        throw error;
+        // User's join request status
+        user?.id ? supabase
+          .from('group_join_requests')
+          .select('id, status, requested_at')
+          .eq('group_id', groupId)
+          .eq('user_id', user.id)
+          .order('requested_at', { ascending: false })
+          .limit(1) : Promise.resolve({ data: [] })
+      ]);
+      
+      console.log('GroupDetail: Parallel queries results:', {
+        creatorResult,
+        productResult,
+        membersResult,
+        joinRequestsResult
+      });
+      
+      let creatorProfile = null;
+      let product = null;
+      let members = [];
+      let joinRequests = [];
+      
+      if (creatorResult.status === 'fulfilled' && creatorResult.value.data) {
+        creatorProfile = creatorResult.value.data;
       }
+      
+      if (productResult.status === 'fulfilled' && productResult.value.data) {
+        product = productResult.value.data;
+      }
+      
+      if (membersResult.status === 'fulfilled' && membersResult.value.data) {
+        members = membersResult.value.data;
+      }
+      
+      if (joinRequestsResult.status === 'fulfilled' && joinRequestsResult.value.data) {
+        joinRequests = joinRequestsResult.value.data;
+      }
+      
+      // Get vendor profile if product exists
+      let vendorProfile = null;
+      if (product && product.vendor_id) {
+        const { data: vendor } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', product.vendor_id)
+          .single();
+        vendorProfile = vendor;
+      }
+      
+      // Get member profiles
+      let memberProfiles = [];
+      if (members.length > 0) {
+        const memberIds = members.map(m => m.user_id);
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, avatar_url')
+          .in('id', memberIds);
+        
+        memberProfiles = members.map(member => {
+          const profile = profiles?.find(p => p.id === member.user_id);
+          return {
+            user_id: member.user_id,
+            joined_at: member.joined_at,
+            user_profile: profile
+          };
+        });
+      }
+      
+      // Calculate user states
+      const isJoined = members.some(member => member.user_id === user?.id);
+      const latestJoinRequest = joinRequests.length > 0 ? joinRequests[0] : null;
+      const hasPendingRequest = latestJoinRequest?.status === 'pending';
+      
+      console.log('GroupDetail: User state calculation:', {
+        userId: user?.id,
+        isJoined,
+        hasPendingRequest,
+        latestJoinRequest,
+        membersCount: members.length
+      });
+      
+      const result = {
+        ...groupData,
+        creator_profile: creatorProfile,
+        product: product ? {
+          ...product,
+          vendor_profile: vendorProfile
+        } : null,
+        group_members: memberProfiles,
+        isJoined,
+        hasPendingRequest,
+        members: memberProfiles,
+        latestJoinRequest
+      };
+      
+      console.log('GroupDetail: Final result:', result);
+      return result;
     },
     enabled: !!user && !!groupId,
     staleTime: 0,
@@ -244,18 +208,22 @@ const GroupDetail = () => {
     }
   });
 
-  // Simplified join/leave group mutation
+  // Enhanced join/leave group mutation with better cleanup
   const toggleGroupMembershipMutation = useMutation({
     mutationFn: async (isJoined: boolean) => {
-      if (!user || !groupId) {
+      if (!user || !groupId || !group) {
         throw new Error('Missing required data');
       }
       
-      console.log('=== MUTATION START ===');
-      console.log('Action:', isJoined ? 'LEAVING' : 'JOINING', 'Group:', groupId, 'User:', user.id);
+      console.log('=== GROUP DETAIL MUTATION START ===');
+      console.log('Action:', isJoined ? 'LEAVING' : 'JOINING');
+      console.log('Group:', groupId, 'User:', user.id);
       
       if (isJoined) {
-        // Leaving group - remove membership
+        // LEAVING GROUP - Complete cleanup
+        console.log('Leaving group - cleaning up all records');
+        
+        // Remove membership
         const { error: memberError } = await supabase
           .from('group_members')
           .delete()
@@ -278,24 +246,37 @@ const GroupDetail = () => {
         return { action: 'left' };
         
       } else {
-        // Joining/requesting group
-        if (group?.invite_only) {
+        // JOINING GROUP
+        if (group.invite_only) {
           throw new Error('This group is invite-only. Please ask for an invitation.');
         }
         
-        // Check if needs approval
-        const needsApproval = group?.is_private && !group?.auto_approve_requests;
+        if (group.hasPendingRequest) {
+          throw new Error('You already have a pending request to join this group.');
+        }
+        
+        // CRITICAL CLEANUP: Remove any existing records first
+        console.log('CLEANUP: Removing any existing records');
+        
+        await supabase
+          .from('group_join_requests')
+          .delete()
+          .eq('group_id', groupId)
+          .eq('user_id', user.id);
+        
+        await supabase
+          .from('group_members')
+          .delete()
+          .eq('group_id', groupId)
+          .eq('user_id', user.id);
+        
+        // Small delay to ensure cleanup
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        const needsApproval = group.is_private && !group.auto_approve_requests;
         
         if (needsApproval) {
-          // Create join request
           console.log('Creating join request...');
-          
-          // First delete any existing requests
-          await supabase
-            .from('group_join_requests')
-            .delete()
-            .eq('group_id', groupId)
-            .eq('user_id', user.id);
           
           const { error: requestError } = await supabase
             .from('group_join_requests')
@@ -310,11 +291,8 @@ const GroupDetail = () => {
             throw requestError;
           }
           
-          console.log('Join request created successfully');
           return { action: 'requested' };
-          
         } else {
-          // Direct join
           console.log('Joining directly...');
           
           const { error: joinError } = await supabase
@@ -329,7 +307,6 @@ const GroupDetail = () => {
             throw joinError;
           }
           
-          console.log('Joined group successfully');
           return { action: 'joined' };
         }
       }
@@ -337,12 +314,12 @@ const GroupDetail = () => {
     onSuccess: (result) => {
       console.log('Mutation success:', result);
       
-      // Invalidate relevant queries
+      // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['group', groupId] });
       queryClient.invalidateQueries({ queryKey: ['groups'] });
       queryClient.invalidateQueries({ queryKey: ['join-requests', groupId] });
       
-      // Show toast
+      // Show appropriate toast
       if (result?.action === 'requested') {
         toast({
           title: "Request Sent",

@@ -199,26 +199,26 @@ const Groups = () => {
     }
   });
 
-  // Join/Leave group mutation with proper cleanup and duplicate prevention
+  // Enhanced join/leave group mutation with better cleanup and duplicate prevention
   const toggleGroupMembershipMutation = useMutation({
     mutationFn: async ({ groupId, isJoined, group }: { groupId: string; isJoined: boolean; group: any }) => {
       if (!user) throw new Error('Not authenticated');
       
-      console.log('toggleGroupMembershipMutation: Starting with:', { groupId, isJoined, userId: user.id });
+      console.log('=== JOIN/LEAVE MUTATION START ===');
+      console.log('Action:', isJoined ? 'LEAVING' : 'JOINING');
+      console.log('Group ID:', groupId);
+      console.log('User ID:', user.id);
+      console.log('Group settings:', {
+        is_private: group.is_private,
+        invite_only: group.invite_only,
+        auto_approve_requests: group.auto_approve_requests
+      });
       
       if (isJoined) {
-        console.log('Leaving group:', groupId);
+        // LEAVING GROUP - Complete cleanup
+        console.log('Leaving group - cleaning up membership and requests');
         
-        // First, clean up any pending join requests for this user and group
-        const { error: requestCleanupError } = await supabase
-          .from('group_join_requests')
-          .delete()
-          .eq('group_id', groupId)
-          .eq('user_id', user.id);
-        
-        console.log('Join request cleanup result:', requestCleanupError);
-        
-        // Then remove the membership
+        // Remove from group_members
         const { error: memberError } = await supabase
           .from('group_members')
           .delete()
@@ -230,12 +230,23 @@ const Groups = () => {
           throw memberError;
         }
         
-        console.log('Successfully left group');
+        // Clean up ANY join requests (pending, approved, rejected)
+        const { error: requestCleanupError } = await supabase
+          .from('group_join_requests')
+          .delete()
+          .eq('group_id', groupId)
+          .eq('user_id', user.id);
+        
+        console.log('Join request cleanup result:', requestCleanupError);
+        
+        console.log('Successfully left group and cleaned up all records');
+        return { action: 'left' };
         
       } else {
-        console.log('Attempting to join group:', groupId);
+        // JOINING GROUP
+        console.log('Attempting to join group');
         
-        // Check if group requires invites only
+        // Check if group is invite-only
         if (group.invite_only) {
           throw new Error('This group is invite-only. Please ask for an invitation.');
         }
@@ -245,40 +256,31 @@ const Groups = () => {
           throw new Error('You already have a pending request to join this group.');
         }
         
-        // CRITICAL: Always clean up any existing requests first to prevent duplicates
-        console.log('CLEANUP STEP 1: Removing any existing join requests');
-        const { error: cleanupError, count: cleanupCount } = await supabase
+        // CRITICAL CLEANUP: Remove any existing records first
+        console.log('CLEANUP: Removing any existing join requests and memberships');
+        
+        await supabase
           .from('group_join_requests')
           .delete()
           .eq('group_id', groupId)
           .eq('user_id', user.id);
         
-        console.log('Cleanup result:', { cleanupError, cleanupCount });
-        
-        if (cleanupError) {
-          console.error('Cleanup failed:', cleanupError);
-          throw new Error('Failed to cleanup existing requests: ' + cleanupError.message);
-        }
-        
-        // ADDITIONAL CLEANUP: Remove any existing memberships too
-        console.log('CLEANUP STEP 2: Removing any existing memberships');
-        const { error: memberCleanupError } = await supabase
+        await supabase
           .from('group_members')
           .delete()
           .eq('group_id', groupId)
           .eq('user_id', user.id);
         
-        console.log('Member cleanup result:', memberCleanupError);
-        
         // Small delay to ensure cleanup is complete
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Check if group is private and requires approval
-        if (group.is_private && !group.auto_approve_requests) {
+        // Determine if direct join or request needed
+        const needsApproval = group.is_private && !group.auto_approve_requests;
+        
+        if (needsApproval) {
           console.log('Creating join request for private group');
           
-          // Create join request with explicit fields
-          const { error: insertError, data: insertData } = await supabase
+          const { error: requestError, data: requestData } = await supabase
             .from('group_join_requests')
             .insert({
               group_id: groupId,
@@ -288,22 +290,20 @@ const Groups = () => {
             })
             .select();
           
-          console.log('Insert join request result:', { insertError, insertData });
+          console.log('Join request result:', { requestError, requestData });
           
-          if (insertError) {
-            console.error('Error creating join request:', insertError);
-            // Check if it's a duplicate key error and provide specific feedback
-            if (insertError.code === '23505') {
-              throw new Error('A join request already exists for this group. Please refresh the page and try again.');
+          if (requestError) {
+            console.error('Error creating join request:', requestError);
+            if (requestError.code === '23505') {
+              throw new Error('A join request already exists. Please refresh the page and try again.');
             }
-            throw insertError;
+            throw requestError;
           }
           
-          return { isRequest: true };
+          return { action: 'requested' };
         } else {
-          console.log('Direct join for public group with auto-approval');
+          console.log('Direct join for public group or auto-approval enabled');
           
-          // Direct join for public groups with auto-approval
           const { error: joinError, data: joinData } = await supabase
             .from('group_members')
             .insert({
@@ -320,31 +320,38 @@ const Groups = () => {
             throw joinError;
           }
           
-          return { isRequest: false };
+          return { action: 'joined' };
         }
       }
     },
     onSuccess: (result, { isJoined, group }) => {
-      console.log('toggleGroupMembershipMutation: Success with result:', result);
+      console.log('Mutation success:', result);
+      
+      // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['groups'] });
+      queryClient.invalidateQueries({ queryKey: ['group', group.id] });
       queryClient.invalidateQueries({ queryKey: ['join-requests', group.id] });
       
-      if (result?.isRequest) {
+      // Show appropriate toast
+      if (result?.action === 'requested') {
         toast({
           title: "Request Sent",
           description: `Your request to join ${group.name} has been sent to the group admin.`,
         });
-      } else {
+      } else if (result?.action === 'left') {
         toast({
-          title: isJoined ? "Left Group" : "Joined Group!",
-          description: isJoined 
-            ? `You left ${group.name}` 
-            : `Welcome to ${group.name}!`,
+          title: "Left Group",
+          description: `You left ${group.name}`,
+        });
+      } else if (result?.action === 'joined') {
+        toast({
+          title: "Joined Group!",
+          description: `Welcome to ${group.name}!`,
         });
       }
     },
     onError: (error) => {
-      console.error('toggleGroupMembershipMutation: Error:', error);
+      console.error('Mutation error:', error);
       toast({
         title: "Error",
         description: error.message || "An error occurred. Please try again.",
@@ -354,6 +361,7 @@ const Groups = () => {
   });
 
   const handleJoinGroup = (groupId: string, isJoined: boolean, group: any) => {
+    console.log('Join button clicked:', { groupId, isJoined, pending: toggleGroupMembershipMutation.isPending });
     toggleGroupMembershipMutation.mutate({ groupId, isJoined, group });
   };
 
