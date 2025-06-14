@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -199,7 +200,7 @@ const Groups = () => {
     }
   });
 
-  // Enhanced join/leave group mutation with better cleanup and duplicate prevention
+  // FIXED: Enhanced join/leave group mutation with proper cleanup
   const toggleGroupMembershipMutation = useMutation({
     mutationFn: async ({ groupId, isJoined, group }: { groupId: string; isJoined: boolean; group: any }) => {
       if (!user) throw new Error('Not authenticated');
@@ -208,11 +209,6 @@ const Groups = () => {
       console.log('Action:', isJoined ? 'LEAVING' : 'JOINING');
       console.log('Group ID:', groupId);
       console.log('User ID:', user.id);
-      console.log('Group settings:', {
-        is_private: group.is_private,
-        invite_only: group.invite_only,
-        auto_approve_requests: group.auto_approve_requests
-      });
       
       if (isJoined) {
         // LEAVING GROUP - Complete cleanup
@@ -230,7 +226,7 @@ const Groups = () => {
           throw memberError;
         }
         
-        // Clean up ANY join requests (pending, approved, rejected)
+        // CRITICAL: Clean up ALL join requests for this user and group
         const { error: requestCleanupError } = await supabase
           .from('group_join_requests')
           .delete()
@@ -251,27 +247,24 @@ const Groups = () => {
           throw new Error('This group is invite-only. Please ask for an invitation.');
         }
         
-        // Check if there's already a pending request
-        if (group.hasPendingRequest) {
-          throw new Error('You already have a pending request to join this group.');
-        }
+        // CRITICAL: Perform complete cleanup FIRST to prevent duplicates
+        console.log('CLEANUP: Removing any existing records before creating new ones');
         
-        // CRITICAL CLEANUP: Remove any existing records first
-        console.log('CLEANUP: Removing any existing join requests and memberships');
-        
+        // Clean up any existing join requests
         await supabase
           .from('group_join_requests')
           .delete()
           .eq('group_id', groupId)
           .eq('user_id', user.id);
         
+        // Clean up any existing memberships
         await supabase
           .from('group_members')
           .delete()
           .eq('group_id', groupId)
           .eq('user_id', user.id);
         
-        // Small delay to ensure cleanup is complete
+        // Wait a moment to ensure cleanup is complete
         await new Promise(resolve => setTimeout(resolve, 100));
         
         // Determine if direct join or request needed
@@ -294,10 +287,7 @@ const Groups = () => {
           
           if (requestError) {
             console.error('Error creating join request:', requestError);
-            if (requestError.code === '23505') {
-              throw new Error('A join request already exists. Please refresh the page and try again.');
-            }
-            throw requestError;
+            throw new Error('Failed to create join request. Please try again.');
           }
           
           return { action: 'requested' };
@@ -317,7 +307,7 @@ const Groups = () => {
           
           if (joinError) {
             console.error('Error joining group:', joinError);
-            throw joinError;
+            throw new Error('Failed to join group. Please try again.');
           }
           
           return { action: 'joined' };
@@ -362,6 +352,13 @@ const Groups = () => {
 
   const handleJoinGroup = (groupId: string, isJoined: boolean, group: any) => {
     console.log('Join button clicked:', { groupId, isJoined, pending: toggleGroupMembershipMutation.isPending });
+    
+    // Prevent multiple clicks
+    if (toggleGroupMembershipMutation.isPending) {
+      console.log('Mutation already in progress, ignoring click');
+      return;
+    }
+    
     toggleGroupMembershipMutation.mutate({ groupId, isJoined, group });
   };
 
@@ -609,7 +606,8 @@ const Groups = () => {
                           : "social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
                         }`}
                       >
-                        {group.isJoined ? "Leave" : 
+                        {toggleGroupMembershipMutation.isPending ? "Processing..." :
+                         group.isJoined ? "Leave" : 
                          group.hasPendingRequest ? "Requested" :
                          group.invite_only ? "Invite Only" :
                          (group.is_private && !group.auto_approve_requests) ? "Request to Join" : "Join Group"}

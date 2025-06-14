@@ -72,7 +72,7 @@ const GroupsPreview = () => {
         const membersData = membersResult.data || [];
         
         // Count members per group
-        const memberCounts = membersData.reduce((acc, member) => {
+        const memberCounts = membersData.reduce((acc: any, member: any) => {
           acc[member.group_id] = (acc[member.group_id] || 0) + 1;
           return acc;
         }, {});
@@ -104,7 +104,7 @@ const GroupsPreview = () => {
     },
   });
 
-  const handleGroupClick = (groupId) => {
+  const handleGroupClick = (groupId: string) => {
     console.log('GroupsPreview: Navigating to group:', groupId);
     navigate(`/groups/${groupId}`);
   };
