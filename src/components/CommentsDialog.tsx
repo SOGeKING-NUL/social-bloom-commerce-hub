@@ -29,7 +29,7 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
 
-  // Fetch comments
+  // Fetch comments with their likes
   const { data: comments = [], isLoading } = useQuery({
     queryKey: ['post-comments', postId],
     queryFn: async () => {
@@ -41,9 +41,6 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
             full_name,
             email,
             avatar_url
-          ),
-          comment_likes:comment_likes!comment_id (
-            user_id
           )
         `)
         .eq('post_id', postId)
@@ -51,14 +48,25 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
       
       if (error) throw error;
       
+      // Fetch likes for all comments
+      const commentIds = data.map(comment => comment.id);
+      if (commentIds.length === 0) return [];
+      
+      const { data: likes, error: likesError } = await supabase
+        .from('comment_likes')
+        .select('comment_id, user_id')
+        .in('comment_id', commentIds);
+      
+      if (likesError) throw likesError;
+      
       return data.map(comment => ({
         ...comment,
         user: {
           name: comment.profiles?.full_name || comment.profiles?.email?.split('@')[0] || 'Unknown User',
           avatar: comment.profiles?.avatar_url || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face`,
         },
-        liked: comment.comment_likes?.some(like => like.user_id === user?.id) || false,
-        likes_count: comment.comment_likes?.length || 0
+        liked: likes?.some(like => like.comment_id === comment.id && like.user_id === user?.id) || false,
+        likes_count: likes?.filter(like => like.comment_id === comment.id).length || 0
       }));
     },
     enabled: isOpen && !!postId,
