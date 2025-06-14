@@ -4,7 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Users, Lock, Plus, Search, ShoppingBag, ArrowRight } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Users, Lock, Plus, Search, ShoppingBag, ArrowRight, Globe } from "lucide-react";
 import Layout from "@/components/Layout";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,9 +22,14 @@ const Groups = () => {
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newGroupName, setNewGroupName] = useState("");
-  const [newGroupDescription, setNewGroupDescription] = useState("");
-  const [selectedProductId, setSelectedProductId] = useState("");
+  const [newGroupForm, setNewGroupForm] = useState({
+    name: "",
+    description: "",
+    product_id: "",
+    is_private: true,
+    auto_approve_requests: false,
+    max_members: 50
+  });
 
   // Fetch groups from database using separate queries to avoid foreign key conflicts
   const { data: groups = [], isLoading, error } = useQuery({
@@ -95,13 +103,6 @@ const Groups = () => {
     enabled: !!user
   });
 
-  // Log any query errors
-  useEffect(() => {
-    if (error) {
-      console.error('Groups query error:', error);
-    }
-  }, [error]);
-
   // Fetch products for group creation
   const { data: products = [] } = useQuery({
     queryKey: ['products'],
@@ -120,18 +121,21 @@ const Groups = () => {
 
   // Create group mutation
   const createGroupMutation = useMutation({
-    mutationFn: async ({ name, description, productId }: { name: string; description: string; productId: string }) => {
+    mutationFn: async (formData: typeof newGroupForm) => {
       if (!user) throw new Error('Not authenticated');
       
-      console.log('Creating group with:', { name, description, productId, userId: user.id });
+      console.log('Creating group with:', { ...formData, userId: user.id });
       
       const { data: group, error } = await supabase
         .from('groups')
         .insert({
           creator_id: user.id,
-          product_id: productId,
-          name,
-          description
+          product_id: formData.product_id,
+          name: formData.name,
+          description: formData.description,
+          is_private: formData.is_private,
+          auto_approve_requests: formData.auto_approve_requests,
+          max_members: formData.max_members
         })
         .select()
         .single();
@@ -156,9 +160,14 @@ const Groups = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['groups'] });
-      setNewGroupName("");
-      setNewGroupDescription("");
-      setSelectedProductId("");
+      setNewGroupForm({
+        name: "",
+        description: "",
+        product_id: "",
+        is_private: true,
+        auto_approve_requests: false,
+        max_members: 50
+      });
       setShowCreateForm(false);
       toast({
         title: "Group Created!",
@@ -177,7 +186,7 @@ const Groups = () => {
 
   // Join/Leave group mutation
   const toggleGroupMembershipMutation = useMutation({
-    mutationFn: async ({ groupId, isJoined }: { groupId: string; isJoined: boolean }) => {
+    mutationFn: async ({ groupId, isJoined, group }: { groupId: string; isJoined: boolean; group: any }) => {
       if (!user) throw new Error('Not authenticated');
       
       if (isJoined) {
@@ -189,18 +198,48 @@ const Groups = () => {
         
         if (error) throw error;
       } else {
-        const { error } = await supabase
-          .from('group_members')
-          .insert({
-            group_id: groupId,
-            user_id: user.id
-          });
-        
-        if (error) throw error;
+        // Check if group is private and requires approval
+        if (group.is_private || !group.auto_approve_requests) {
+          // Create join request
+          const { error } = await supabase
+            .from('group_join_requests')
+            .insert({
+              group_id: groupId,
+              user_id: user.id
+            });
+          
+          if (error) throw error;
+          return { isRequest: true };
+        } else {
+          // Direct join for public groups with auto-approval
+          const { error } = await supabase
+            .from('group_members')
+            .insert({
+              group_id: groupId,
+              user_id: user.id
+            });
+          
+          if (error) throw error;
+          return { isRequest: false };
+        }
       }
     },
-    onSuccess: () => {
+    onSuccess: (result, { isJoined, group }) => {
       queryClient.invalidateQueries({ queryKey: ['groups'] });
+      
+      if (result?.isRequest) {
+        toast({
+          title: "Request Sent",
+          description: `Your request to join ${group.name} has been sent to the group admin.`,
+        });
+      } else {
+        toast({
+          title: isJoined ? "Left Group" : "Joined Group!",
+          description: isJoined 
+            ? `You left ${group.name}` 
+            : `Welcome to ${group.name}!`,
+        });
+      }
     },
     onError: (error) => {
       console.error('Error toggling group membership:', error);
@@ -212,24 +251,13 @@ const Groups = () => {
     }
   });
 
-  const handleJoinGroup = (groupId: string, isJoined: boolean, groupName: string) => {
-    toggleGroupMembershipMutation.mutate({ groupId, isJoined });
-    
-    toast({
-      title: isJoined ? "Left Group" : "Joined Group!",
-      description: isJoined 
-        ? `You left ${groupName}` 
-        : `Welcome to ${groupName}!`,
-    });
+  const handleJoinGroup = (groupId: string, isJoined: boolean, group: any) => {
+    toggleGroupMembershipMutation.mutate({ groupId, isJoined, group });
   };
 
   const handleCreateGroup = () => {
-    if (newGroupName.trim() && selectedProductId) {
-      createGroupMutation.mutate({
-        name: newGroupName,
-        description: newGroupDescription,
-        productId: selectedProductId
-      });
+    if (newGroupForm.name.trim() && newGroupForm.product_id) {
+      createGroupMutation.mutate(newGroupForm);
     }
   };
 
@@ -300,24 +328,25 @@ const Groups = () => {
                     Create Group
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-md">
                   <DialogHeader>
                     <DialogTitle>Create New Group</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4">
                     <Input
-                      value={newGroupName}
-                      onChange={(e) => setNewGroupName(e.target.value)}
+                      value={newGroupForm.name}
+                      onChange={(e) => setNewGroupForm({ ...newGroupForm, name: e.target.value })}
                       placeholder="Group name"
                       className="border-pink-200 focus:ring-pink-300"
                     />
-                    <Input
-                      value={newGroupDescription}
-                      onChange={(e) => setNewGroupDescription(e.target.value)}
+                    <Textarea
+                      value={newGroupForm.description}
+                      onChange={(e) => setNewGroupForm({ ...newGroupForm, description: e.target.value })}
                       placeholder="Group description"
                       className="border-pink-200 focus:ring-pink-300"
+                      rows={3}
                     />
-                    <Select value={selectedProductId} onValueChange={setSelectedProductId}>
+                    <Select value={newGroupForm.product_id} onValueChange={(value) => setNewGroupForm({ ...newGroupForm, product_id: value })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a product for this group" />
                       </SelectTrigger>
@@ -329,10 +358,45 @@ const Groups = () => {
                         ))}
                       </SelectContent>
                     </Select>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="is_private">Private Group</Label>
+                        <Switch
+                          id="is_private"
+                          checked={newGroupForm.is_private}
+                          onCheckedChange={(checked) => setNewGroupForm({ ...newGroupForm, is_private: checked })}
+                        />
+                      </div>
+                      
+                      {!newGroupForm.is_private && (
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="auto_approve">Auto-approve Join Requests</Label>
+                          <Switch
+                            id="auto_approve"
+                            checked={newGroupForm.auto_approve_requests}
+                            onCheckedChange={(checked) => setNewGroupForm({ ...newGroupForm, auto_approve_requests: checked })}
+                          />
+                        </div>
+                      )}
+                      
+                      <div>
+                        <Label htmlFor="max_members">Maximum Members</Label>
+                        <Input
+                          id="max_members"
+                          type="number"
+                          min="1"
+                          max="500"
+                          value={newGroupForm.max_members}
+                          onChange={(e) => setNewGroupForm({ ...newGroupForm, max_members: parseInt(e.target.value) })}
+                        />
+                      </div>
+                    </div>
+                    
                     <div className="flex gap-4">
                       <Button
                         onClick={handleCreateGroup}
-                        disabled={createGroupMutation.isPending || !newGroupName.trim() || !selectedProductId}
+                        disabled={createGroupMutation.isPending || !newGroupForm.name.trim() || !newGroupForm.product_id}
                         className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 flex-1"
                       >
                         {createGroupMutation.isPending ? 'Creating...' : 'Create Group'}
@@ -350,19 +414,6 @@ const Groups = () => {
               </Dialog>
             </div>
 
-            {/* Debug info */}
-            <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-              <p className="text-sm text-blue-600">
-                Debug: Found {groups.length} total groups, {filteredGroups.length} after filtering
-              </p>
-              {error && (
-                <p className="text-sm text-red-600">Error: {error.message}</p>
-              )}
-              <p className="text-sm text-blue-600">
-                User ID: {user?.id || 'Not logged in'}
-              </p>
-            </div>
-
             {/* Groups Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredGroups.map((group) => (
@@ -375,7 +426,11 @@ const Groups = () => {
                       onClick={() => handleGroupClick(group.id)}
                     />
                     <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full p-2">
-                      <Lock className="w-4 h-4 text-pink-500" />
+                      {group.is_private ? (
+                        <Lock className="w-4 h-4 text-pink-500" />
+                      ) : (
+                        <Globe className="w-4 h-4 text-green-500" />
+                      )}
                     </div>
                     {group.isJoined && (
                       <div className="absolute top-4 left-4 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
@@ -396,7 +451,7 @@ const Groups = () => {
                       </div>
                       <Button 
                         size="sm" 
-                        onClick={() => handleJoinGroup(group.id, group.isJoined, group.name)}
+                        onClick={() => handleJoinGroup(group.id, group.isJoined, group)}
                         disabled={toggleGroupMembershipMutation.isPending}
                         variant={group.isJoined ? "outline" : "default"}
                         className={group.isJoined 
@@ -404,7 +459,7 @@ const Groups = () => {
                           : "social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
                         }
                       >
-                        {group.isJoined ? "Leave" : "Join Group"}
+                        {group.isJoined ? "Leave" : (group.is_private || !group.auto_approve_requests) ? "Request to Join" : "Join Group"}
                       </Button>
                     </div>
                     

@@ -84,6 +84,39 @@ export type Database = {
           },
         ]
       }
+      group_join_requests: {
+        Row: {
+          group_id: string
+          id: string
+          message: string | null
+          requested_at: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          group_id: string
+          id?: string
+          message?: string | null
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          group_id?: string
+          id?: string
+          message?: string | null
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       group_members: {
         Row: {
           group_id: string
@@ -136,31 +169,37 @@ export type Database = {
       }
       groups: {
         Row: {
+          auto_approve_requests: boolean | null
           created_at: string | null
           creator_id: string
           description: string | null
           id: string
           is_private: boolean | null
+          max_members: number | null
           member_limit: number | null
           name: string
           product_id: string
         }
         Insert: {
+          auto_approve_requests?: boolean | null
           created_at?: string | null
           creator_id: string
           description?: string | null
           id?: string
           is_private?: boolean | null
+          max_members?: number | null
           member_limit?: number | null
           name: string
           product_id: string
         }
         Update: {
+          auto_approve_requests?: boolean | null
           created_at?: string | null
           creator_id?: string
           description?: string | null
           id?: string
           is_private?: boolean | null
+          max_members?: number | null
           member_limit?: number | null
           name?: string
           product_id?: string

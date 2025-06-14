@@ -9,10 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Share2, Users, Package, ArrowLeft, Edit, Camera } from "lucide-react";
+import { Heart, MessageCircle, Share2, Users, Package, ArrowLeft, Edit, Camera, Settings, Trash2, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import EditGroupDialog from "@/components/EditGroupDialog";
+import JoinRequestsDialog from "@/components/JoinRequestsDialog";
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -20,6 +22,8 @@ const Profile = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [editingProfile, setEditingProfile] = useState(false);
+  const [selectedGroupForEdit, setSelectedGroupForEdit] = useState(null);
+  const [selectedGroupForRequests, setSelectedGroupForRequests] = useState(null);
   const [profileForm, setProfileForm] = useState({
     full_name: profile?.full_name || '',
     avatar_url: profile?.avatar_url || '',
@@ -86,17 +90,26 @@ const Profile = () => {
         .select('group_id, user_id')
         .in('group_id', groupIds);
       
-      console.log('Profile: Related data for user groups:', { products, allMembers });
+      // Get pending join requests count
+      const { data: joinRequests } = await supabase
+        .from('group_join_requests')
+        .select('group_id')
+        .in('group_id', groupIds)
+        .eq('status', 'pending');
+      
+      console.log('Profile: Related data for user groups:', { products, allMembers, joinRequests });
       
       // Combine all data
       const processedGroups = basicGroups.map(group => {
         const product = products?.find(p => p.id === group.product_id);
         const groupMembers = allMembers?.filter(m => m.group_id === group.id) || [];
+        const pendingRequests = joinRequests?.filter(r => r.group_id === group.id) || [];
         
         return {
           ...group,
           product: product,
-          group_members: groupMembers
+          group_members: groupMembers,
+          pending_requests_count: pendingRequests.length
         };
       });
       
@@ -133,6 +146,46 @@ const Profile = () => {
     enabled: !!user,
   });
 
+  // Delete group mutation
+  const deleteGroupMutation = useMutation({
+    mutationFn: async (groupId: string) => {
+      // First delete all group members
+      await supabase
+        .from('group_members')
+        .delete()
+        .eq('group_id', groupId);
+      
+      // Delete all join requests
+      await supabase
+        .from('group_join_requests')
+        .delete()
+        .eq('group_id', groupId);
+      
+      // Finally delete the group
+      const { error } = await supabase
+        .from('groups')
+        .delete()
+        .eq('id', groupId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user-groups'] });
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
+      toast({
+        title: "Group Deleted",
+        description: "Your group has been deleted successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: async () => {
@@ -148,6 +201,12 @@ const Profile = () => {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
+
+  const handleDeleteGroup = (groupId: string, groupName: string) => {
+    if (window.confirm(`Are you sure you want to delete "${groupName}"? This action cannot be undone.`)) {
+      deleteGroupMutation.mutate(groupId);
+    }
+  };
 
   // Get post metrics
   const getTopPosts = () => {
@@ -322,42 +381,74 @@ const Profile = () => {
                   <CardTitle>Groups I Created ({userGroups.length})</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {/* Debug info */}
-                  <div className="mb-4 p-4 bg-blue-50 rounded-lg">
-                    <p className="text-sm text-blue-600">
-                      Debug: Found {userGroups.length} groups created by user {user?.id}
-                    </p>
-                    {groupsError && (
-                      <p className="text-sm text-red-600">Error: {groupsError.message}</p>
-                    )}
-                  </div>
-                  
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {userGroups.map((group) => (
-                      <div key={group.id} className="border rounded-lg p-4">
-                        <div className="flex items-center gap-3 mb-3">
+                      <div key={group.id} className="border rounded-lg p-4 space-y-3">
+                        <div className="flex items-center gap-3">
                           <img 
                             src={group.product?.image_url || "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=80&h=80&fit=crop"}
                             alt={group.product?.name}
                             className="w-12 h-12 rounded object-cover"
                           />
-                          <div>
+                          <div className="flex-1">
                             <h4 className="font-medium">{group.name}</h4>
                             <p className="text-sm text-gray-600">{group.product?.name}</p>
                           </div>
                         </div>
-                        <p className="text-sm text-gray-600 mb-2 line-clamp-2">{group.description}</p>
+                        
+                        <p className="text-sm text-gray-600 line-clamp-2">{group.description}</p>
+                        
                         <div className="flex items-center justify-between text-sm">
                           <span className="flex items-center gap-1">
                             <Users className="w-4 h-4" />
                             {group.group_members?.length || 0} members
                           </span>
+                          <span className="text-xs text-gray-500">
+                            {group.is_private ? 'Private' : 'Public'}
+                          </span>
+                        </div>
+                        
+                        {group.pending_requests_count > 0 && (
+                          <div className="bg-orange-50 border border-orange-200 rounded p-2">
+                            <p className="text-sm text-orange-600">
+                              {group.pending_requests_count} pending request{group.pending_requests_count > 1 ? 's' : ''}
+                            </p>
+                          </div>
+                        )}
+                        
+                        <div className="flex gap-2">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() => navigate(`/groups/${group.id}`)}
+                            className="flex-1"
                           >
                             View
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setSelectedGroupForEdit(group)}
+                          >
+                            <Settings className="w-4 h-4" />
+                          </Button>
+                          {group.pending_requests_count > 0 && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSelectedGroupForRequests(group.id)}
+                              className="text-orange-600 border-orange-200"
+                            >
+                              <UserPlus className="w-4 h-4" />
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => handleDeleteGroup(group.id, group.name)}
+                            disabled={deleteGroupMutation.isPending}
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
@@ -480,6 +571,25 @@ const Profile = () => {
           </Tabs>
         </div>
       </div>
+      
+      {/* Edit Group Dialog */}
+      {selectedGroupForEdit && (
+        <EditGroupDialog
+          group={selectedGroupForEdit}
+          open={!!selectedGroupForEdit}
+          onOpenChange={(open) => !open && setSelectedGroupForEdit(null)}
+        />
+      )}
+      
+      {/* Join Requests Dialog */}
+      {selectedGroupForRequests && (
+        <JoinRequestsDialog
+          groupId={selectedGroupForRequests}
+          open={!!selectedGroupForRequests}
+          onOpenChange={(open) => !open && setSelectedGroupForRequests(null)}
+        />
+      )}
+      
       <Footer />
     </div>
   );
