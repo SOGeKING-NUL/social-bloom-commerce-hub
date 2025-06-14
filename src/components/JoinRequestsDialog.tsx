@@ -23,15 +23,30 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
   const { data: requests = { joinRequests: [], invites: [] }, isLoading } = useQuery({
     queryKey: ['join-requests', groupId],
     queryFn: async () => {
-      // Get join requests
-      const { data: joinRequests, error: requestError } = await supabase
+      console.log('JoinRequestsDialog: Fetching requests for group:', groupId);
+      
+      // Get join requests with user profiles
+      const { data: joinRequestsData, error: requestError } = await supabase
         .from('group_join_requests')
-        .select('*')
+        .select(`
+          *,
+          profiles!group_join_requests_user_id_fkey (
+            id,
+            full_name,
+            email,
+            avatar_url
+          )
+        `)
         .eq('group_id', groupId)
         .eq('status', 'pending')
         .order('requested_at', { ascending: false });
       
-      if (requestError) throw requestError;
+      console.log('JoinRequestsDialog: Join requests result:', { joinRequestsData, requestError });
+      
+      if (requestError) {
+        console.error('JoinRequestsDialog: Error fetching join requests:', requestError);
+        throw requestError;
+      }
 
       // Get pending invites
       const { data: invites, error: inviteError } = await supabase
@@ -42,25 +57,17 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
         .gt('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false });
       
-      if (inviteError) throw inviteError;
+      console.log('JoinRequestsDialog: Invites result:', { invites, inviteError });
       
-      if (!joinRequests && !invites) return { joinRequests: [], invites: [] };
-      
-      // Get user profiles for join requests
-      const userIds = (joinRequests || []).map(r => r.user_id);
-      let profiles = [];
-      if (userIds.length > 0) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('id, full_name, email, avatar_url')
-          .in('id', userIds);
-        profiles = profileData || [];
+      if (inviteError) {
+        console.error('JoinRequestsDialog: Error fetching invites:', inviteError);
+        throw inviteError;
       }
       
-      const requestsWithProfiles = (joinRequests || []).map(request => ({
+      const joinRequests = (joinRequestsData || []).map(request => ({
         ...request,
         type: 'request',
-        user_profile: profiles.find(p => p.id === request.user_id)
+        user_profile: request.profiles
       }));
 
       const invitesWithType = (invites || []).map(invite => ({
@@ -68,8 +75,10 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
         type: 'invite'
       }));
       
+      console.log('JoinRequestsDialog: Final result:', { joinRequests, invites: invitesWithType });
+      
       return { 
-        joinRequests: requestsWithProfiles, 
+        joinRequests, 
         invites: invitesWithType 
       };
     },
@@ -78,6 +87,8 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
 
   const handleRequestMutation = useMutation({
     mutationFn: async ({ requestId, status, userId }: { requestId: string; status: 'approved' | 'rejected'; userId: string }) => {
+      console.log('JoinRequestsDialog: Processing request:', { requestId, status, userId });
+      
       // Update the join request status
       const { error: requestError } = await supabase
         .from('group_join_requests')
@@ -88,7 +99,10 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
         })
         .eq('id', requestId);
       
-      if (requestError) throw requestError;
+      if (requestError) {
+        console.error('JoinRequestsDialog: Error updating request:', requestError);
+        throw requestError;
+      }
       
       // If approved, add user to group
       if (status === 'approved') {
@@ -99,18 +113,23 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
             user_id: userId
           });
         
-        if (memberError) throw memberError;
+        if (memberError) {
+          console.error('JoinRequestsDialog: Error adding member:', memberError);
+          throw memberError;
+        }
       }
     },
     onSuccess: (_, { status }) => {
       queryClient.invalidateQueries({ queryKey: ['join-requests', groupId] });
       queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+      queryClient.invalidateQueries({ queryKey: ['groups'] });
       toast({
         title: status === 'approved' ? "Request Approved" : "Request Rejected",
         description: `Join request has been ${status}.`,
       });
     },
     onError: (error: any) => {
+      console.error('JoinRequestsDialog: Error processing request:', error);
       toast({
         title: "Error",
         description: error.message,
@@ -157,6 +176,8 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
   };
 
   const allRequests = [...(requests.joinRequests || []), ...(requests.invites || [])];
+
+  console.log('JoinRequestsDialog: Rendering with requests:', allRequests);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

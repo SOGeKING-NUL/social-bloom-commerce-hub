@@ -228,12 +228,15 @@ const Groups = () => {
           throw new Error('This group is invite-only. Please ask for an invitation.');
         }
         
-        // Always clean up any existing requests first to prevent duplicates
-        await supabase
+        // CRITICAL: Always clean up any existing requests first to prevent duplicates
+        console.log('Cleaning up existing requests before creating new one');
+        const { error: cleanupError } = await supabase
           .from('group_join_requests')
           .delete()
           .eq('group_id', groupId)
           .eq('user_id', user.id);
+        
+        console.log('Cleanup result:', cleanupError);
         
         // Check if group is private and requires approval
         if (group.is_private && !group.auto_approve_requests) {
@@ -244,7 +247,8 @@ const Groups = () => {
             .from('group_join_requests')
             .insert({
               group_id: groupId,
-              user_id: user.id
+              user_id: user.id,
+              status: 'pending'
             });
           
           if (error) {
@@ -275,6 +279,7 @@ const Groups = () => {
     },
     onSuccess: (result, { isJoined, group }) => {
       queryClient.invalidateQueries({ queryKey: ['groups'] });
+      queryClient.invalidateQueries({ queryKey: ['join-requests', group.id] });
       
       if (result?.isRequest) {
         toast({
