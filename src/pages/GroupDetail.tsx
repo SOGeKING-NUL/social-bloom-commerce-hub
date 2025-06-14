@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -16,62 +17,123 @@ const GroupDetail = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch group details
-  const { data: group, isLoading } = useQuery({
+  console.log('GroupDetail: Component loading with groupId:', groupId, 'user:', user?.id);
+
+  // Fetch group details with simplified approach
+  const { data: group, isLoading, error } = useQuery({
     queryKey: ['group', groupId],
     queryFn: async () => {
       console.log('GroupDetail: Fetching group details for:', groupId);
       
-      const { data, error } = await supabase
+      if (!groupId) {
+        throw new Error('Group ID is required');
+      }
+      
+      // Get basic group data
+      const { data: groupData, error: groupError } = await supabase
         .from('groups')
-        .select(`
-          id,
-          name,
-          description,
-          created_at,
-          creator_id,
-          product_id,
-          creator_profile:profiles!creator_id (
-            full_name,
-            email
-          ),
-          product:products!product_id (
-            id,
-            name,
-            description,
-            price,
-            image_url,
-            vendor_id,
-            vendor_profile:profiles!vendor_id (
-              full_name,
-              email
-            )
-          ),
-          group_members (
-            user_id,
-            joined_at,
-            user_profile:profiles!user_id (
-              full_name,
-              email,
-              avatar_url
-            )
-          )
-        `)
+        .select('*')
         .eq('id', groupId)
         .single();
       
-      console.log('GroupDetail query result:', { data, error });
+      console.log('GroupDetail: Basic group query result:', { groupData, groupError });
       
-      if (error) {
-        console.error('GroupDetail query error:', error);
-        throw error;
+      if (groupError) {
+        console.error('GroupDetail: Group query error:', groupError);
+        throw groupError;
       }
       
-      return {
-        ...data,
-        isJoined: data.group_members?.some(member => member.user_id === user?.id) || false,
-        members: data.group_members || []
+      if (!groupData) {
+        throw new Error('Group not found');
+      }
+      
+      // Get creator profile
+      let creatorProfile = null;
+      if (groupData.creator_id) {
+        const { data: creator, error: creatorError } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', groupData.creator_id)
+          .single();
+        
+        console.log('GroupDetail: Creator query result:', { creator, creatorError });
+        creatorProfile = creator;
+      }
+      
+      // Get product details
+      let product = null;
+      let vendorProfile = null;
+      if (groupData.product_id) {
+        const { data: productData, error: productError } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', groupData.product_id)
+          .single();
+        
+        console.log('GroupDetail: Product query result:', { productData, productError });
+        product = productData;
+        
+        // Get vendor profile if product exists
+        if (productData && productData.vendor_id) {
+          const { data: vendor, error: vendorError } = await supabase
+            .from('profiles')
+            .select('full_name, email')
+            .eq('id', productData.vendor_id)
+            .single();
+          
+          console.log('GroupDetail: Vendor query result:', { vendor, vendorError });
+          vendorProfile = vendor;
+        }
+      }
+      
+      // Get group members
+      const { data: membersData, error: membersError } = await supabase
+        .from('group_members')
+        .select('user_id, joined_at')
+        .eq('group_id', groupId);
+      
+      console.log('GroupDetail: Members query result:', { membersData, membersError });
+      
+      const members = membersData || [];
+      
+      // Get member profiles
+      let memberProfiles = [];
+      if (members.length > 0) {
+        const memberIds = members.map(m => m.user_id);
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email, avatar_url')
+          .in('id', memberIds);
+        
+        console.log('GroupDetail: Member profiles query result:', { profiles, profilesError });
+        
+        // Combine member data with profiles
+        memberProfiles = members.map(member => {
+          const profile = profiles?.find(p => p.id === member.user_id);
+          return {
+            user_id: member.user_id,
+            joined_at: member.joined_at,
+            user_profile: profile
+          };
+        });
+      }
+      
+      const isJoined = members.some(member => member.user_id === user?.id);
+      
+      const result = {
+        ...groupData,
+        creator_profile: creatorProfile,
+        product: product ? {
+          ...product,
+          vendor_profile: vendorProfile
+        } : null,
+        group_members: memberProfiles,
+        isJoined,
+        members: memberProfiles
       };
+      
+      console.log('GroupDetail: Final result:', result);
+      return result;
     },
     enabled: !!user && !!groupId
   });
@@ -183,13 +245,57 @@ const GroupDetail = () => {
     );
   }
 
+  if (error) {
+    console.error('GroupDetail: Error state:', error);
+    return (
+      <Layout>
+        <div className="min-h-screen bg-gradient-to-b from-white to-pink-50">
+          <div className="container mx-auto px-4 py-8">
+            <div className="max-w-4xl mx-auto text-center">
+              <Button
+                variant="ghost"
+                onClick={() => navigate('/groups')}
+                className="mb-6 text-pink-600 hover:bg-pink-50"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Groups
+              </Button>
+              
+              <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
+                <h1 className="text-2xl font-bold mb-2 text-red-800">Error Loading Group</h1>
+                <p className="text-red-600 mb-4">{error.message}</p>
+                <p className="text-sm text-gray-600">Group ID: {groupId}</p>
+              </div>
+              
+              <Button onClick={() => navigate('/groups')}>
+                Back to Groups
+              </Button>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
   if (!group) {
     return (
       <Layout>
         <div className="min-h-screen bg-gradient-to-b from-white to-pink-50">
           <div className="container mx-auto px-4 py-8">
             <div className="max-w-4xl mx-auto text-center">
+              <Button
+                variant="ghost"
+                onClick={() => navigate('/groups')}
+                className="mb-6 text-pink-600 hover:bg-pink-50"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Groups
+              </Button>
+              
               <h1 className="text-2xl font-bold mb-4">Group not found</h1>
+              <p className="text-gray-600 mb-4">The group you're looking for doesn't exist or has been removed.</p>
+              <p className="text-sm text-gray-500 mb-6">Group ID: {groupId}</p>
+              
               <Button onClick={() => navigate('/groups')}>
                 Back to Groups
               </Button>
@@ -279,7 +385,7 @@ const GroupDetail = () => {
                     <p className="text-gray-600 mb-4">{group.product.description}</p>
                     <p className="text-2xl font-bold text-pink-600 mb-4">${group.product.price}</p>
                     <p className="text-sm text-gray-500 mb-4">
-                      By {group.product.vendor_profile?.full_name || group.product.vendor_profile?.email}
+                      By {group.product.vendor_profile?.full_name || group.product.vendor_profile?.email || 'Unknown Vendor'}
                     </p>
                     
                     {group.isJoined && (

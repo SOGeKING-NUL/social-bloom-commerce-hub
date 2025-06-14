@@ -3,73 +3,98 @@ import { Button } from "@/components/ui/button";
 import { Users, Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 const GroupsPreview = () => {
-  // Fetch groups from database with explicit foreign key names
+  const navigate = useNavigate();
+
+  // Fetch groups from database with simpler approach
   const { data: groups = [], isLoading, error } = useQuery({
     queryKey: ['groups-preview'],
     queryFn: async () => {
       console.log('GroupsPreview: Starting fetch...');
       
-      // First, let's try a simpler query to see if we can get basic group data
-      const { data: basicGroups, error: basicError } = await supabase
+      // First, let's get ALL groups to see if there are any
+      const { data: allGroups, error: groupsError } = await supabase
         .from('groups')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(3);
+        .select('*');
       
-      console.log('GroupsPreview: Basic groups query result:', { basicGroups, basicError });
+      console.log('GroupsPreview: All groups in database:', { allGroups, groupsError });
       
-      if (basicError) {
-        console.error('GroupsPreview: Basic query failed:', basicError);
-        throw basicError;
+      if (groupsError) {
+        console.error('GroupsPreview: Error fetching groups:', groupsError);
+        throw groupsError;
       }
 
-      if (!basicGroups || basicGroups.length === 0) {
+      if (!allGroups || allGroups.length === 0) {
         console.log('GroupsPreview: No groups found in database');
         return [];
       }
 
-      // Now try to get related data separately
-      const groupIds = basicGroups.map(g => g.id);
+      // Get the first 3 groups for preview
+      const previewGroups = allGroups.slice(0, 3);
       
-      // Get creator profiles
-      const creatorIds = [...new Set(basicGroups.map(g => g.creator_id))];
-      const { data: creators, error: creatorsError } = await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .in('id', creatorIds);
+      // Get all unique creator IDs and product IDs
+      const creatorIds = [...new Set(previewGroups.map(g => g.creator_id))];
+      const productIds = [...new Set(previewGroups.map(g => g.product_id).filter(Boolean))];
       
-      console.log('GroupsPreview: Creators query result:', { creators, creatorsError });
+      console.log('GroupsPreview: Processing groups:', { previewGroups, creatorIds, productIds });
+      
+      // Get creators
+      let creators = [];
+      if (creatorIds.length > 0) {
+        const { data: creatorsData, error: creatorsError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', creatorIds);
+        
+        console.log('GroupsPreview: Creators result:', { creatorsData, creatorsError });
+        creators = creatorsData || [];
+      }
       
       // Get products
-      const productIds = [...new Set(basicGroups.map(g => g.product_id).filter(Boolean))];
-      const { data: products, error: productsError } = await supabase
-        .from('products')
-        .select('id, name, image_url')
-        .in('id', productIds);
-      
-      console.log('GroupsPreview: Products query result:', { products, productsError });
+      let products = [];
+      if (productIds.length > 0) {
+        const { data: productsData, error: productsError } = await supabase
+          .from('products')
+          .select('id, name, image_url')
+          .in('id', productIds);
+        
+        console.log('GroupsPreview: Products result:', { productsData, productsError });
+        products = productsData || [];
+      }
       
       // Get group members count
-      const { data: members, error: membersError } = await supabase
-        .from('group_members')
-        .select('group_id, user_id')
-        .in('group_id', groupIds);
-      
-      console.log('GroupsPreview: Members query result:', { members, membersError });
+      const groupIds = previewGroups.map(g => g.id);
+      let memberCounts = {};
+      if (groupIds.length > 0) {
+        const { data: membersData, error: membersError } = await supabase
+          .from('group_members')
+          .select('group_id')
+          .in('group_id', groupIds);
+        
+        console.log('GroupsPreview: Members result:', { membersData, membersError });
+        
+        // Count members per group
+        if (membersData) {
+          memberCounts = membersData.reduce((acc, member) => {
+            acc[member.group_id] = (acc[member.group_id] || 0) + 1;
+            return acc;
+          }, {});
+        }
+      }
       
       // Combine all data
-      const processedGroups = basicGroups.map(group => {
-        const creator = creators?.find(c => c.id === group.creator_id);
-        const product = products?.find(p => p.id === group.product_id);
-        const groupMembers = members?.filter(m => m.group_id === group.id) || [];
+      const processedGroups = previewGroups.map(group => {
+        const creator = creators.find(c => c.id === group.creator_id);
+        const product = products.find(p => p.id === group.product_id);
+        const memberCount = memberCounts[group.id] || 0;
         
         return {
           id: group.id,
           name: group.name,
           description: group.description,
-          members: groupMembers.length,
+          members: memberCount,
           image: product?.image_url || `https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop`,
           productName: product?.name || 'Unknown Product',
           creatorName: creator?.full_name || creator?.email?.split('@')[0] || 'Unknown Creator'
@@ -80,6 +105,11 @@ const GroupsPreview = () => {
       return processedGroups;
     },
   });
+
+  const handleGroupClick = (groupId) => {
+    console.log('GroupsPreview: Navigating to group:', groupId);
+    navigate(`/groups/${groupId}`);
+  };
 
   console.log('GroupsPreview: Component render state:', { 
     groupsCount: groups.length, 
@@ -152,7 +182,10 @@ const GroupsPreview = () => {
               <Users className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-600 mb-2">No groups yet</h3>
               <p className="text-gray-500">Be the first to create a group and start building community!</p>
-              <Button className="mt-4 social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500">
+              <Button 
+                onClick={() => navigate('/groups')}
+                className="mt-4 social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
+              >
                 Create First Group
               </Button>
             </div>
@@ -173,7 +206,11 @@ const GroupsPreview = () => {
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {groups.map((group) => (
-              <div key={group.id} className="smooth-card overflow-hidden floating-card animate-fade-in">
+              <div 
+                key={group.id} 
+                className="smooth-card overflow-hidden floating-card animate-fade-in cursor-pointer hover:shadow-lg transition-shadow"
+                onClick={() => handleGroupClick(group.id)}
+              >
                 <div className="relative">
                   <img 
                     src={group.image} 
@@ -200,7 +237,13 @@ const GroupsPreview = () => {
                     <span className="text-sm text-gray-500">by {group.creatorName}</span>
                   </div>
                   
-                  <Button className="w-full social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500">
+                  <Button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleGroupClick(group.id);
+                    }}
+                    className="w-full social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
+                  >
                     Join Group
                   </Button>
                 </div>
@@ -209,7 +252,10 @@ const GroupsPreview = () => {
           </div>
           
           <div className="text-center mt-12">
-            <Button className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500">
+            <Button 
+              onClick={() => navigate('/groups')}
+              className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
+            >
               View All Groups
             </Button>
           </div>
