@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,7 @@ const SocialFeed = () => {
       
       return (data || []).map(post => ({
         id: post.id,
+        user_id: post.user_id, // Keep the original user_id for navigation
         content: post.content,
         image: post.image_url,
         likes: post.likes_count || 0,

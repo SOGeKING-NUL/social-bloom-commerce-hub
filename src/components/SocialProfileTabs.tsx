@@ -28,7 +28,7 @@ const SocialProfileTabs = ({ profileUserId, isOwnProfile }: SocialProfileTabsPro
     },
   });
 
-  // Fetch user's groups (only if own profile)
+  // Fetch user's groups (only if own profile) - fix the ambiguous relationship
   const { data: userGroups = [] } = useQuery({
     queryKey: ['user-groups', profileUserId],
     queryFn: async () => {
@@ -38,7 +38,7 @@ const SocialProfileTabs = ({ profileUserId, isOwnProfile }: SocialProfileTabsPro
         .from('groups')
         .select(`
           *,
-          products (
+          product:product_id (
             name,
             image_url
           )
@@ -144,13 +144,13 @@ const SocialProfileTabs = ({ profileUserId, isOwnProfile }: SocialProfileTabsPro
                   <CardContent className="p-4">
                     <div className="flex items-center gap-3 mb-3">
                       <img 
-                        src={group.products?.image_url || "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=40&h=40&fit=crop"}
-                        alt={group.products?.name}
+                        src={group.product?.image_url || "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=40&h=40&fit=crop"}
+                        alt={group.product?.name || "Product"}
                         className="w-10 h-10 rounded object-cover"
                       />
                       <div className="flex-1">
                         <h4 className="font-medium text-sm">{group.name}</h4>
-                        <p className="text-xs text-gray-600 dark:text-gray-400">{group.products?.name}</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">{group.product?.name || "Product"}</p>
                       </div>
                     </div>
                     
