@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -7,11 +6,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 
 const SocialFeed = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   // Fetch posts from database with user avatar
   const { data: posts = [], isLoading } = useQuery({
@@ -134,14 +135,18 @@ const SocialFeed = () => {
     }
   };
 
+  const handleUserClick = (userId: string) => {
+    navigate(`/users/${userId}`);
+  };
+
   if (isLoading) {
     return (
-      <section className="py-20 bg-gradient-to-b from-white to-pink-50">
+      <section className="py-20 bg-gradient-to-b from-white to-pink-50 dark:from-gray-900 dark:to-gray-800">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold mb-4">Community Feed</h2>
-              <p className="text-xl text-gray-600">See what our community is sharing</p>
+              <h2 className="text-3xl font-bold mb-4 dark:text-white">Community Feed</h2>
+              <p className="text-xl text-gray-600 dark:text-gray-300">See what our community is sharing</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -161,12 +166,12 @@ const SocialFeed = () => {
   // If no posts, show fallback message
   if (posts.length === 0) {
     return (
-      <section className="py-20 bg-gradient-to-b from-white to-pink-50">
+      <section className="py-20 bg-gradient-to-b from-white to-pink-50 dark:from-gray-900 dark:to-gray-800">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold mb-4">Community Feed</h2>
-              <p className="text-xl text-gray-600">See what our community is sharing</p>
+              <h2 className="text-3xl font-bold mb-4 dark:text-white">Community Feed</h2>
+              <p className="text-xl text-gray-600 dark:text-gray-300">See what our community is sharing</p>
             </div>
             
             <div className="text-center py-12">
@@ -184,33 +189,47 @@ const SocialFeed = () => {
   }
 
   return (
-    <section className="py-20 bg-gradient-to-b from-white to-pink-50">
+    <section className="py-20 bg-gradient-to-b from-white to-pink-50 dark:from-gray-900 dark:to-gray-800">
       <div className="container mx-auto px-4">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold mb-4">Community Feed</h2>
-            <p className="text-xl text-gray-600">See what our community is sharing</p>
+            <h2 className="text-3xl font-bold mb-4 dark:text-white">Community Feed</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300">See what our community is sharing</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {posts.map((post) => (
               <div 
                 key={post.id} 
-                className="smooth-card p-6 floating-card animate-fade-in cursor-pointer"
+                className="smooth-card p-6 floating-card animate-fade-in cursor-pointer dark:bg-gray-800 dark:border-gray-700"
                 onClick={() => trackView(post.id)}
               >
                 <div className="flex items-center mb-4">
-                  <Avatar className="w-10 h-10 mr-3">
+                  <Avatar 
+                    className="w-10 h-10 mr-3 cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleUserClick(post.user_id);
+                    }}
+                  >
                     <AvatarImage src={post.user.avatar} alt={post.user.name} />
                     <AvatarFallback>{post.user.name.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <div>
-                    <h4 className="font-medium text-sm">{post.user.name}</h4>
-                    <p className="text-xs text-gray-500">{post.user.username}</p>
+                    <h4 
+                      className="font-medium text-sm cursor-pointer hover:text-pink-500 transition-colors dark:text-white dark:hover:text-pink-400"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUserClick(post.user_id);
+                      }}
+                    >
+                      {post.user.name}
+                    </h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{post.user.username}</p>
                   </div>
                 </div>
                 
-                <p className="text-gray-700 mb-4 text-sm line-clamp-3">{post.content}</p>
+                <p className="text-gray-700 dark:text-gray-300 mb-4 text-sm line-clamp-3">{post.content}</p>
                 
                 {post.image && (
                   <div className="mb-4 rounded-lg overflow-hidden">
@@ -222,7 +241,7 @@ const SocialFeed = () => {
                   </div>
                 )}
                 
-                <div className="flex items-center justify-between text-sm text-gray-500">
+                <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -262,7 +281,7 @@ const SocialFeed = () => {
           <div className="text-center mt-12">
             <Button 
               onClick={() => window.location.href = '/feed'}
-              className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
+              className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 dark:from-pink-600 dark:to-rose-500"
             >
               View All Posts
             </Button>

@@ -84,6 +84,27 @@ export type Database = {
           },
         ]
       }
+      follows: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
       group_invites: {
         Row: {
           created_at: string
@@ -578,30 +599,48 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          bio: string | null
           created_at: string | null
           email: string
+          followers_count: number | null
+          following_count: number | null
           full_name: string | null
           id: string
+          location: string | null
+          posts_count: number | null
           role: Database["public"]["Enums"]["user_role"]
           updated_at: string | null
+          website: string | null
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string | null
           email: string
+          followers_count?: number | null
+          following_count?: number | null
           full_name?: string | null
           id: string
+          location?: string | null
+          posts_count?: number | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
+          website?: string | null
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string | null
           email?: string
+          followers_count?: number | null
+          following_count?: number | null
           full_name?: string | null
           id?: string
+          location?: string | null
+          posts_count?: number | null
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string | null
+          website?: string | null
         }
         Relationships: []
       }
