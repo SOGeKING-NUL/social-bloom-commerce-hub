@@ -27,19 +27,24 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
       
       console.log('Creating post with content:', content, 'and imageUrl:', imageUrl);
       
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('posts')
         .insert({
           user_id: user.id,
           content,
           image_url: imageUrl,
           post_type: 'text'
-        });
+        })
+        .select()
+        .single();
       
       if (error) {
         console.error('Error creating post:', error);
         throw error;
       }
+      
+      console.log('Post created successfully:', data);
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
@@ -96,9 +101,14 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
       const fileName = `${user?.id}_${Date.now()}.${fileExt}`;
       const filePath = `posts/${fileName}`;
 
+      console.log('Uploading to path:', filePath);
+
       const { data, error } = await supabase.storage
         .from('posts')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
       if (error) {
         console.error('Upload error:', error);
@@ -112,7 +122,7 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
         .from('posts')
         .getPublicUrl(filePath);
 
-      console.log('Public URL:', publicUrl);
+      console.log('Generated public URL:', publicUrl);
       return publicUrl;
     } catch (error) {
       console.error('Error uploading file:', error);
@@ -121,22 +131,32 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
   };
 
   const handlePost = async () => {
-    if (!content.trim() && selectedFiles.length === 0) return;
+    if (!content.trim() && selectedFiles.length === 0) {
+      toast({
+        title: "Empty post",
+        description: "Please add some content or select a file to post.",
+        variant: "destructive"
+      });
+      return;
+    }
 
     let imageUrl = undefined;
     if (selectedFiles.length > 0) {
+      console.log('Starting file upload process...');
       // Upload the first file to Supabase Storage
       imageUrl = await uploadFileToSupabase(selectedFiles[0]);
       if (!imageUrl) {
         toast({
-          title: "Error",
+          title: "Upload failed",
           description: "Failed to upload image. Please try again.",
           variant: "destructive"
         });
         return;
       }
+      console.log('File upload completed, URL:', imageUrl);
     }
 
+    console.log('Submitting post with image URL:', imageUrl);
     createPostMutation.mutate({ content, imageUrl });
   };
 
