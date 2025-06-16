@@ -25,6 +25,8 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
     mutationFn: async ({ content, imageUrl }: { content: string; imageUrl?: string }) => {
       if (!user) throw new Error('Not authenticated');
       
+      console.log('Creating post with content:', content, 'and imageUrl:', imageUrl);
+      
       const { error } = await supabase
         .from('posts')
         .insert({
@@ -34,7 +36,10 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
           post_type: 'text'
         });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating post:', error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
@@ -62,6 +67,8 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
 
+    console.log('Files selected:', files);
+
     // Limit to 10 files like Instagram
     const limitedFiles = files.slice(0, 10);
     setSelectedFiles(prev => [...prev, ...limitedFiles].slice(0, 10));
@@ -70,6 +77,7 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
     limitedFiles.forEach(file => {
       const url = URL.createObjectURL(file);
       setPreviewUrls(prev => [...prev, url]);
+      console.log('Created preview URL:', url);
     });
   };
 
@@ -79,18 +87,64 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
     setPreviewUrls(prev => prev.filter((_, i) => i !== index));
   };
 
+  const uploadFileToSupabase = async (file: File): Promise<string | null> => {
+    try {
+      console.log('Uploading file to Supabase:', file.name);
+      
+      // Create a unique file name
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user?.id}_${Date.now()}.${fileExt}`;
+      const filePath = `posts/${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from('posts')
+        .upload(filePath, file);
+
+      if (error) {
+        console.error('Upload error:', error);
+        throw error;
+      }
+
+      console.log('File uploaded successfully:', data);
+
+      // Get the public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('posts')
+        .getPublicUrl(filePath);
+
+      console.log('Public URL:', publicUrl);
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      return null;
+    }
+  };
+
   const handlePost = async () => {
     if (!content.trim() && selectedFiles.length === 0) return;
 
     let imageUrl = undefined;
     if (selectedFiles.length > 0) {
-      // For now, we'll just use the first file
-      // In a real implementation, you'd upload to Supabase Storage
-      imageUrl = previewUrls[0];
+      // Upload the first file to Supabase Storage
+      imageUrl = await uploadFileToSupabase(selectedFiles[0]);
+      if (!imageUrl) {
+        toast({
+          title: "Error",
+          description: "Failed to upload image. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
     }
 
     createPostMutation.mutate({ content, imageUrl });
   };
+
+  // Get user profile data
+  const userProfile = user ? {
+    name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'User',
+    avatar: user.user_metadata?.avatar_url || null
+  } : null;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -108,12 +162,18 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
 
       {/* User Info */}
       <div className="flex items-center p-4 pb-2">
-        <Avatar className="w-10 h-10 mr-3">
-          <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face" />
-          <AvatarFallback>You</AvatarFallback>
-        </Avatar>
+        {userProfile?.avatar ? (
+          <Avatar className="w-10 h-10 mr-3">
+            <AvatarImage src={userProfile.avatar} alt={userProfile.name} />
+            <AvatarFallback>{userProfile.name.charAt(0)}</AvatarFallback>
+          </Avatar>
+        ) : (
+          <div className="w-10 h-10 mr-3 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-medium">
+            {userProfile?.name.charAt(0) || 'U'}
+          </div>
+        )}
         <div>
-          <p className="font-medium text-gray-900 dark:text-white">You</p>
+          <p className="font-medium text-gray-900 dark:text-white">{userProfile?.name || 'User'}</p>
           <select className="text-sm text-gray-600 dark:text-gray-400 bg-transparent border-none outline-none">
             <option>🌍 Public</option>
             <option>👥 Friends</option>

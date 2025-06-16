@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +26,7 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [newComment, setNewComment] = useState("");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
@@ -62,8 +64,9 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
       return data.map(comment => ({
         ...comment,
         user: {
+          id: comment.user_id,
           name: comment.profiles?.full_name || comment.profiles?.email?.split('@')[0] || 'Unknown User',
-          avatar: comment.profiles?.avatar_url || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face`,
+          avatar: comment.profiles?.avatar_url || null,
         },
         liked: likes?.some(like => like.comment_id === comment.id && like.user_id === user?.id) || false,
         likes_count: likes?.filter(like => like.comment_id === comment.id).length || 0
@@ -141,6 +144,10 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
     likeCommentMutation.mutate({ commentId, isLiked });
   };
 
+  const handleUserClick = (userId: string) => {
+    navigate(`/users/${userId}`);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
@@ -169,14 +176,31 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
           ) : (
             comments.map((comment) => (
               <div key={comment.id} className="flex space-x-3 p-3 hover:bg-gray-50 rounded-lg">
-                <Avatar className="w-8 h-8">
-                  <AvatarImage src={comment.user.avatar} alt={comment.user.name} />
-                  <AvatarFallback>{comment.user.name.charAt(0)}</AvatarFallback>
-                </Avatar>
+                {comment.user.avatar ? (
+                  <Avatar 
+                    className="w-8 h-8 cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
+                    onClick={() => handleUserClick(comment.user.id)}
+                  >
+                    <AvatarImage src={comment.user.avatar} alt={comment.user.name} />
+                    <AvatarFallback>{comment.user.name.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <div 
+                    className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-medium cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
+                    onClick={() => handleUserClick(comment.user.id)}
+                  >
+                    {comment.user.name.charAt(0)}
+                  </div>
+                )}
                 
                 <div className="flex-1">
                   <div className="flex items-center space-x-2 mb-1">
-                    <span className="font-medium text-sm">{comment.user.name}</span>
+                    <span 
+                      className="font-medium text-sm cursor-pointer hover:text-pink-500 transition-colors"
+                      onClick={() => handleUserClick(comment.user.id)}
+                    >
+                      {comment.user.name}
+                    </span>
                     <span className="text-xs text-gray-500">
                       {new Date(comment.created_at).toLocaleDateString()}
                     </span>
