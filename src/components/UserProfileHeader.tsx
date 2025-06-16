@@ -66,8 +66,10 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
       }
     },
     onSuccess: () => {
+      // Invalidate multiple queries to ensure counts update properly
       queryClient.invalidateQueries({ queryKey: ['is-following', profileUserId] });
       queryClient.invalidateQueries({ queryKey: ['user-profile', profileUserId] });
+      queryClient.invalidateQueries({ queryKey: ['user-profile', user?.id] }); // Also update current user's profile
       toast({
         title: isFollowing ? "Unfollowed" : "Following",
         description: isFollowing 
@@ -76,6 +78,7 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
       });
     },
     onError: (error: any) => {
+      console.error('Follow mutation error:', error);
       toast({
         title: "Error",
         description: error.message,
@@ -94,12 +97,18 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
         <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
           {/* Avatar */}
           <div className="relative">
-            <Avatar className="w-32 h-32 border-4 border-white dark:border-gray-800 shadow-lg">
-              <AvatarImage src={profile?.avatar_url} />
-              <AvatarFallback className="text-3xl bg-gradient-to-br from-pink-400 to-purple-500 text-white">
+            {profile?.avatar_url ? (
+              <Avatar className="w-32 h-32 border-4 border-white dark:border-gray-800 shadow-lg">
+                <AvatarImage src={profile.avatar_url} />
+                <AvatarFallback className="text-3xl bg-gradient-to-br from-pink-400 to-purple-500 text-white">
+                  {profile?.full_name?.charAt(0) || profile?.email?.charAt(0) || 'U'}
+                </AvatarFallback>
+              </Avatar>
+            ) : (
+              <div className="w-32 h-32 border-4 border-white dark:border-gray-800 shadow-lg rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white text-4xl font-bold">
                 {profile?.full_name?.charAt(0) || profile?.email?.charAt(0) || 'U'}
-              </AvatarFallback>
-            </Avatar>
+              </div>
+            )}
           </div>
 
           {/* Profile Info */}

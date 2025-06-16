@@ -54,7 +54,7 @@ const SocialFeed = () => {
         user: {
           id: post.user_id,
           name: post.profiles?.full_name || post.profiles?.email?.split('@')[0] || 'Unknown User',
-          avatar: post.profiles?.avatar_url || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face`,
+          avatar: post.profiles?.avatar_url || null, // Don't use fallback here
           username: `@${post.profiles?.email?.split('@')[0] || 'user'}`
         }
       }));
@@ -209,16 +209,28 @@ const SocialFeed = () => {
                 onClick={() => trackView(post.id)}
               >
                 <div className="flex items-center mb-4">
-                  <Avatar 
-                    className="w-10 h-10 mr-3 cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleUserClick(post.user.id);
-                    }}
-                  >
-                    <AvatarImage src={post.user.avatar} alt={post.user.name} />
-                    <AvatarFallback>{post.user.name.charAt(0)}</AvatarFallback>
-                  </Avatar>
+                  {post.user.avatar ? (
+                    <Avatar 
+                      className="w-10 h-10 mr-3 cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUserClick(post.user.id);
+                      }}
+                    >
+                      <AvatarImage src={post.user.avatar} alt={post.user.name} />
+                      <AvatarFallback>{post.user.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <div 
+                      className="w-10 h-10 mr-3 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-medium cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUserClick(post.user.id);
+                      }}
+                    >
+                      {post.user.name.charAt(0)}
+                    </div>
+                  )}
                   <div>
                     <h4 
                       className="font-medium text-sm cursor-pointer hover:text-pink-500 transition-colors dark:text-white dark:hover:text-pink-400"
