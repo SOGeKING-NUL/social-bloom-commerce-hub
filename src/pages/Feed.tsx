@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -10,12 +11,14 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import CommentsDialog from "@/components/CommentsDialog";
+import InstagramStylePostCreator from "@/components/InstagramStylePostCreator";
+import { useNavigate } from "react-router-dom";
 
 const Feed = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const [newPost, setNewPost] = useState("");
+  const navigate = useNavigate();
   const [selectedPostForComments, setSelectedPostForComments] = useState<string | null>(null);
 
   // Fetch posts from database
@@ -42,6 +45,7 @@ const Feed = () => {
       return data.map(post => ({
         ...post,
         user: {
+          id: post.user_id,
           name: post.profiles?.full_name || post.profiles?.email?.split('@')[0] || 'Unknown User',
           avatar: post.profiles?.avatar_url || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face`,
           username: `@${post.profiles?.email?.split('@')[0] || 'user'}`
@@ -50,39 +54,6 @@ const Feed = () => {
       }));
     },
     enabled: !!user
-  });
-
-  // Create post mutation
-  const createPostMutation = useMutation({
-    mutationFn: async (content: string) => {
-      if (!user) throw new Error('Not authenticated');
-      
-      const { error } = await supabase
-        .from('posts')
-        .insert({
-          user_id: user.id,
-          content,
-          post_type: 'text'
-        });
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['posts'] });
-      setNewPost("");
-      toast({
-        title: "Posted!",
-        description: "Your post has been shared with the community.",
-      });
-    },
-    onError: (error) => {
-      console.error('Error creating post:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create post. Please try again.",
-        variant: "destructive"
-      });
-    }
   });
 
   // Like post mutation
@@ -122,20 +93,23 @@ const Feed = () => {
     }
   });
 
-  const handleCreatePost = () => {
-    if (newPost.trim()) {
-      createPostMutation.mutate(newPost);
-    }
-  };
-
   const handleLike = (postId: string, isLiked: boolean) => {
     likePostMutation.mutate({ postId, isLiked });
   };
 
-  const handleShare = (postId: string) => {
-    const postUrl = `${window.location.origin}/posts/${postId}`;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(postUrl).then(() => {
+  const handleShare = async (postId: string) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Check out this post',
+          text: 'Check out this amazing post!',
+          url: `${window.location.origin}/posts/${postId}`,
+        });
+      } catch (error) {
+        console.log('Share failed:', error);
+      }
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(`${window.location.origin}/posts/${postId}`).then(() => {
         toast({
           title: "Link copied!",
           description: "Post link copied to clipboard.",
@@ -147,6 +121,10 @@ const Feed = () => {
         description: "Advanced sharing options will be available soon.",
       });
     }
+  };
+
+  const handleUserClick = (userId: string) => {
+    navigate(`/users/${userId}`);
   };
 
   if (isLoading) {
@@ -172,58 +150,38 @@ const Feed = () => {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gradient-to-b from-white to-pink-50">
+      <div className="min-h-screen bg-gradient-to-b from-white to-pink-50 dark:from-gray-900 dark:to-gray-800">
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-2xl mx-auto">
-            {/* Create Post */}
-            <div className="smooth-card p-6 mb-8">
-              <div className="flex space-x-4">
-                <Avatar className="w-12 h-12">
-                  <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face" />
-                  <AvatarFallback>You</AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <textarea
-                    value={newPost}
-                    onChange={(e) => setNewPost(e.target.value)}
-                    placeholder="What's on your mind?"
-                    className="w-full p-3 border border-pink-200 rounded-2xl resize-none focus:outline-none focus:ring-2 focus:ring-pink-300"
-                    rows={3}
-                  />
-                  <div className="flex justify-between items-center mt-4">
-                    <Button variant="ghost" className="text-pink-600 hover:bg-pink-50">
-                      <Image className="w-5 h-5 mr-2" />
-                      Add Photo
-                    </Button>
-                    <Button 
-                      onClick={handleCreatePost}
-                      disabled={createPostMutation.isPending || !newPost.trim()}
-                      className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      {createPostMutation.isPending ? 'Posting...' : 'Post'}
-                    </Button>
-                  </div>
-                </div>
-              </div>
+            {/* Instagram-style Post Creator */}
+            <div className="mb-8">
+              <InstagramStylePostCreator />
             </div>
 
             {/* Posts Feed */}
             <div className="space-y-6">
               {posts.map((post) => (
-                <div key={post.id} className="smooth-card p-6 animate-fade-in">
+                <div key={post.id} className="smooth-card p-6 animate-fade-in dark:bg-gray-800 dark:border-gray-700">
                   <div className="flex items-center mb-4">
-                    <Avatar className="w-12 h-12 mr-4">
+                    <Avatar 
+                      className="w-12 h-12 mr-4 cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
+                      onClick={() => handleUserClick(post.user.id)}
+                    >
                       <AvatarImage src={post.user.avatar} alt={post.user.name} />
                       <AvatarFallback>{post.user.name.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div>
-                      <h3 className="font-semibold">{post.user.name}</h3>
-                      <p className="text-sm text-gray-500">{post.user.username}</p>
+                      <h3 
+                        className="font-semibold cursor-pointer hover:text-pink-500 transition-colors dark:text-white dark:hover:text-pink-400"
+                        onClick={() => handleUserClick(post.user.id)}
+                      >
+                        {post.user.name}
+                      </h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{post.user.username}</p>
                     </div>
                   </div>
                   
-                  <p className="mb-4 text-gray-700">{post.content}</p>
+                  <p className="mb-4 text-gray-700 dark:text-gray-300">{post.content}</p>
                   
                   {post.image_url && (
                     <div className="mb-4 rounded-2xl overflow-hidden">
@@ -235,7 +193,7 @@ const Feed = () => {
                     </div>
                   )}
                   
-                  <div className="border-t border-pink-100 pt-4">
+                  <div className="border-t border-pink-100 dark:border-gray-600 pt-4">
                     <div className="flex items-center justify-between">
                       <Button 
                         variant="ghost" 
@@ -243,8 +201,8 @@ const Feed = () => {
                         disabled={likePostMutation.isPending}
                         className={`flex items-center space-x-2 rounded-xl ${
                           post.liked 
-                            ? 'text-pink-500 hover:bg-pink-50' 
-                            : 'text-gray-600 hover:text-pink-500 hover:bg-pink-50'
+                            ? 'text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/20' 
+                            : 'text-gray-600 hover:text-pink-500 hover:bg-pink-50 dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20'
                         }`}
                       >
                         <Heart className={`w-5 h-5 ${post.liked ? 'fill-current' : ''}`} />
@@ -254,7 +212,7 @@ const Feed = () => {
                       <Button 
                         variant="ghost" 
                         onClick={() => setSelectedPostForComments(post.id)}
-                        className="flex items-center space-x-2 text-gray-600 hover:text-pink-500 hover:bg-pink-50 rounded-xl"
+                        className="flex items-center space-x-2 text-gray-600 hover:text-pink-500 hover:bg-pink-50 rounded-xl dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20"
                       >
                         <MessageCircle className="w-5 h-5" />
                         <span>{post.comments_count || 0}</span>
@@ -263,7 +221,7 @@ const Feed = () => {
                       <Button 
                         variant="ghost" 
                         onClick={() => handleShare(post.id)}
-                        className="flex items-center space-x-2 text-gray-600 hover:text-pink-500 hover:bg-pink-50 rounded-xl"
+                        className="flex items-center space-x-2 text-gray-600 hover:text-pink-500 hover:bg-pink-50 rounded-xl dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20"
                       >
                         <Share className="w-5 h-5" />
                         <span>{post.shares_count || 0}</span>
@@ -276,8 +234,8 @@ const Feed = () => {
               {posts.length === 0 && (
                 <div className="text-center py-12">
                   <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-600 mb-2">No posts yet</h3>
-                  <p className="text-gray-500">Be the first to share something with the community!</p>
+                  <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-2">No posts yet</h3>
+                  <p className="text-gray-500 dark:text-gray-400">Be the first to share something with the community!</p>
                 </div>
               )}
             </div>

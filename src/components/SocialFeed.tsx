@@ -42,7 +42,7 @@ const SocialFeed = () => {
       
       return (data || []).map(post => ({
         id: post.id,
-        user_id: post.user_id, // Keep the original user_id for navigation
+        user_id: post.user_id,
         content: post.content,
         image: post.image_url,
         likes: post.likes_count || 0,
@@ -67,7 +67,6 @@ const SocialFeed = () => {
       if (!user) throw new Error('Please login to like posts');
 
       if (isLiked) {
-        // Unlike
         const { error } = await supabase
           .from('post_likes')
           .delete()
@@ -76,7 +75,6 @@ const SocialFeed = () => {
         
         if (error) throw error;
       } else {
-        // Like
         const { error } = await supabase
           .from('post_likes')
           .insert({
@@ -96,7 +94,6 @@ const SocialFeed = () => {
     },
   });
 
-  // Track post view
   const trackView = async (postId: string) => {
     try {
       const { error } = await supabase
@@ -107,11 +104,9 @@ const SocialFeed = () => {
         });
       
       if (!error) {
-        // Refresh posts to update view count
         queryClient.invalidateQueries({ queryKey: ['social-feed-posts'] });
       }
     } catch (error) {
-      // Silently fail for views tracking
       console.log('View tracking failed:', error);
     }
   };
@@ -125,11 +120,19 @@ const SocialFeed = () => {
     likeMutation.mutate({ postId, isLiked });
   };
 
-  const handleShare = (postId: string) => {
-    // Simple share functionality - copy link to clipboard
-    const postUrl = `${window.location.origin}/posts/${postId}`;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(postUrl).then(() => {
+  const handleShare = async (postId: string) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Check out this post',
+          text: 'Check out this amazing post!',
+          url: `${window.location.origin}/posts/${postId}`,
+        });
+      } catch (error) {
+        console.log('Share failed:', error);
+      }
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(`${window.location.origin}/posts/${postId}`).then(() => {
         toast({ title: "Link copied to clipboard!" });
       });
     } else {
@@ -165,7 +168,6 @@ const SocialFeed = () => {
     );
   }
 
-  // If no posts, show fallback message
   if (posts.length === 0) {
     return (
       <section className="py-20 bg-gradient-to-b from-white to-pink-50 dark:from-gray-900 dark:to-gray-800">
@@ -211,7 +213,7 @@ const SocialFeed = () => {
                     className="w-10 h-10 mr-3 cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleUserClick(post.user_id);
+                      handleUserClick(post.user.id);
                     }}
                   >
                     <AvatarImage src={post.user.avatar} alt={post.user.name} />
@@ -222,7 +224,7 @@ const SocialFeed = () => {
                       className="font-medium text-sm cursor-pointer hover:text-pink-500 transition-colors dark:text-white dark:hover:text-pink-400"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleUserClick(post.user_id);
+                        handleUserClick(post.user.id);
                       }}
                     >
                       {post.user.name}
