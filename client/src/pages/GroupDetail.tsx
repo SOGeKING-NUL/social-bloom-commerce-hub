@@ -475,20 +475,7 @@ const GroupDetail = () => {
               Back to Groups
             </Button>
 
-            {/* Debug Info Panel */}
-            <div className="bg-gray-100 p-4 mb-6 rounded-lg text-xs font-mono">
-              <div className="font-bold mb-2">DEBUG INFO:</div>
-              <div>User ID: {user?.id}</div>
-              <div>Group ID: {groupId}</div>
-              <div>Is Joined: {String(group.isJoined)}</div>
-              <div>Has Pending Request: {String(group.hasPendingRequest)}</div>
-              <div>Latest Join Request: {group.latestJoinRequest ? JSON.stringify(group.latestJoinRequest) : 'None'}</div>
-              <div>Invite Only: {String(group.invite_only)}</div>
-              <div>Is Private: {String(group.is_private)}</div>
-              <div>Auto Approve: {String(group.auto_approve_requests)}</div>
-              <div>Is Creator: {String(isCreator)}</div>
-              <div>Mutation Pending: {String(toggleGroupMembershipMutation.isPending)}</div>
-            </div>
+
 
             {/* Group Header */}
             <div className="smooth-card p-6 mb-8">

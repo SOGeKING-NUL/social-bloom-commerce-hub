@@ -33,20 +33,15 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/feed" element={
+              <Route path="/" element={
                 <ProtectedRoute>
                   <Feed />
                 </ProtectedRoute>
               } />
-              <Route path="/products" element={<Products />} />
+              <Route path="/welcome" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/discovery" element={<Products />} />
               <Route path="/products/:productId" element={<ProductDetail />} />
-              <Route path="/groups" element={
-                <ProtectedRoute>
-                  <Groups />
-                </ProtectedRoute>
-              } />
               <Route path="/groups/:groupId" element={
                 <ProtectedRoute>
                   <GroupDetail />

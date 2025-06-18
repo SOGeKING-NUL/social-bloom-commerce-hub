@@ -392,25 +392,27 @@ const ProductDetail = () => {
                       <div className="flex items-center gap-2">
                         <h3 className="text-lg font-semibold text-pink-600">Group Shopping</h3>
                         <Badge variant="outline" className="text-pink-600 border-pink-300">
-                          Up to 20% OFF
+                          {product.group_discounts && product.group_discounts.length > 0 
+                            ? `Up to ${Math.max(...product.group_discounts.map(d => d.discount))}% OFF` 
+                            : 'Group Discounts Available'}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-600">Team up with friends for extra savings!</p>
+                      <p className="text-sm text-gray-600">Team up with friends for extra savings! Groups expire in 24 hours.</p>
                       
-                      {/* Tiered Discount Options */}
+                      {/* Vendor-Configured Discount Options */}
                       <div className="mt-3 space-y-2">
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className="font-medium">2 members: 10% OFF</span>
-                          <span className="text-pink-600 font-bold">${(product.price * 0.9).toFixed(2)}</span>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className="font-medium">3 members: 15% OFF</span>
-                          <span className="text-pink-600 font-bold">${(product.price * 0.85).toFixed(2)}</span>
-                        </div>
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className="font-medium">4+ members: 20% OFF</span>
-                          <span className="text-pink-600 font-bold">${(product.price * 0.8).toFixed(2)}</span>
-                        </div>
+                        {product.group_discounts && product.group_discounts.length > 0 ? (
+                          product.group_discounts.map((discount, index) => (
+                            <div key={index} className="flex items-center gap-4 text-sm">
+                              <span className="font-medium">{discount.members} members: {discount.discount}% OFF</span>
+                              <span className="text-pink-600 font-bold">
+                                ${(product.price * (1 - discount.discount / 100)).toFixed(2)}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-sm text-gray-500">No group discounts configured for this product</div>
+                        )}
                       </div>
                     </div>
                   </div>
