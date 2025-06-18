@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Grid, User, ShoppingBag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import Layout from "@/components/Layout";
 import ProductCard from "@/components/ProductCard";
 
 const Discovery = () => {
@@ -92,8 +93,9 @@ const Discovery = () => {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-6xl mx-auto px-4 py-6">
+    <Layout>
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-6xl mx-auto px-4 py-6">
         {/* Instagram-style Search Header */}
         <div className="mb-6">
           <div className="relative">
@@ -242,8 +244,9 @@ const Discovery = () => {
             </div>
           </TabsContent>
         </Tabs>
+        </div>
       </div>
-    </div>
+    </Layout>
   );
 };
 
