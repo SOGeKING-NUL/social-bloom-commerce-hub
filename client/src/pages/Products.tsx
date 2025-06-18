@@ -3,7 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Filter } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Search, Filter, Grid, User } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
@@ -89,8 +90,25 @@ const Products = () => {
       
       if (error) throw error;
       
-      const uniqueCategories = [...new Set(data.map(item => item.category))];
+      const uniqueCategories = Array.from(new Set(data.map(item => item.category)));
       return uniqueCategories.filter(Boolean);
+    },
+  });
+
+  // Fetch users for search
+  const { data: users = [] } = useQuery({
+    queryKey: ['users', searchTerm],
+    queryFn: async () => {
+      if (!searchTerm) return [];
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, avatar_url')
+        .or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
+        .limit(20);
+      
+      if (error) throw error;
+      return data || [];
     },
   });
 
@@ -98,7 +116,6 @@ const Products = () => {
 
   return (
     <div className="min-h-screen">
-      <Header />
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">

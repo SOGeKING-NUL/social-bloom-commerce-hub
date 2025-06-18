@@ -10,7 +10,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Feed from "./pages/Feed";
-import Products from "./pages/Products";
+import Discovery from "./pages/Discovery";
 import ProductDetail from "./pages/ProductDetail";
 import Groups from "./pages/Groups";
 import GroupDetail from "./pages/GroupDetail";
@@ -40,7 +40,7 @@ const App = () => (
               } />
               <Route path="/welcome" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
-              <Route path="/discovery" element={<Products />} />
+              <Route path="/discovery" element={<Discovery />} />
               <Route path="/products/:productId" element={<ProductDetail />} />
               <Route path="/groups/:groupId" element={
                 <ProtectedRoute>
