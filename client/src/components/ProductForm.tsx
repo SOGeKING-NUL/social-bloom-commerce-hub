@@ -77,10 +77,14 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
       const imageUrl = await uploadImage();
       
       const productData = {
-        ...form,
-        price: parseFloat(form.price as string),
-        stock_quantity: parseInt(form.stock_quantity as string),
-        image_url: imageUrl,
+        name: form.name.trim(),
+        description: form.description?.trim() || null,
+        price: parseFloat(form.price as string) || 0,
+        category: form.category?.trim() || null,
+        stock_quantity: form.stock_quantity ? parseInt(form.stock_quantity as string) : null,
+        image_url: imageUrl || null,
+        group_discounts: form.group_discounts || [],
+        is_active: true,
       };
       
       if (existingData) {

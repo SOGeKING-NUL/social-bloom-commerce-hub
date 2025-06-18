@@ -49,7 +49,7 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
     mutationFn: async ({ content, imageUrl }: { content: string; imageUrl?: string }) => {
       if (!user) throw new Error('Not authenticated');
       
-      console.log('Creating post with content:', content, 'imageUrl:', imageUrl, 'label:', selectedLabel, 'rating:', starRating);
+
       
       const { data: post, error } = await supabase
         .from('posts')
@@ -111,8 +111,6 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
 
-    console.log('Files selected:', files);
-
     // Limit to 10 files like Instagram
     const limitedFiles = files.slice(0, 10);
     setSelectedFiles(prev => [...prev, ...limitedFiles].slice(0, 10));
@@ -121,7 +119,6 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
     limitedFiles.forEach(file => {
       const url = URL.createObjectURL(file);
       setPreviewUrls(prev => [...prev, url]);
-      console.log('Created preview URL:', url);
     });
   };
 
