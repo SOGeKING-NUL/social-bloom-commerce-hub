@@ -22,21 +22,44 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
   const [content, setContent] = useState("");
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [selectedLabel, setSelectedLabel] = useState<string>("none");
+  const [starRating, setStarRating] = useState<number>(0);
+  const [taggedProducts, setTaggedProducts] = useState<string[]>([]);
+  const [showProductDialog, setShowProductDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch user's products for tagging
+  const { data: userProducts } = useQuery({
+    queryKey: ['user-products', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .eq('vendor_id', user.id);
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user
+  });
 
   const createPostMutation = useMutation({
     mutationFn: async ({ content, imageUrl }: { content: string; imageUrl?: string }) => {
       if (!user) throw new Error('Not authenticated');
       
-      console.log('Creating post with content:', content, 'and imageUrl:', imageUrl);
+      console.log('Creating post with content:', content, 'imageUrl:', imageUrl, 'label:', selectedLabel, 'rating:', starRating);
       
-      const { data, error } = await supabase
+      const { data: post, error } = await supabase
         .from('posts')
         .insert({
           user_id: user.id,
           content,
           image_url: imageUrl,
-          post_type: 'text'
+          post_type: imageUrl ? 'image' : 'text',
+          label: selectedLabel,
+          star_rating: selectedLabel === 'review' ? starRating : null
         })
         .select()
         .single();
@@ -46,8 +69,26 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
         throw error;
       }
       
-      console.log('Post created successfully:', data);
-      return data;
+      // Add product tags if any are selected
+      if (taggedProducts.length > 0 && post) {
+        const tagInserts = taggedProducts.map((productId, index) => ({
+          post_id: post.id,
+          product_id: productId,
+          tag_order: index + 1
+        }));
+        
+        const { error: tagError } = await supabase
+          .from('post_product_tags')
+          .insert(tagInserts);
+        
+        if (tagError) {
+          console.error('Error adding product tags:', tagError);
+          // Don't throw here, post was created successfully
+        }
+      }
+      
+      console.log('Post created successfully:', post);
+      return post;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['posts'] });
@@ -55,6 +96,9 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
       setContent("");
       setSelectedFiles([]);
       setPreviewUrls([]);
+      setSelectedLabel("none");
+      setStarRating(0);
+      setTaggedProducts([]);
       toast({
         title: "Posted!",
         description: "Your post has been shared with the community.",
