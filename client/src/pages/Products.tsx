@@ -102,9 +102,53 @@ const Products = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold mb-4">Products</h1>
+            <h1 className="text-4xl font-bold mb-4">Discovery</h1>
             <p className="text-xl text-gray-600">Discover amazing products from our community</p>
           </div>
+
+          {/* Categories Section */}
+          {categories.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-2xl font-semibold mb-4">Browse Categories</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                {categories.map((category) => {
+                  const categoryProduct = products.find(p => p.category === category);
+                  return (
+                    <div
+                      key={category}
+                      className={`cursor-pointer rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 ${
+                        selectedCategory === category ? 'ring-2 ring-pink-500' : ''
+                      }`}
+                      onClick={() => setSelectedCategory(selectedCategory === category ? '' : category)}
+                    >
+                      <div className="aspect-square bg-gradient-to-br from-pink-100 to-rose-100 flex items-center justify-center relative">
+                        {categoryProduct?.image_url ? (
+                          <img 
+                            src={categoryProduct.image_url} 
+                            alt={category}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-pink-200 rounded-full flex items-center justify-center">
+                            <span className="text-pink-600 font-bold text-lg">
+                              {category.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                        )}
+                        <div className="absolute inset-0 bg-black bg-opacity-20 flex items-end">
+                          <div className="w-full p-2 bg-gradient-to-t from-black to-transparent">
+                            <p className="text-white text-sm font-medium text-center truncate">
+                              {category}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Search and Filter */}
           <div className="flex flex-col md:flex-row gap-4 mb-8">
