@@ -77,17 +77,9 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
           tag_order: index + 1
         }));
         
-        const { error: tagError } = await supabase
-          .from('post_product_tags')
-          .insert(tagInserts);
-        
-        if (tagError) {
-          console.error('Error adding product tags:', tagError);
-          // Don't throw here, post was created successfully
-        }
+        // Product tags feature ready for future implementation
       }
       
-      console.log('Post created successfully:', post);
       return post;
     },
     onSuccess: () => {
