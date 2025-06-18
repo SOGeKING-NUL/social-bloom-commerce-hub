@@ -31,6 +31,7 @@ const ProductDetail = () => {
   const [groupForm, setGroupForm] = useState({
     name: '',
     description: '',
+    targetMembers: 2,
   });
 
   // Fetch product details
@@ -241,7 +242,7 @@ const ProductDetail = () => {
     onSuccess: (data) => {
       console.log('Group created successfully:', data);
       setIsGroupDialogOpen(false);
-      setGroupForm({ name: '', description: '' });
+      setGroupForm({ name: '', description: '', targetMembers: 2 });
       toast({ title: "Group created successfully!" });
       navigate('/groups');
     },
@@ -392,27 +393,25 @@ const ProductDetail = () => {
                       <div className="flex items-center gap-2">
                         <h3 className="text-lg font-semibold text-pink-600">Group Shopping</h3>
                         <Badge variant="outline" className="text-pink-600 border-pink-300">
-                          {product.group_discounts && product.group_discounts.length > 0 
-                            ? `Up to ${Math.max(...product.group_discounts.map(d => d.discount))}% OFF` 
-                            : 'Group Discounts Available'}
+                          Up to 20% OFF
                         </Badge>
                       </div>
                       <p className="text-sm text-gray-600">Team up with friends for extra savings! Groups expire in 24 hours.</p>
                       
-                      {/* Vendor-Configured Discount Options */}
+                      {/* Default Discount Options */}
                       <div className="mt-3 space-y-2">
-                        {product.group_discounts && product.group_discounts.length > 0 ? (
-                          product.group_discounts.map((discount, index) => (
-                            <div key={index} className="flex items-center gap-4 text-sm">
-                              <span className="font-medium">{discount.members} members: {discount.discount}% OFF</span>
-                              <span className="text-pink-600 font-bold">
-                                ${(product.price * (1 - discount.discount / 100)).toFixed(2)}
-                              </span>
-                            </div>
-                          ))
-                        ) : (
-                          <div className="text-sm text-gray-500">No group discounts configured for this product</div>
-                        )}
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="font-medium">2 members: 10% OFF</span>
+                          <span className="text-pink-600 font-bold">${(product.price * 0.9).toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="font-medium">3 members: 15% OFF</span>
+                          <span className="text-pink-600 font-bold">${(product.price * 0.85).toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm">
+                          <span className="font-medium">5+ members: 20% OFF</span>
+                          <span className="text-pink-600 font-bold">${(product.price * 0.8).toFixed(2)}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -462,25 +461,69 @@ const ProductDetail = () => {
                     <DialogHeader>
                       <DialogTitle>Start Group Shopping for {product.name}</DialogTitle>
                       <p className="text-sm text-gray-600">
-                        Team up with friends to unlock tiered discounts up to 20% OFF!
+                        Choose your target group size and get friends to join within 24 hours!
                       </p>
                     </DialogHeader>
                     <div className="space-y-4">
-                      {/* Discount Tier Preview */}
-                      <div className="bg-gradient-to-r from-pink-50 to-rose-50 p-4 rounded-lg border border-pink-200">
-                        <h4 className="font-semibold text-pink-600 mb-2">Group Discounts Available:</h4>
-                        <div className="grid grid-cols-3 gap-2 text-sm">
-                          <div className="text-center">
-                            <div className="font-bold text-pink-600">2 people</div>
-                            <div className="text-xs">10% OFF</div>
+                      {/* Member Target Selection */}
+                      <div>
+                        <Label>Select your target discount</Label>
+                        <div className="grid gap-2 mt-2">
+                          <div 
+                            className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                              groupForm.targetMembers === 2 
+                                ? 'border-pink-500 bg-pink-50' 
+                                : 'border-gray-200 hover:border-pink-300'
+                            }`}
+                            onClick={() => setGroupForm({ ...groupForm, targetMembers: 2 })}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium">2 members</span>
+                              <div className="text-right">
+                                <div className="text-sm font-bold text-pink-600">10% OFF</div>
+                                <div className="text-xs text-gray-500">
+                                  ${(product.price * 0.9).toFixed(2)} each
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-center">
-                            <div className="font-bold text-pink-600">3 people</div>
-                            <div className="text-xs">15% OFF</div>
+                          
+                          <div 
+                            className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                              groupForm.targetMembers === 3 
+                                ? 'border-pink-500 bg-pink-50' 
+                                : 'border-gray-200 hover:border-pink-300'
+                            }`}
+                            onClick={() => setGroupForm({ ...groupForm, targetMembers: 3 })}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium">3 members</span>
+                              <div className="text-right">
+                                <div className="text-sm font-bold text-pink-600">15% OFF</div>
+                                <div className="text-xs text-gray-500">
+                                  ${(product.price * 0.85).toFixed(2)} each
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-center">
-                            <div className="font-bold text-pink-600">4+ people</div>
-                            <div className="text-xs">20% OFF</div>
+                          
+                          <div 
+                            className={`p-3 border rounded-lg cursor-pointer transition-all ${
+                              groupForm.targetMembers === 5 
+                                ? 'border-pink-500 bg-pink-50' 
+                                : 'border-gray-200 hover:border-pink-300'
+                            }`}
+                            onClick={() => setGroupForm({ ...groupForm, targetMembers: 5 })}
+                          >
+                            <div className="flex justify-between items-center">
+                              <span className="font-medium">5 members</span>
+                              <div className="text-right">
+                                <div className="text-sm font-bold text-pink-600">20% OFF</div>
+                                <div className="text-xs text-gray-500">
+                                  ${(product.price * 0.8).toFixed(2)} each
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
