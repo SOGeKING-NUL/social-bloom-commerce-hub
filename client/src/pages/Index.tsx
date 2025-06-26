@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { ShoppingCart, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import GroupsPreview from "@/components/GroupsPreview";
-import SearchSection from "@/components/SearchSection";
 import Footer from "@/components/Footer";
 
 const Index = () => {
@@ -39,9 +38,6 @@ const Index = () => {
     <div className="min-h-screen">
       <Header />
       <Hero />
-      
-      {/* Search Section */}
-      <SearchSection />
       
       {/* Featured Products Section */}
       <section className="py-20 bg-gradient-to-b from-pink-50 to-white">

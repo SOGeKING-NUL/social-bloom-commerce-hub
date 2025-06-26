@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import CommentsDialog from "@/components/CommentsDialog";
 import InstagramStylePostCreator from "@/components/InstagramStylePostCreator";
-import SearchSection from "@/components/SearchSection";
+import SearchSidebar from "@/components/SearchSidebar";
 import { useNavigate } from "react-router-dom";
 
 const Feed = () => {
@@ -151,106 +151,109 @@ const Feed = () => {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gradient-to-b from-white to-pink-50 dark:from-gray-900 dark:to-gray-800">
-        {/* Search Section */}
-        <SearchSection />
+      <div className="min-h-screen bg-gradient-to-b from-white to-pink-50 dark:from-gray-900 dark:to-gray-800 flex">
+        {/* Search Sidebar */}
+        <SearchSidebar />
         
-        <div className="container mx-auto px-4 py-8">
-          <div className="max-w-2xl mx-auto">
-            {/* Instagram-style Post Creator */}
-            <div className="mb-8">
-              <InstagramStylePostCreator />
-            </div>
+        {/* Main Content */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="container mx-auto px-4 py-8">
+            <div className="max-w-2xl mx-auto">
+              {/* Instagram-style Post Creator */}
+              <div className="mb-8">
+                <InstagramStylePostCreator />
+              </div>
 
-            {/* Posts Feed */}
-            <div className="space-y-6">
-              {posts.map((post) => (
-                <div key={post.id} className="smooth-card p-6 animate-fade-in dark:bg-gray-800 dark:border-gray-700">
-                  <div className="flex items-center mb-4">
-                    {post.user.avatar ? (
-                      <Avatar 
-                        className="w-12 h-12 mr-4 cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
-                        onClick={() => handleUserClick(post.user.id)}
-                      >
-                        <AvatarImage src={post.user.avatar} alt={post.user.name} />
-                        <AvatarFallback>{post.user.name.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                    ) : (
-                      <div 
-                        className="w-12 h-12 mr-4 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-medium cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
-                        onClick={() => handleUserClick(post.user.id)}
-                      >
-                        {post.user.name.charAt(0)}
+              {/* Posts Feed */}
+              <div className="space-y-6">
+                {posts.map((post) => (
+                  <div key={post.id} className="smooth-card p-6 animate-fade-in dark:bg-gray-800 dark:border-gray-700">
+                    <div className="flex items-center mb-4">
+                      {post.user.avatar ? (
+                        <Avatar 
+                          className="w-12 h-12 mr-4 cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
+                          onClick={() => handleUserClick(post.user.id)}
+                        >
+                          <AvatarImage src={post.user.avatar} alt={post.user.name} />
+                          <AvatarFallback>{post.user.name.charAt(0)}</AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <div 
+                          className="w-12 h-12 mr-4 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-medium cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
+                          onClick={() => handleUserClick(post.user.id)}
+                        >
+                          {post.user.name.charAt(0)}
+                        </div>
+                      )}
+                      <div>
+                        <h3 
+                          className="font-semibold cursor-pointer hover:text-pink-500 transition-colors dark:text-white dark:hover:text-pink-400"
+                          onClick={() => handleUserClick(post.user.id)}
+                        >
+                          {post.user.name}
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{post.user.username}</p>
+                      </div>
+                    </div>
+                    
+                    <p className="mb-4 text-gray-700 dark:text-gray-300">{post.content}</p>
+                    
+                    {post.image_url && (
+                      <div className="mb-4 rounded-2xl overflow-hidden">
+                        <img 
+                          src={post.image_url} 
+                          alt="Post content"
+                          className="w-full h-64 object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
+                        />
                       </div>
                     )}
-                    <div>
-                      <h3 
-                        className="font-semibold cursor-pointer hover:text-pink-500 transition-colors dark:text-white dark:hover:text-pink-400"
-                        onClick={() => handleUserClick(post.user.id)}
-                      >
-                        {post.user.name}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{post.user.username}</p>
+                    
+                    <div className="border-t border-pink-100 dark:border-gray-600 pt-4">
+                      <div className="flex items-center justify-between">
+                        <Button 
+                          variant="ghost" 
+                          onClick={() => handleLike(post.id, post.liked)}
+                          disabled={likePostMutation.isPending}
+                          className={`flex items-center space-x-2 rounded-xl ${
+                            post.liked 
+                              ? 'text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/20' 
+                              : 'text-gray-600 hover:text-pink-500 hover:bg-pink-50 dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20'
+                          }`}
+                        >
+                          <Heart className={`w-5 h-5 ${post.liked ? 'fill-current' : ''}`} />
+                          <span>{post.likes_count || 0}</span>
+                        </Button>
+                        
+                        <Button 
+                          variant="ghost" 
+                          onClick={() => setSelectedPostForComments(post.id)}
+                          className="flex items-center space-x-2 text-gray-600 hover:text-pink-500 hover:bg-pink-50 rounded-xl dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20"
+                        >
+                          <MessageCircle className="w-5 h-5" />
+                          <span>{post.comments_count || 0}</span>
+                        </Button>
+                        
+                        <Button 
+                          variant="ghost" 
+                          onClick={() => handleShare(post.id)}
+                          className="flex items-center space-x-2 text-gray-600 hover:text-pink-500 hover:bg-pink-50 rounded-xl dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20"
+                        >
+                          <Share className="w-5 h-5" />
+                          <span>{post.shares_count || 0}</span>
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                  
-                  <p className="mb-4 text-gray-700 dark:text-gray-300">{post.content}</p>
-                  
-                  {post.image_url && (
-                    <div className="mb-4 rounded-2xl overflow-hidden">
-                      <img 
-                        src={post.image_url} 
-                        alt="Post content"
-                        className="w-full h-64 object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
-                      />
-                    </div>
-                  )}
-                  
-                  <div className="border-t border-pink-100 dark:border-gray-600 pt-4">
-                    <div className="flex items-center justify-between">
-                      <Button 
-                        variant="ghost" 
-                        onClick={() => handleLike(post.id, post.liked)}
-                        disabled={likePostMutation.isPending}
-                        className={`flex items-center space-x-2 rounded-xl ${
-                          post.liked 
-                            ? 'text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/20' 
-                            : 'text-gray-600 hover:text-pink-500 hover:bg-pink-50 dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20'
-                        }`}
-                      >
-                        <Heart className={`w-5 h-5 ${post.liked ? 'fill-current' : ''}`} />
-                        <span>{post.likes_count || 0}</span>
-                      </Button>
-                      
-                      <Button 
-                        variant="ghost" 
-                        onClick={() => setSelectedPostForComments(post.id)}
-                        className="flex items-center space-x-2 text-gray-600 hover:text-pink-500 hover:bg-pink-50 rounded-xl dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20"
-                      >
-                        <MessageCircle className="w-5 h-5" />
-                        <span>{post.comments_count || 0}</span>
-                      </Button>
-                      
-                      <Button 
-                        variant="ghost" 
-                        onClick={() => handleShare(post.id)}
-                        className="flex items-center space-x-2 text-gray-600 hover:text-pink-500 hover:bg-pink-50 rounded-xl dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20"
-                      >
-                        <Share className="w-5 h-5" />
-                        <span>{post.shares_count || 0}</span>
-                      </Button>
-                    </div>
+                ))}
+                
+                {posts.length === 0 && (
+                  <div className="text-center py-12">
+                    <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-2">No posts yet</h3>
+                    <p className="text-gray-500 dark:text-gray-400">Be the first to share something with the community!</p>
                   </div>
-                </div>
-              ))}
-              
-              {posts.length === 0 && (
-                <div className="text-center py-12">
-                  <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-2">No posts yet</h3>
-                  <p className="text-gray-500 dark:text-gray-400">Be the first to share something with the community!</p>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
