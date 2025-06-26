@@ -54,12 +54,9 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
       const { data: post, error } = await supabase
         .from('posts')
         .insert({
-          user_id: user.id,
           content,
           image_url: imageUrl,
-          post_type: imageUrl ? 'image' : 'text',
-          label: selectedLabel,
-          star_rating: selectedLabel === 'review' ? starRating : null
+          user_id: user.id
         })
         .select()
         .single();
@@ -111,8 +108,20 @@ const InstagramStylePostCreator = ({ onPostCreated }: InstagramStylePostCreatorP
     const files = Array.from(event.target.files || []);
     if (files.length === 0) return;
 
+    // Check file types (images and videos)
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'video/webm', 'video/ogg'];
+    const validFiles = files.filter(file => allowedTypes.includes(file.type));
+
+    if (validFiles.length !== files.length) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select only images (JPEG, PNG, GIF, WebP) or videos (MP4, WebM, OGG).",
+        variant: "destructive"
+      });
+    }
+
     // Limit to 10 files like Instagram
-    const limitedFiles = files.slice(0, 10);
+    const limitedFiles = validFiles.slice(0, 10);
     setSelectedFiles(prev => [...prev, ...limitedFiles].slice(0, 10));
 
     // Create preview URLs

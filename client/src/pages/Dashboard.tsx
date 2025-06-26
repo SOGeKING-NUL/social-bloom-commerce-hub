@@ -1,6 +1,8 @@
 
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
 import Layout from '@/components/Layout';
 import UserDashboard from '@/components/dashboards/UserDashboard';
 import VendorDashboard from '@/components/dashboards/VendorDashboard';
@@ -8,6 +10,7 @@ import AdminDashboard from '@/components/dashboards/AdminDashboard';
 
 const Dashboard = () => {
   const { profile, loading } = useAuth();
+  const navigate = useNavigate();
 
   if (loading) {
     return (
@@ -21,15 +24,26 @@ const Dashboard = () => {
     return <Navigate to="/auth" replace />;
   }
 
-  switch (profile.role) {
-    case 'admin':
-      return <Layout><AdminDashboard /></Layout>;
-    case 'vendor':
-      return <Layout><VendorDashboard /></Layout>;
-    case 'user':
-    default:
-      return <Layout><UserDashboard /></Layout>;
-  }
+  const DashboardContent = () => (
+    <div className="space-y-6">
+      <div className="flex items-center">
+        <Button
+          variant="outline"
+          onClick={() => navigate(-1)}
+          className="mr-4"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back
+        </Button>
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+      </div>
+      {profile.role === 'admin' && <AdminDashboard />}
+      {profile.role === 'vendor' && <VendorDashboard />}
+      {(profile.role === 'user' || !profile.role) && <UserDashboard />}
+    </div>
+  );
+
+  return <Layout><DashboardContent /></Layout>;
 };
 
 export default Dashboard;

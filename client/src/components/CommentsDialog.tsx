@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Reply } from "lucide-react";
+import { Heart, MessageCircle, Reply, Image, X } from "lucide-react";
 
 interface CommentsDialogProps {
   postId: string;
@@ -30,6 +30,9 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
   const [newComment, setNewComment] = useState("");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch comments with their likes
   const { data: comments = [], isLoading } = useQuery({
@@ -75,9 +78,32 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
     enabled: isOpen && !!postId,
   });
 
+  const uploadImageToSupabase = async (file: File): Promise<string | null> => {
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user?.id}_${Date.now()}.${fileExt}`;
+      const filePath = `comments/${fileName}`;
+
+      const { data, error } = await supabase.storage
+        .from('posts')
+        .upload(filePath, file);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('posts')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      return null;
+    }
+  };
+
   // Add comment mutation
   const addCommentMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, imageUrl }: { content: string; imageUrl?: string }) => {
       if (!user) throw new Error('Please login to comment');
       
       const { error } = await supabase
@@ -85,7 +111,8 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
         .insert({
           post_id: postId,
           user_id: user.id,
-          content
+          content,
+          image_url: imageUrl
         });
       
       if (error) throw error;
@@ -95,6 +122,8 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
       queryClient.invalidateQueries({ queryKey: ['posts'] });
       queryClient.invalidateQueries({ queryKey: ['social-feed-posts'] });
       setNewComment("");
+      setSelectedImage(null);
+      setImagePreview(null);
       toast({ title: "Comment added!" });
     },
     onError: (error: any) => {
@@ -134,10 +163,23 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
     }
   });
 
-  const handleAddComment = () => {
-    if (newComment.trim()) {
-      addCommentMutation.mutate(newComment);
+  const handleAddComment = async () => {
+    if (!newComment.trim() && !selectedImage) return;
+
+    let imageUrl = undefined;
+    if (selectedImage) {
+      imageUrl = await uploadImageToSupabase(selectedImage);
+      if (!imageUrl) {
+        toast({
+          title: "Upload failed",
+          description: "Failed to upload image. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
     }
+
+    addCommentMutation.mutate({ content: newComment, imageUrl });
   };
 
   const handleLikeComment = (commentId: string, isLiked: boolean) => {
@@ -202,7 +244,7 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
                       {comment.user.name}
                     </span>
                     <span className="text-xs text-gray-500">
-                      {new Date(comment.created_at).toLocaleDateString()}
+                      {comment.created_at ? new Date(comment.created_at).toLocaleDateString() : ''}
                     </span>
                   </div>
                   
@@ -240,7 +282,7 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
                           if (e.key === 'Enter') {
                             // For now, just add as regular comment
                             if (replyText.trim()) {
-                              addCommentMutation.mutate(`@${comment.user.name} ${replyText}`);
+                              addCommentMutation.mutate({ content: `@${comment.user.name} ${replyText}` });
                               setReplyText("");
                               setReplyingTo(null);
                             }
@@ -251,7 +293,7 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
                         size="sm"
                         onClick={() => {
                           if (replyText.trim()) {
-                            addCommentMutation.mutate(`@${comment.user.name} ${replyText}`);
+                            addCommentMutation.mutate({ content: `@${comment.user.name} ${replyText}` });
                             setReplyText("");
                             setReplyingTo(null);
                           }

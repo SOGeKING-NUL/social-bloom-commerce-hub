@@ -14,7 +14,7 @@ const Header = () => {
   const { toast } = useToast();
   const { user, signOut } = useAuth();
 
-  // Fetch cart count
+  // Fetch cart count - number of items instead of quantity
   const { data: cartCount } = useQuery({
     queryKey: ['cart-count', user?.id],
     queryFn: async () => {
@@ -22,11 +22,11 @@ const Header = () => {
       
       const { data, error } = await supabase
         .from('cart_items')
-        .select('quantity')
+        .select('id')
         .eq('user_id', user.id);
       
       if (error) return 0;
-      return data.reduce((sum, item) => sum + item.quantity, 0);
+      return data.length;
     },
     enabled: !!user,
   });
@@ -81,48 +81,7 @@ const Header = () => {
             <span className="text-2xl font-bold gradient-text">SocialShop</span>
           </div>
           
-          <nav className="hidden md:flex items-center space-x-8">
-            <button 
-              onClick={() => navigate("/feed")}
-              className={`transition-colors duration-300 ${
-                isActive("/feed") 
-                  ? "text-pink-500 font-medium" 
-                  : "text-gray-600 hover:text-pink-500"
-              }`}
-            >
-              Feed
-            </button>
-            <button 
-              onClick={() => navigate("/products")}
-              className={`transition-colors duration-300 ${
-                isActive("/products") 
-                  ? "text-pink-500 font-medium" 
-                  : "text-gray-600 hover:text-pink-500"
-              }`}
-            >
-              Products
-            </button>
-            <button 
-              onClick={() => navigate("/groups")}
-              className={`transition-colors duration-300 ${
-                isActive("/groups") 
-                  ? "text-pink-500 font-medium" 
-                  : "text-gray-600 hover:text-pink-500"
-              }`}
-            >
-              Groups
-            </button>
-            <button 
-              onClick={() => navigate("/")}
-              className={`transition-colors duration-300 ${
-                isActive("/") 
-                  ? "text-pink-500 font-medium" 
-                  : "text-gray-600 hover:text-pink-500"
-              }`}
-            >
-              About
-            </button>
-          </nav>
+
           
           <div className="flex items-center space-x-4">
             {user && (
@@ -134,22 +93,22 @@ const Header = () => {
                   className="relative"
                 >
                   <Heart className="w-4 h-4" />
-                  {wishlistCount > 0 && (
+                  {(wishlistCount || 0) > 0 && (
                     <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                      {wishlistCount}
+                      {wishlistCount || 0}
                     </span>
                   )}
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigate("/cart")}
+                  onClick={() => navigate("/groups")}
                   className="relative"
                 >
                   <ShoppingCart className="w-4 h-4" />
-                  {cartCount > 0 && (
+                  {(cartCount || 0) > 0 && (
                     <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                      {cartCount}
+                      {cartCount || 0}
                     </span>
                   )}
                 </Button>

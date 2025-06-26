@@ -3,7 +3,9 @@ import { useState } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Globe, Calendar, UserPlus, UserMinus, Edit, Settings } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { MapPin, Globe, Calendar, UserPlus, UserMinus, Edit, Settings, Users } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +22,8 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
 
   // Check if current user is following this profile
   const { data: isFollowing = false } = useQuery({
@@ -87,8 +91,63 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
     }
   });
 
+  // Fetch user's groups for invitation
+  const { data: userGroups = [] } = useQuery({
+    queryKey: ['user-admin-groups', user?.id],
+    queryFn: async () => {
+      if (!user || isOwnProfile) return [];
+      
+      const { data, error } = await supabase
+        .from('groups')
+        .select('id, name, description')
+        .eq('creator_id', user.id);
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user && !isOwnProfile,
+  });
+
+  // Invite to group mutation
+  const inviteToGroupMutation = useMutation({
+    mutationFn: async (groupId: string) => {
+      if (!user || !profile?.email) throw new Error('Missing required data');
+      
+      const { error } = await supabase
+        .from('group_invites')
+        .insert({
+          group_id: groupId,
+          invited_by: user.id,
+          invited_email: profile.email
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({
+        title: "Invitation sent",
+        description: `${profile?.full_name || 'User'} has been invited to the group`,
+      });
+      setShowInviteDialog(false);
+      setSelectedGroupId("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
+      });
+    }
+  });
+
   const handleFollow = () => {
     followMutation.mutate();
+  };
+
+  const handleInviteToGroup = () => {
+    if (selectedGroupId) {
+      inviteToGroupMutation.mutate(selectedGroupId);
+    }
   };
 
   return (
@@ -139,25 +198,37 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
                     </Button>
                   </>
                 ) : (
-                  <Button 
-                    onClick={handleFollow}
-                    disabled={followMutation.isPending}
-                    variant={isFollowing ? "outline" : "default"}
-                    size="sm"
-                    className={isFollowing ? "" : "bg-pink-500 hover:bg-pink-600"}
-                  >
-                    {isFollowing ? (
-                      <>
-                        <UserMinus className="w-4 h-4 mr-2" />
-                        Unfollow
-                      </>
-                    ) : (
-                      <>
-                        <UserPlus className="w-4 h-4 mr-2" />
-                        Follow
-                      </>
+                  <>
+                    <Button 
+                      onClick={handleFollow}
+                      disabled={followMutation.isPending}
+                      variant={isFollowing ? "outline" : "default"}
+                      size="sm"
+                      className={isFollowing ? "" : "bg-pink-500 hover:bg-pink-600"}
+                    >
+                      {isFollowing ? (
+                        <>
+                          <UserMinus className="w-4 h-4 mr-2" />
+                          Unfollow
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-4 h-4 mr-2" />
+                          Follow
+                        </>
+                      )}
+                    </Button>
+                    {userGroups.length > 0 && (
+                      <Button 
+                        onClick={() => setShowInviteDialog(true)}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <Users className="w-4 h-4 mr-2" />
+                        Invite to Group
+                      </Button>
                     )}
-                  </Button>
+                  </>
                 )}
               </div>
             </div>
@@ -222,6 +293,48 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
           </div>
         </div>
       </div>
+
+      {/* Invite to Group Dialog */}
+      <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Invite {profile?.full_name || 'User'} to Group</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+              Select a group to invite this user to:
+            </p>
+            <Select value={selectedGroupId} onValueChange={setSelectedGroupId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a group" />
+              </SelectTrigger>
+              <SelectContent>
+                {userGroups.map((group) => (
+                  <SelectItem key={group.id} value={group.id}>
+                    {group.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowInviteDialog(false)}
+                disabled={inviteToGroupMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleInviteToGroup}
+                disabled={!selectedGroupId || inviteToGroupMutation.isPending}
+                className="bg-pink-500 hover:bg-pink-600"
+              >
+                Send Invite
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
