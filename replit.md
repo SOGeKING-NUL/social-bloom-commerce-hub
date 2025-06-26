@@ -46,6 +46,8 @@ The application uses a comprehensive PostgreSQL schema with the following key en
 - User following relationships
 - Group creation and management
 - Join requests and invite systems
+- Comprehensive search functionality for posts and users
+- Real-time content discovery through search interface
 
 ### E-commerce Features
 - Product catalog with search and filtering
@@ -102,7 +104,11 @@ The application is configured for Replit deployment with:
 
 ## Changelog
 
-- June 26, 2025. Initial setup
+- June 26, 2025: Initial setup
+- June 26, 2025: Added comprehensive search functionality to home page and feed page
+  - Implemented SearchSection component with posts and users search tabs
+  - Integrated with Supabase for real-time search through posts content and user profiles
+  - Added search to both Index page (home) and Feed page for consistent user experience
 
 ## User Preferences
 

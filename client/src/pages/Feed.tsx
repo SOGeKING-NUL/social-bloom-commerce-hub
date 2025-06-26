@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import CommentsDialog from "@/components/CommentsDialog";
 import InstagramStylePostCreator from "@/components/InstagramStylePostCreator";
+import SearchSection from "@/components/SearchSection";
 import { useNavigate } from "react-router-dom";
 
 const Feed = () => {
@@ -151,6 +152,9 @@ const Feed = () => {
   return (
     <Layout>
       <div className="min-h-screen bg-gradient-to-b from-white to-pink-50 dark:from-gray-900 dark:to-gray-800">
+        {/* Search Section */}
+        <SearchSection />
+        
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-2xl mx-auto">
             {/* Instagram-style Post Creator */}
