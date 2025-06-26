@@ -2,11 +2,11 @@
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ShoppingCart, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import GroupsPreview from "@/components/GroupsPreview";
+import SearchSection from "@/components/SearchSection";
 import Footer from "@/components/Footer";
 
 const Index = () => {
@@ -16,21 +16,15 @@ const Index = () => {
   const { data: featuredProducts = [] } = useQuery({
     queryKey: ['featured-products'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select(`
-          *,
-          vendor_profile:profiles!vendor_id (
-            full_name,
-            email
-          )
-        `)
-        .eq('is_active', true)
-        .limit(8)
-        .order('created_at', { ascending: false });
+      const response = await fetch('/api/products');
       
-      if (error) throw error;
-      return data;
+      if (!response.ok) {
+        console.error('Error fetching products:', response.statusText);
+        return [];
+      }
+      
+      const data = await response.json();
+      return (data || []).slice(0, 8);
     },
   });
 
@@ -38,6 +32,9 @@ const Index = () => {
     <div className="min-h-screen">
       <Header />
       <Hero />
+      
+      {/* Search Section */}
+      <SearchSection />
       
       {/* Featured Products Section */}
       <section className="py-20 bg-gradient-to-b from-pink-50 to-white">
@@ -67,7 +64,7 @@ const Index = () => {
                     {product.name}
                   </h3>
                   <p className="text-sm text-pink-600 mb-2">
-                    by {product.vendor_profile?.full_name || product.vendor_profile?.email?.split('@')[0] || 'Unknown Vendor'}
+                    by {product.vendor?.full_name || product.vendor?.email?.split('@')[0] || 'Unknown Vendor'}
                   </p>
                   
                   <div className="flex items-center mb-2">
