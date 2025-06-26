@@ -15,7 +15,7 @@ import ProductDetail from "./pages/ProductDetail";
 
 import GroupDetail from "./pages/GroupDetail";
 import Dashboard from "./pages/Dashboard";
-import Cart from "./pages/Cart";
+import Groups from "./pages/Groups";
 import Orders from "./pages/Orders";
 import Profile from "./pages/Profile";
 import UserProfile from "./pages/UserProfile";
@@ -47,9 +47,9 @@ const App = () => (
                   <GroupDetail />
                 </ProtectedRoute>
               } />
-              <Route path="/cart" element={
+              <Route path="/groups" element={
                 <ProtectedRoute>
-                  <Cart />
+                  <Groups />
                 </ProtectedRoute>
               } />
               <Route path="/wishlist" element={

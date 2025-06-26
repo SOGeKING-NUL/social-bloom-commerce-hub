@@ -14,7 +14,7 @@ const Navigation = () => {
   const navigationItems = [
     { path: "/", icon: Home, label: "Home", auth: true },
     { path: "/discovery", icon: ShoppingBag, label: "Discovery" },
-    { path: "/cart", icon: ShoppingBag, label: "Cart", auth: true },
+    { path: "/groups", icon: Users, label: "Groups", auth: true },
     { path: "/dashboard", icon: User, label: "Dashboard", auth: true },
   ];
 
