@@ -27,40 +27,77 @@ const Groups = () => {
   const [sortBy, setSortBy] = useState("recent");
   const [filterBy, setFilterBy] = useState("all");
 
-  // Fetch user's groups with simplified query
+  // Fetch user's groups - both created and joined
   const { data: userGroups = [], isLoading } = useQuery({
-    queryKey: ['user-groups', user?.id],
+    queryKey: ['user-groups-all', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
       
-      const { data, error } = await supabase
+      // Get groups created by user
+      const { data: createdGroups, error: createdError } = await supabase
         .from('groups')
-        .select(`
-          id,
-          name,
-          description,
-          image_url,
-          privacy_level,
-          created_at,
-          member_count,
-          created_by,
-          profiles!groups_created_by_fkey (
-            id,
-            full_name,
-            avatar_url
-          )
-        `)
+        .select('*')
+        .eq('creator_id', user.id)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
+      if (createdError) throw createdError;
       
-      // For now, show all groups - in a real app you'd filter by membership
-      return data.map(group => ({
-        id: group.id,
-        groups: group,
-        created_at: group.created_at,
-        status: group.created_by === user.id ? 'admin' : 'member'
-      }));
+      // Get groups user is a member of (via group_members table)
+      const { data: membershipData, error: memberError } = await supabase
+        .from('group_members')
+        .select('group_id, joined_at')
+        .eq('user_id', user.id);
+      
+      let joinedGroups: any[] = [];
+      if (membershipData && membershipData.length > 0) {
+        const memberGroupIds = membershipData.map(m => m.group_id);
+        const { data: joinedGroupsData, error: joinedGroupsError } = await supabase
+          .from('groups')
+          .select('*')
+          .in('id', memberGroupIds)
+          .order('created_at', { ascending: false });
+        
+        if (joinedGroupsError) throw joinedGroupsError;
+        joinedGroups = joinedGroupsData || [];
+      }
+      
+      if (memberError) throw memberError;
+      
+      // Combine created groups and member groups
+      const allGroups: any[] = [];
+      
+      // Add created groups (user is admin)
+      if (createdGroups) {
+        createdGroups.forEach(group => {
+          allGroups.push({
+            id: group.id,
+            groups: group,
+            created_at: group.created_at,
+            status: 'admin',
+            role: 'admin'
+          });
+        });
+      }
+      
+      // Add member groups (user is member)
+      if (joinedGroups) {
+        joinedGroups.forEach(group => {
+          // Don't duplicate if user is already listed as creator
+          const isAlreadyListed = allGroups.some(g => g.groups.id === group.id);
+          if (!isAlreadyListed) {
+            const membershipInfo = membershipData?.find(m => m.group_id === group.id);
+            allGroups.push({
+              id: group.id,
+              groups: group,
+              created_at: membershipInfo?.joined_at || group.created_at,
+              status: 'member',
+              role: 'member'
+            });
+          }
+        });
+      }
+      
+      return allGroups;
     },
     enabled: !!user?.id
   });
@@ -88,8 +125,8 @@ const Groups = () => {
       const matchesFilter = filterBy === "all" || 
                            (filterBy === "admin" && ug.status === "admin") ||
                            (filterBy === "member" && ug.status === "member") ||
-                           (filterBy === "private" && group.privacy_level === "private") ||
-                           (filterBy === "public" && group.privacy_level === "public");
+                           (filterBy === "private" && group.is_private === true) ||
+                           (filterBy === "public" && group.is_private === false);
       
       return matchesSearch && matchesFilter;
     });
@@ -102,7 +139,7 @@ const Groups = () => {
         case "name":
           return a.groups.name.localeCompare(b.groups.name);
         case "members":
-          return (b.groups.member_count || 0) - (a.groups.member_count || 0);
+          return (b.groups.max_members || 0) - (a.groups.max_members || 0);
         case "activity":
           const aActivity = analytics.recentCounts?.[a.groups.id] || 0;
           const bActivity = analytics.recentCounts?.[b.groups.id] || 0;
@@ -119,7 +156,7 @@ const Groups = () => {
   const overallStats = useMemo(() => {
     const totalGroups = userGroups.length;
     const adminGroups = userGroups.filter(ug => ug.status === "admin").length;
-    const totalMembers = userGroups.reduce((sum, ug) => sum + (ug.groups.member_count || 0), 0);
+    const totalMembers = userGroups.reduce((sum, ug) => sum + (ug.groups.max_members || 0), 0);
     const totalPosts = Object.values(analytics.postsCounts || {}).reduce((sum: number, count: any) => sum + count, 0);
     
     return { totalGroups, adminGroups, totalMembers, totalPosts };
@@ -289,10 +326,10 @@ const Groups = () => {
                                 {userGroup.status === "admin" ? "Admin" : "Member"}
                               </Badge>
                               <Badge
-                                variant={group.privacy_level === "private" ? "outline" : "secondary"}
+                                variant={group.is_private ? "outline" : "secondary"}
                                 className="text-xs"
                               >
-                                {group.privacy_level}
+                                {group.is_private ? "Private" : "Public"}
                               </Badge>
                             </div>
                           </div>
@@ -310,8 +347,8 @@ const Groups = () => {
 
                       <div className="grid grid-cols-3 gap-4 text-center">
                         <div>
-                          <p className="text-lg font-semibold text-gray-900 dark:text-white">{group.member_count || 0}</p>
-                          <p className="text-xs text-gray-500">Members</p>
+                          <p className="text-lg font-semibold text-gray-900 dark:text-white">{group.max_members || 0}</p>
+                          <p className="text-xs text-gray-500">Max Members</p>
                         </div>
                         <div>
                           <p className="text-lg font-semibold text-gray-900 dark:text-white">{postsCount}</p>
