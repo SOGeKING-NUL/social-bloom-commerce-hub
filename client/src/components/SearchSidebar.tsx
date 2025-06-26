@@ -31,7 +31,7 @@ const SearchSidebar = () => {
           profiles!posts_user_id_fkey (
             id,
             full_name,
-            username,
+            email,
             avatar_url
           )
         `)
@@ -46,7 +46,7 @@ const SearchSidebar = () => {
         user: {
           id: post.profiles?.id || '',
           name: post.profiles?.full_name || 'Unknown User',
-          username: post.profiles?.username || '',
+          username: post.profiles?.email?.split('@')[0] || '',
           avatar: post.profiles?.avatar_url || null
         }
       }));
@@ -62,8 +62,8 @@ const SearchSidebar = () => {
       
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, username, avatar_url, bio')
-        .or(`full_name.ilike.%${searchTerm}%,username.ilike.%${searchTerm}%`)
+        .select('id, full_name, email, avatar_url, bio')
+        .ilike('full_name', `%${searchTerm}%`)
         .limit(10);
       
       if (error) throw error;
@@ -85,10 +85,10 @@ const SearchSidebar = () => {
     <>
       {/* Search Toggle Button */}
       {!isOpen && (
-        <div className="fixed top-4 left-4 z-50">
+        <div className="fixed top-20 left-4 z-50">
           <Button
             onClick={() => setIsOpen(true)}
-            className="bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-lg rounded-full p-3"
+            className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700 text-white border-0 shadow-lg rounded-full p-3 transition-all duration-200 hover:scale-105"
           >
             <Search className="w-5 h-5" />
           </Button>
@@ -225,7 +225,7 @@ const SearchSidebar = () => {
                             {user.full_name || 'Unknown User'}
                           </p>
                           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                            @{user.username || 'unknown'}
+                            {user.email || 'No email'}
                           </p>
                         </div>
                       </div>
