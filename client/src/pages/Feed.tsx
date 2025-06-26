@@ -151,12 +151,12 @@ const Feed = () => {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gradient-to-b from-white to-pink-50 dark:from-gray-900 dark:to-gray-800 flex">
+      <div className="min-h-screen bg-gradient-to-b from-white to-pink-50 dark:from-gray-900 dark:to-gray-800">
         {/* Search Sidebar */}
         <SearchSidebar />
         
         {/* Main Content */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="overflow-y-auto">
           <div className="container mx-auto px-4 py-8">
             <div className="max-w-2xl mx-auto">
               {/* Instagram-style Post Creator */}
