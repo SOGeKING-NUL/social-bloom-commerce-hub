@@ -2,6 +2,7 @@
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ShoppingCart, Star } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -16,15 +17,21 @@ const Index = () => {
   const { data: featuredProducts = [] } = useQuery({
     queryKey: ['featured-products'],
     queryFn: async () => {
-      const response = await fetch('/api/products');
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          vendor_profile:profiles!vendor_id (
+            full_name,
+            email
+          )
+        `)
+        .eq('is_active', true)
+        .limit(8)
+        .order('created_at', { ascending: false });
       
-      if (!response.ok) {
-        console.error('Error fetching products:', response.statusText);
-        return [];
-      }
-      
-      const data = await response.json();
-      return (data || []).slice(0, 8);
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -64,7 +71,7 @@ const Index = () => {
                     {product.name}
                   </h3>
                   <p className="text-sm text-pink-600 mb-2">
-                    by {product.vendor?.full_name || product.vendor?.email?.split('@')[0] || 'Unknown Vendor'}
+                    by {product.vendor_profile?.full_name || product.vendor_profile?.email?.split('@')[0] || 'Unknown Vendor'}
                   </p>
                   
                   <div className="flex items-center mb-2">

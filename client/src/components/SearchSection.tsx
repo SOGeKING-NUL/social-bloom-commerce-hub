@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Grid, User, MessageCircle, Heart, Eye } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 const SearchSection = () => {
   const [searchTerm, setSearchTerm] = useState("");
@@ -17,14 +18,24 @@ const SearchSection = () => {
     queryFn: async () => {
       if (!searchTerm) return [];
       
-      const response = await fetch(`/api/posts/search?q=${encodeURIComponent(searchTerm)}`);
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          *,
+          profiles:user_id (
+            full_name,
+            email,
+            avatar_url
+          )
+        `)
+        .ilike('content', `%${searchTerm}%`)
+        .order('created_at', { ascending: false })
+        .limit(20);
       
-      if (!response.ok) {
-        console.error('Error searching posts:', response.statusText);
+      if (error) {
+        console.error('Error searching posts:', error);
         return [];
       }
-      
-      const data = await response.json();
       
       return (data || []).map((post: any) => ({
         id: post.id,
@@ -37,9 +48,9 @@ const SearchSection = () => {
         timestamp: new Date(post.created_at).toLocaleDateString(),
         user: {
           id: post.user_id,
-          name: post.user?.full_name || post.user?.email?.split('@')[0] || 'Unknown User',
-          avatar: post.user?.avatar_url || null,
-          username: `@${post.user?.email?.split('@')[0] || 'user'}`
+          name: post.profiles?.full_name || post.profiles?.email?.split('@')[0] || 'Unknown User',
+          avatar: post.profiles?.avatar_url || null,
+          username: `@${post.profiles?.email?.split('@')[0] || 'user'}`
         }
       }));
     },
@@ -52,14 +63,17 @@ const SearchSection = () => {
     queryFn: async () => {
       if (!searchTerm) return [];
       
-      const response = await fetch(`/api/profiles/search?q=${encodeURIComponent(searchTerm)}`);
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, avatar_url, followers_count, following_count, posts_count')
+        .or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
+        .limit(20);
       
-      if (!response.ok) {
-        console.error('Error searching users:', response.statusText);
+      if (error) {
+        console.error('Error searching users:', error);
         return [];
       }
       
-      const data = await response.json();
       return data || [];
     },
     enabled: !!searchTerm,
