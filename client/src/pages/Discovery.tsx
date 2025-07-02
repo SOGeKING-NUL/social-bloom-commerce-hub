@@ -49,11 +49,17 @@ const Discovery = () => {
       return data?.map(product => ({
         ...product,
         image_url: product.image_url || undefined,
+        category: product.category || undefined,
+        description: product.description || undefined,
+        stock_quantity: product.stock_quantity || undefined,
         vendor_profile: product.vendor_profile ? {
-          full_name: product.vendor_profile.full_name,
-          email: product.vendor_profile.email
+          full_name: product.vendor_profile.full_name || undefined,
+          email: product.vendor_profile.email || undefined
         } : null,
-        vendor_kyc: product.vendor_profile?.vendor_kyc_data || []
+        vendor_kyc: (product.vendor_profile?.vendor_kyc_data || []).map((kyc: any) => ({
+          display_business_name: kyc.display_business_name || undefined,
+          business_name: kyc.business_name || undefined
+        }))
       })) || [];
     },
   });
@@ -136,19 +142,19 @@ const Discovery = () => {
                         className={`cursor-pointer rounded-xl overflow-hidden transition-all duration-300 hover:scale-105 ${
                           selectedCategory === category ? 'ring-2 ring-pink-500' : ''
                         }`}
-                        onClick={() => setSelectedCategory(selectedCategory === category ? '' : category)}
+                        onClick={() => setSelectedCategory(selectedCategory === category ? '' : (category || ''))}
                       >
                         <div className="aspect-square bg-gradient-to-br from-pink-100 to-rose-100 flex items-center justify-center relative">
                           {categoryProduct?.image_url ? (
                             <img 
-                              src={categoryProduct.image_url} 
-                              alt={category}
+                              src={categoryProduct.image_url || undefined} 
+                              alt={category || ''}
                               className="w-full h-full object-cover"
                             />
                           ) : (
                             <div className="w-8 h-8 bg-pink-200 rounded-full flex items-center justify-center">
                               <span className="text-pink-600 font-bold text-sm">
-                                {category.charAt(0).toUpperCase()}
+                                {category?.charAt(0).toUpperCase() || '?'}
                               </span>
                             </div>
                           )}

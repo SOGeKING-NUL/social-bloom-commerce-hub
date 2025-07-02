@@ -92,7 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await supabase
           .from('profiles')
           .update({ role: 'vendor' })
-          .eq('id', data.user.id);
+          .eq('id', data.user!.id);
       }, 1000);
     }
 

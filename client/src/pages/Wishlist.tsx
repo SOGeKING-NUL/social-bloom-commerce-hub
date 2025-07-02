@@ -54,7 +54,7 @@ const Wishlist = () => {
       const { error } = await supabase
         .from('wishlist')
         .delete()
-        .eq('user_id', user?.id)
+        .eq('user_id', user?.id || '')
         .eq('product_id', productId);
       
       if (error) throw error;
@@ -71,10 +71,12 @@ const Wishlist = () => {
   // Add to cart mutation
   const addToCartMutation = useMutation({
     mutationFn: async (productId: string) => {
+      if (!user?.id) throw new Error('User not authenticated');
+      
       const { error } = await supabase
         .from('cart_items')
         .insert({
-          user_id: user?.id,
+          user_id: user.id,
           product_id: productId,
           quantity: 1
         });

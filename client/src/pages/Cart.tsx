@@ -99,7 +99,7 @@ const Cart = () => {
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
-          user_id: user.id,
+          user_id: user!.id,
           total_amount: totalAmount,
           shipping_address: shippingAddress,
           status: 'pending'
@@ -127,7 +127,7 @@ const Cart = () => {
       const { error: clearError } = await supabase
         .from('cart_items')
         .delete()
-        .eq('user_id', user.id);
+        .eq('user_id', user!.id);
 
       if (clearError) throw clearError;
 
