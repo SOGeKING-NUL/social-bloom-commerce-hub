@@ -28,8 +28,8 @@ const GroupsPreview = () => {
         }
 
         // Get all unique creator IDs and product IDs
-        const creatorIds = [...new Set(groupsData.map(g => g.creator_id))];
-        const productIds = [...new Set(groupsData.map(g => g.product_id).filter(Boolean))];
+        const creatorIds = Array.from(new Set(groupsData.map(g => g.creator_id)));
+        const productIds = Array.from(new Set(groupsData.map(g => g.product_id).filter(Boolean)));
         
         // Get creators in parallel
         const creatorsPromise = creatorIds.length > 0 

@@ -202,7 +202,7 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
                       {comment.user.name}
                     </span>
                     <span className="text-xs text-gray-500">
-                      {new Date(comment.created_at).toLocaleDateString()}
+                      {comment.created_at ? new Date(comment.created_at).toLocaleDateString() : 'Unknown date'}
                     </span>
                   </div>
                   

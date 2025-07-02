@@ -134,7 +134,7 @@ const Header = () => {
                   className="relative"
                 >
                   <Heart className="w-4 h-4" />
-                  {wishlistCount > 0 && (
+                  {(wishlistCount ?? 0) > 0 && (
                     <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                       {wishlistCount}
                     </span>
@@ -147,7 +147,7 @@ const Header = () => {
                   className="relative"
                 >
                   <ShoppingCart className="w-4 h-4" />
-                  {cartCount > 0 && (
+                  {(cartCount ?? 0) > 0 && (
                     <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
                       {cartCount}
                     </span>
