@@ -27,7 +27,7 @@ const UserDashboard = () => {
       const { data, error } = await supabase
         .from('posts')
         .select('*')
-        .eq('user_id', profile?.id)
+        .eq('user_id', profile?.id!)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -46,7 +46,7 @@ const UserDashboard = () => {
           *,
           products (*)
         `)
-        .eq('user_id', profile?.id);
+        .eq('user_id', profile?.id!);
       
       if (error) throw error;
       return data;
@@ -61,7 +61,7 @@ const UserDashboard = () => {
       const { data, error } = await supabase
         .from('orders')
         .select('*')
-        .eq('user_id', profile?.id)
+        .eq('user_id', profile?.id!)
         .order('created_at', { ascending: false });
       
       if (error) throw error;

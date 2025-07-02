@@ -29,7 +29,7 @@ const VendorDashboard = () => {
       const { data, error } = await supabase
         .from('vendor_kyc')
         .select('*')
-        .eq('vendor_id', profile?.id)
+        .eq('vendor_id', profile?.id!)
         .single();
       
       if (error && error.code !== 'PGRST116') throw error;
@@ -45,7 +45,7 @@ const VendorDashboard = () => {
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('vendor_id', profile?.id)
+        .eq('vendor_id', profile?.id!)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
