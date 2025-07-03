@@ -15,7 +15,7 @@ const Header = () => {
   const { user, signOut } = useAuth();
 
   // Fetch cart count
-  const { data: cartCount } = useQuery({
+  const { data: cartCount = 0 } = useQuery({
     queryKey: ['cart-count', user?.id],
     queryFn: async () => {
       if (!user) return 0;
@@ -32,7 +32,7 @@ const Header = () => {
   });
 
   // Fetch wishlist count
-  const { data: wishlistCount } = useQuery({
+  const { data: wishlistCount = 0 } = useQuery({
     queryKey: ['wishlist-count', user?.id],
     queryFn: async () => {
       if (!user) return 0;

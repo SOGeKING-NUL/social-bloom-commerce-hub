@@ -1,267 +1,324 @@
 
-import { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Upload, X, Plus, Minus } from "lucide-react";
 
-interface ProductFormProps {
-  onClose: () => void;
-  existingData?: any;
+interface ProductFormData {
+  name: string;
+  description: string;
+  price: number;
+  category: string;
+  stock_quantity: number;
+  image: File | null;
 }
 
-const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
-  const { profile } = useAuth();
+interface TieredDiscount {
+  min_quantity: number;
+  discount_percentage: number;
+}
+
+const categories = [
+  "Electronics",
+  "Clothing",
+  "Home & Garden",
+  "Sports & Outdoors",
+  "Books",
+  "Beauty & Personal Care",
+  "Toys & Games",
+  "Food & Beverages",
+  "Health & Wellness",
+  "Automotive",
+  "Other"
+];
+
+const ProductForm = () => {
+  const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [form, setForm] = useState({
-    name: existingData?.name || '',
-    description: existingData?.description || '',
-    price: existingData?.price || '',
-    category: existingData?.category || '',
-    stock_quantity: existingData?.stock_quantity || 0,
-    image_url: existingData?.image_url || '',
-    is_active: existingData ? existingData.is_active : true,
-    group_discounts: existingData?.group_discounts || [
-      { members: 2, discount: 10 },
-      { members: 3, discount: 15 },
-      { members: 5, discount: 20 }
-    ],
+  const [formData, setFormData] = useState<ProductFormData>({
+    name: "",
+    description: "",
+    price: 0,
+    category: "",
+    stock_quantity: 0,
+    image: null
   });
   
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(existingData?.image_url || null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [tieredDiscounts, setTieredDiscounts] = useState<TieredDiscount[]>([
+    { min_quantity: 2, discount_percentage: 10 },
+    { min_quantity: 5, discount_percentage: 15 },
+    { min_quantity: 10, discount_percentage: 20 }
+  ]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
-    }
-  };
-
-  const uploadImage = async (): Promise<string | null> => {
-    if (!imageFile) return form.image_url || null;
-    
-    const fileExt = imageFile.name.split('.').pop();
-    const filePath = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-    
-    const { data, error } = await supabase.storage
-      .from('product-images')
-      .upload(filePath, imageFile);
-    
-    if (error) {
-      console.error('Error uploading image:', error);
-      return null;
-    }
-    
-    const { data: { publicUrl } } = supabase.storage
-      .from('product-images')
-      .getPublicUrl(data.path);
-    
-    return publicUrl;
-  };
-
-  const submitProductMutation = useMutation({
-    mutationFn: async () => {
-      if (!profile?.id) throw new Error('User not authenticated');
+  const createProductMutation = useMutation({
+    mutationFn: async (data: ProductFormData) => {
+      if (!user) throw new Error('Not authenticated');
       
-      // Upload image first
-      const imageUrl = await uploadImage();
+      let imageUrl = null;
       
-      const productData = {
-        name: form.name.trim(),
-        description: form.description?.trim() || null,
-        price: parseFloat(form.price as string) || 0,
-        category: form.category?.trim() || null,
-        stock_quantity: form.stock_quantity ? parseInt(form.stock_quantity as string) : null,
-        image_url: imageUrl || null,
-        group_discounts: form.group_discounts || [],
-        is_active: true,
-      };
-      
-      if (existingData) {
-        // Update existing product
-        const { error } = await supabase
-          .from('products')
-          .update(productData)
-          .eq('id', existingData.id);
+      // Upload image if provided
+      if (data.image) {
+        const fileExt = data.image.name.split('.').pop();
+        const fileName = `${user.id}/${Date.now()}.${fileExt}`;
         
-        if (error) throw error;
-      } else {
-        // Insert new product
-        const { error } = await supabase
-          .from('products')
-          .insert({
-            ...productData,
-            vendor_id: profile.id,
-          });
+        const { error: uploadError } = await supabase.storage
+          .from('product-images')
+          .upload(fileName, data.image);
         
-        if (error) throw error;
+        if (uploadError) throw uploadError;
+        
+        const { data: urlData } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(fileName);
+        
+        imageUrl = urlData.publicUrl;
       }
+      
+      // Create product
+      const { data: product, error } = await supabase
+        .from('products')
+        .insert({
+          vendor_id: user.id,
+          name: data.name,
+          description: data.description,
+          price: data.price,
+          category: data.category,
+          stock_quantity: data.stock_quantity,
+          image_url: imageUrl,
+          is_active: true
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return product;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['vendor-products', profile?.id] });
+      queryClient.invalidateQueries({ queryKey: ['vendor-products'] });
       toast({
-        title: existingData ? 'Product Updated' : 'Product Added',
-        description: existingData 
-          ? 'Your product has been updated successfully.' 
-          : 'Your product has been added successfully.',
+        title: "Product Created",
+        description: "Your product has been created successfully!",
       });
-      onClose();
+      // Reset form
+      setFormData({
+        name: "",
+        description: "",
+        price: 0,
+        category: "",
+        stock_quantity: 0,
+        image: null
+      });
+      setImagePreview(null);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       toast({
-        title: 'Error',
-        description: `Failed to ${existingData ? 'update' : 'add'} product. Please try again.`,
-        variant: 'destructive',
+        title: "Error",
+        description: error.message || "Failed to create product",
+        variant: "destructive",
       });
-      console.error(error);
-    },
-    onSettled: () => {
-      setIsSubmitting(false);
-    },
+    }
   });
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFormData({ ...formData, image: file });
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setFormData({ ...formData, image: null });
+    setImagePreview(null);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    submitProductMutation.mutate();
+    
+    if (!formData.name || !formData.price || !formData.category) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    createProductMutation.mutate(formData);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    setForm((prev) => ({ 
-      ...prev, 
-      [name]: type === 'number' ? (value ? parseFloat(value) : '') : value 
-    }));
+  const addTieredDiscount = () => {
+    setTieredDiscounts([
+      ...tieredDiscounts,
+      { min_quantity: 1, discount_percentage: 5 }
+    ]);
+  };
+
+  const removeTieredDiscount = (index: number) => {
+    setTieredDiscounts(tieredDiscounts.filter((_, i) => i !== index));
+  };
+
+  const updateTieredDiscount = (index: number, field: keyof TieredDiscount, value: number) => {
+    const updated = tieredDiscounts.map((discount, i) => 
+      i === index ? { ...discount, [field]: value } : discount
+    );
+    setTieredDiscounts(updated);
   };
 
   return (
-    <Sheet open={true} onOpenChange={onClose}>
-      <SheetContent className="w-full md:max-w-md overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>{existingData ? 'Edit Product' : 'Add New Product'}</SheetTitle>
-          <SheetDescription>
-            {existingData 
-              ? 'Update your product details below.' 
-              : 'Fill in the details for your new product.'}
-          </SheetDescription>
-        </SheetHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-6 py-6">
-          <div>
-            <Label htmlFor="name">Product Name *</Label>
-            <Input 
-              id="name"
-              name="name"
-              value={form.name}
-              onChange={handleChange}
-              placeholder="Product Name"
-              required
-            />
-          </div>
-          
-          <div>
-            <Label htmlFor="description">Description</Label>
-            <Textarea 
-              id="description"
-              name="description"
-              value={form.description}
-              onChange={handleChange}
-              placeholder="Product Description"
-              rows={4}
-            />
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
+    <Card className="max-w-2xl mx-auto">
+      <CardHeader>
+        <CardTitle>Add New Product</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Basic Information */}
+          <div className="space-y-4">
             <div>
-              <Label htmlFor="price">Price *</Label>
-              <Input 
-                id="price"
-                name="price"
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.price}
-                onChange={handleChange}
-                placeholder="0.00"
+              <Label htmlFor="name">Product Name *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Enter product name"
                 required
               />
             </div>
             
             <div>
-              <Label htmlFor="stock_quantity">Stock Quantity *</Label>
-              <Input 
-                id="stock_quantity"
-                name="stock_quantity"
-                type="number"
-                min="0"
-                step="1"
-                value={form.stock_quantity}
-                onChange={handleChange}
-                placeholder="0"
-                required
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="Describe your product"
+                rows={3}
               />
             </div>
-          </div>
-          
-          <div>
-            <Label htmlFor="category">Category</Label>
-            <Input 
-              id="category"
-              name="category"
-              value={form.category}
-              onChange={handleChange}
-              placeholder="Product Category"
-            />
-          </div>
-          
-          <div>
-            <Label htmlFor="product_image">Product Image</Label>
-            <Input 
-              id="product_image"
-              name="product_image"
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-            />
-            {imagePreview && (
-              <div className="mt-2">
-                <img 
-                  src={imagePreview} 
-                  alt="Product Preview" 
-                  className="w-full max-h-48 object-contain rounded border"
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="price">Price ($) *</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.price}
+                  onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                  placeholder="0.00"
+                  required
                 />
               </div>
-            )}
+              
+              <div>
+                <Label htmlFor="stock">Stock Quantity</Label>
+                <Input
+                  id="stock"
+                  type="number"
+                  min="0"
+                  value={formData.stock_quantity}
+                  onChange={(e) => setFormData({ ...formData, stock_quantity: parseInt(e.target.value) || 0 })}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+            
+            <div>
+              <Label htmlFor="category">Category *</Label>
+              <Select value={formData.category} onValueChange={(value) => setFormData({ ...formData, category: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
-          {/* Group Discount Configuration */}
+          {/* Image Upload */}
           <div>
-            <Label>Group Shopping Discounts</Label>
-            <p className="text-sm text-gray-600 mb-3">Set discounts for group orders (24-hour expiration)</p>
+            <Label>Product Image</Label>
+            <div className="mt-2">
+              {imagePreview ? (
+                <div className="relative inline-block">
+                  <img 
+                    src={imagePreview} 
+                    alt="Preview" 
+                    className="w-32 h-32 object-cover rounded-lg border"
+                  />
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full p-0"
+                    onClick={removeImage}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
+                  <p className="text-sm text-gray-500 mb-2">Upload product image</p>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="max-w-xs"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Tiered Discounts */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <Label>Tiered Discounts</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addTieredDiscount}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Tier
+              </Button>
+            </div>
+            
             <div className="space-y-3">
-              {form.group_discounts.map((discount, index) => (
+              {tieredDiscounts.map((discount, index) => (
                 <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
                   <div className="flex-1">
-                    <Label className="text-xs">Members Required</Label>
+                    <Label className="text-xs">Min Quantity</Label>
                     <Input
                       type="number"
-                      min="2"
-                      value={discount.members}
-                      onChange={(e) => {
-                        const newDiscounts = [...form.group_discounts];
-                        newDiscounts[index].members = parseInt(e.target.value) || 2;
-                        setForm({ ...form, group_discounts: newDiscounts });
-                      }}
+                      min="1"
+                      value={discount.min_quantity}
+                      onChange={(e) => updateTieredDiscount(index, 'min_quantity', parseInt(e.target.value) || 1)}
                       className="mt-1"
                     />
                   </div>
@@ -270,13 +327,9 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
                     <Input
                       type="number"
                       min="0"
-                      max="50"
-                      value={discount.discount}
-                      onChange={(e) => {
-                        const newDiscounts = [...form.group_discounts];
-                        newDiscounts[index].discount = parseInt(e.target.value) || 0;
-                        setForm({ ...form, group_discounts: newDiscounts });
-                      }}
+                      max="100"
+                      value={discount.discount_percentage}
+                      onChange={(e) => updateTieredDiscount(index, 'discount_percentage', parseInt(e.target.value) || 0)}
                       className="mt-1"
                     />
                   </div>
@@ -284,42 +337,32 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      const newDiscounts = form.group_discounts.filter((_, i) => i !== index);
-                      setForm({ ...form, group_discounts: newDiscounts });
-                    }}
+                    onClick={() => removeTieredDiscount(index)}
+                    className="mt-6"
                   >
-                    Remove
+                    <Minus className="w-4 h-4" />
                   </Button>
                 </div>
               ))}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  setForm({
-                    ...form,
-                    group_discounts: [...form.group_discounts, { members: 2, discount: 10 }]
-                  });
-                }}
-              >
-                Add Discount Tier
-              </Button>
+              
+              {tieredDiscounts.length === 0 && (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  No tiered discounts configured. Add tiers to offer bulk discounts.
+                </p>
+              )}
             </div>
           </div>
-          
-          <SheetFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Submitting...' : existingData ? 'Update Product' : 'Add Product'}
-            </Button>
-          </SheetFooter>
+
+          <Button 
+            type="submit" 
+            className="w-full"
+            disabled={createProductMutation.isPending}
+          >
+            {createProductMutation.isPending ? "Creating..." : "Create Product"}
+          </Button>
         </form>
-      </SheetContent>
-    </Sheet>
+      </CardContent>
+    </Card>
   );
 };
 

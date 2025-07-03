@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,6 +50,7 @@ const Discovery = () => {
       return data?.map(product => ({
         ...product,
         image_url: product.image_url || undefined,
+        category: product.category || undefined,
         vendor_profile: product.vendor_profile ? {
           full_name: product.vendor_profile.full_name,
           email: product.vendor_profile.email
@@ -70,8 +72,8 @@ const Discovery = () => {
       
       if (error) throw error;
       
-      const uniqueCategories = Array.from(new Set(data.map(item => item.category)));
-      return uniqueCategories.filter(Boolean);
+      const uniqueCategories = Array.from(new Set(data.map(item => item.category).filter(Boolean)));
+      return uniqueCategories;
     },
   });
 

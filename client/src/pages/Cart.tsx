@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -90,6 +89,7 @@ const Cart = () => {
     mutationFn: async () => {
       if (!cartItems || cartItems.length === 0) throw new Error('Cart is empty');
       if (!shippingAddress.trim()) throw new Error('Shipping address is required');
+      if (!user?.id) throw new Error('User not authenticated');
 
       const totalAmount = cartItems.reduce((sum, item) => 
         sum + (item.product.price * item.quantity), 0
