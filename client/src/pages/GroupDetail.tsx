@@ -89,10 +89,10 @@ const GroupDetail = () => {
         joinRequestsResult
       });
       
-      let creatorProfile: any = null;
-      let product: any = null;
-      let members: any[] = [];
-      let joinRequests: any[] = [];
+      let creatorProfile = null;
+      let product = null;
+      let members = [];
+      let joinRequests = [];
       
       if (creatorResult.status === 'fulfilled' && creatorResult.value.data) {
         creatorProfile = creatorResult.value.data;
@@ -122,15 +122,15 @@ const GroupDetail = () => {
       }
       
       // Get member profiles
-      let memberProfiles: any[] = [];
+      let memberProfiles = [];
       if (members.length > 0) {
-        const memberIds = members.map((m: any) => m.user_id);
+        const memberIds = members.map(m => m.user_id);
         const { data: profiles } = await supabase
           .from('profiles')
           .select('id, full_name, email, avatar_url')
           .in('id', memberIds);
         
-        memberProfiles = members.map((member: any) => {
+        memberProfiles = members.map(member => {
           const profile = profiles?.find(p => p.id === member.user_id);
           return {
             user_id: member.user_id,
@@ -141,7 +141,7 @@ const GroupDetail = () => {
       }
       
       // Calculate user states
-      const isJoined = members.some((member: any) => member.user_id === user?.id);
+      const isJoined = members.some(member => member.user_id === user?.id);
       const latestJoinRequest = joinRequests.length > 0 ? joinRequests[0] : null;
       const hasPendingRequest = latestJoinRequest?.status === 'pending';
       
@@ -699,7 +699,7 @@ const GroupDetail = () => {
                     <div className="space-y-2">
                       <Button
                         onClick={() => {
-                          const message = `Hey! Join my shopping group "${group.name}" and get up to 20% OFF on ${group.product?.name}! 🛍️\n\nWe currently have ${group.members?.length || 0} members${(group.members?.length || 0) >= 2 ? ` and everyone is already saving ${(group.members?.length || 0) >= 4 ? '20%' : (group.members?.length || 0) >= 3 ? '15%' : '10%'}!` : ', but we need at least 2 people to unlock discounts.'}\n\nJoin here: ${window.location.origin}/groups/${groupId}`;
+                          const message = `Hey! Join my shopping group "${group.name}" and get up to 20% OFF on ${group.product.name}! 🛍️\n\nWe currently have ${group.members.length} members${group.members.length >= 2 ? ` and everyone is already saving ${group.members.length >= 4 ? '20%' : group.members.length >= 3 ? '15%' : '10%'}!` : ', but we need at least 2 people to unlock discounts.'}\n\nJoin here: ${window.location.origin}/groups/${groupId}`;
                           window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
                         }}
                         className="w-full bg-green-500 hover:bg-green-600 text-white"

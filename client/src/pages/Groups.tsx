@@ -61,8 +61,8 @@ const Groups = () => {
 
       // Get related data separately
       const groupIds = basicGroups.map(g => g.id);
-      const creatorIds = Array.from(new Set(basicGroups.map(g => g.creator_id)));
-      const productIds = Array.from(new Set(basicGroups.map(g => g.product_id).filter(Boolean)));
+      const creatorIds = [...new Set(basicGroups.map(g => g.creator_id))];
+      const productIds = [...new Set(basicGroups.map(g => g.product_id).filter(Boolean))];
       
       // Get creator profiles
       const { data: creators } = await supabase
@@ -86,7 +86,7 @@ const Groups = () => {
       const { data: joinRequests } = await supabase
         .from('group_join_requests')
         .select('group_id, status')
-        .eq('user_id', user?.id || '')
+        .eq('user_id', user?.id)
         .in('group_id', groupIds)
         .eq('status', 'pending');
       

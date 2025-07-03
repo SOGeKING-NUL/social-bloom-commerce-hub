@@ -62,21 +62,14 @@ const Products = () => {
 
         // Create a clean vendor_profile object for the card, without vendor_kyc_data nested inside
         const cleanVendorProfile = profileData ? {
-          full_name: profileData.full_name || undefined,
-          email: profileData.email || undefined
+          full_name: profileData.full_name,
+          email: profileData.email
         } : null;
 
         return {
           ...product, // original product fields from 'products' table
-          image_url: product.image_url || undefined,
-          category: product.category || undefined,
-          description: product.description || undefined,
-          stock_quantity: product.stock_quantity || undefined,
           vendor_profile: cleanVendorProfile, // Pass the cleaned profile
-          vendor_kyc: kycDataForCard.map((kyc: any) => ({
-            display_business_name: kyc.display_business_name || undefined,
-            business_name: kyc.business_name || undefined
-          })) // Pass the extracted and formatted KYC data
+          vendor_kyc: kycDataForCard // Pass the extracted and formatted KYC data
         };
       });
       
@@ -143,19 +136,19 @@ const Products = () => {
                       className={`cursor-pointer rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 ${
                         selectedCategory === category ? 'ring-2 ring-pink-500' : ''
                       }`}
-                      onClick={() => setSelectedCategory(selectedCategory === category ? '' : (category || ''))}
+                      onClick={() => setSelectedCategory(selectedCategory === category ? '' : category)}
                     >
                       <div className="aspect-square bg-gradient-to-br from-pink-100 to-rose-100 flex items-center justify-center relative">
                         {categoryProduct?.image_url ? (
                           <img 
-                            src={categoryProduct.image_url || undefined} 
-                            alt={category || ''}
+                            src={categoryProduct.image_url} 
+                            alt={category}
                             className="w-full h-full object-cover"
                           />
                         ) : (
                           <div className="w-12 h-12 bg-pink-200 rounded-full flex items-center justify-center">
                             <span className="text-pink-600 font-bold text-lg">
-                              {category?.charAt(0).toUpperCase() || '?'}
+                              {category.charAt(0).toUpperCase()}
                             </span>
                           </div>
                         )}
@@ -193,7 +186,7 @@ const Products = () => {
               >
                 <option value="">All Categories</option>
                 {categories.map((category) => (
-                  <option key={category} value={category || ''}>
+                  <option key={category} value={category}>
                     {category}
                   </option>
                 ))}

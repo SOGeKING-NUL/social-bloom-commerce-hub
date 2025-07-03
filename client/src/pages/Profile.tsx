@@ -22,8 +22,8 @@ const Profile = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [editingProfile, setEditingProfile] = useState(false);
-  const [selectedGroupForEdit, setSelectedGroupForEdit] = useState<any>(null);
-  const [selectedGroupForRequests, setSelectedGroupForRequests] = useState<any>(null);
+  const [selectedGroupForEdit, setSelectedGroupForEdit] = useState(null);
+  const [selectedGroupForRequests, setSelectedGroupForRequests] = useState<{id: string, name: string} | null>(null);
   const [profileForm, setProfileForm] = useState({
     full_name: profile?.full_name || '',
     avatar_url: profile?.avatar_url || '',
@@ -76,7 +76,7 @@ const Profile = () => {
 
       // Get related data separately
       const groupIds = basicGroups.map(g => g.id);
-      const productIds = Array.from(new Set(basicGroups.map(g => g.product_id).filter(Boolean)));
+      const productIds = [...new Set(basicGroups.map(g => g.product_id).filter(Boolean))];
       
       // Get products
       const { data: products } = await supabase
@@ -256,7 +256,7 @@ const Profile = () => {
               <div className="flex flex-col md:flex-row items-start md:items-center space-y-4 md:space-y-0 md:space-x-6">
                 <div className="relative">
                   <Avatar className="w-24 h-24">
-                    <AvatarImage src={profile?.avatar_url || undefined} />
+                    <AvatarImage src={profile?.avatar_url} />
                     <AvatarFallback className="text-2xl">
                       {profile?.full_name?.charAt(0) || profile?.email?.charAt(0) || 'U'}
                     </AvatarFallback>
@@ -436,7 +436,7 @@ const Profile = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                             onClick={() => setSelectedGroupForRequests(group)}
+                              onClick={() => setSelectedGroupForRequests({id: group.id, name: group.name})}
                               className="text-orange-600 border-orange-200"
                             >
                               <UserPlus className="w-4 h-4" />

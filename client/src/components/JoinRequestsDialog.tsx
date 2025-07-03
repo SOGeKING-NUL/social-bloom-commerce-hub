@@ -46,7 +46,7 @@ const JoinRequestsDialog = ({ groupId, groupName, open, onOpenChange }: JoinRequ
         }
 
         // Get user profiles for the requests separately
-        let requestsWithProfiles: any[] = [];
+        let requestsWithProfiles = [];
         if (joinRequests && joinRequests.length > 0) {
           const userIds = joinRequests.map(req => req.user_id);
           const { data: profiles, error: profilesError } = await supabase

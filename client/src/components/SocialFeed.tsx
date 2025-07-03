@@ -49,7 +49,7 @@ const SocialFeed = () => {
         comments: post.comments_count || 0,
         shares: post.shares_count || 0,
         views: post.views_count || 0,
-        timestamp: post.created_at ? new Date(post.created_at).toLocaleDateString() : 'Unknown date',
+        timestamp: new Date(post.created_at).toLocaleDateString(),
         isLiked: user ? post.post_likes.some((like: any) => like.user_id === user.id) : false,
         user: {
           id: post.user_id,

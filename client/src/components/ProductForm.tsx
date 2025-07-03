@@ -249,7 +249,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
             <Label>Group Shopping Discounts</Label>
             <p className="text-sm text-gray-600 mb-3">Set discounts for group orders (24-hour expiration)</p>
             <div className="space-y-3">
-              {form.group_discounts.map((discount: any, index: number) => (
+              {form.group_discounts.map((discount, index) => (
                 <div key={index} className="flex items-center gap-3 p-3 border rounded-lg">
                   <div className="flex-1">
                     <Label className="text-xs">Members Required</Label>
@@ -285,7 +285,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const newDiscounts = form.group_discounts.filter((_: any, i: number) => i !== index);
+                      const newDiscounts = form.group_discounts.filter((_, i) => i !== index);
                       setForm({ ...form, group_discounts: newDiscounts });
                     }}
                   >

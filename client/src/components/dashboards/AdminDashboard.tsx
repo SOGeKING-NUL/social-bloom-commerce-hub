@@ -106,8 +106,8 @@ const AdminDashboard = () => {
       }
       
       // Get related data
-      const creatorIds = Array.from(new Set(groupsData.map(g => g.creator_id)));
-      const productIds = Array.from(new Set(groupsData.map(g => g.product_id).filter(Boolean)));
+      const creatorIds = [...new Set(groupsData.map(g => g.creator_id))];
+      const productIds = [...new Set(groupsData.map(g => g.product_id).filter(Boolean))];
       const groupIds = groupsData.map(g => g.id);
       
       // Get creators

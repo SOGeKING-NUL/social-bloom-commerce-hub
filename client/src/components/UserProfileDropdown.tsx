@@ -47,7 +47,7 @@ const UserProfileDropdown = () => {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Avatar className="cursor-pointer hover:ring-2 hover:ring-pink-200 transition-all">
-          <AvatarImage src={profile?.avatar_url || undefined} />
+          <AvatarImage src={profile?.avatar_url} />
           <AvatarFallback>
             {profile?.full_name?.charAt(0) || profile?.email?.charAt(0) || 'U'}
           </AvatarFallback>
