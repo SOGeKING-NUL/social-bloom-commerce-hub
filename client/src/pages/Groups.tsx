@@ -18,11 +18,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 
 const Groups = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState("recent");
   const [filterBy, setFilterBy] = useState("all");
@@ -163,7 +163,7 @@ const Groups = () => {
   }, [userGroups, analytics]);
 
   const handleGroupClick = (groupId: string) => {
-    navigate(`/groups/${groupId}`);
+    setLocation(`/groups/${groupId}`);
   };
 
   if (isLoading) {
