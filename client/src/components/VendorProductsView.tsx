@@ -63,6 +63,8 @@ const VendorProductsView = ({ vendorId, groupId, isGroupMember }: VendorProducts
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cart-items', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['cart-count', user?.id] });
       toast({
         title: "Added to Cart",
         description: "Product has been added to your cart.",

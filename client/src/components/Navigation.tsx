@@ -15,8 +15,6 @@ const Navigation = () => {
     { path: "/", icon: Home, label: "Home", auth: true },
     { path: "/discovery", icon: ShoppingBag, label: "Discovery" },
     { path: "/groups", icon: Users, label: "Groups", auth: true },
-    { path: "/cart", icon: ShoppingBag, label: "Cart", auth: true },
-    { path: "/checkout", icon: CreditCard, label: "Checkout", auth: true },
     { path: "/dashboard", icon: User, label: "Dashboard", auth: true },
   ];
 

@@ -1,12 +1,13 @@
 
 import { Button } from "@/components/ui/button";
-import { Heart, ShoppingCart } from "lucide-react";
+import { Heart } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import UserProfileDropdown from "@/components/UserProfileDropdown";
+import CartDropdown from "@/components/CartDropdown";
 
 const Header = () => {
   const navigate = useNavigate();
@@ -14,22 +15,7 @@ const Header = () => {
   const { toast } = useToast();
   const { user, signOut } = useAuth();
 
-  // Fetch cart count - number of items instead of quantity
-  const { data: cartCount } = useQuery({
-    queryKey: ['cart-count', user?.id],
-    queryFn: async () => {
-      if (!user) return 0;
-      
-      const { data, error } = await supabase
-        .from('cart_items')
-        .select('id')
-        .eq('user_id', user.id);
-      
-      if (error) return 0;
-      return data.length;
-    },
-    enabled: !!user,
-  });
+
 
   // Fetch wishlist count
   const { data: wishlistCount } = useQuery({
@@ -99,19 +85,7 @@ const Header = () => {
                     </span>
                   )}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate("/groups")}
-                  className="relative"
-                >
-                  <ShoppingCart className="w-4 h-4" />
-                  {(cartCount || 0) > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                      {cartCount || 0}
-                    </span>
-                  )}
-                </Button>
+                <CartDropdown />
               </>
             )}
             
