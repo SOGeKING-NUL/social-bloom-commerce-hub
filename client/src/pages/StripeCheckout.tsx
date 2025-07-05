@@ -67,7 +67,7 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
         .single();
 
       if (orderError) {
-        console.error('Order creation error:', orderError);
+        console.error('Order creation error details:', JSON.stringify(orderError, null, 2));
         throw orderError;
       }
 
@@ -230,7 +230,7 @@ const StripeCheckout = () => {
 
   useEffect(() => {
     const createPaymentIntent = async () => {
-      if (!cartItems.length || clientSecret) return; // Don't recreate if already exists
+      if (!cartItems.length || clientSecret || !profile) return; // Don't recreate if already exists
 
       const totalAmount = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
       
