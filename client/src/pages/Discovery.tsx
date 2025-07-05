@@ -19,6 +19,15 @@ const Discovery = () => {
   const urlParams = new URLSearchParams(window.location.search);
   const [searchTerm, setSearchTerm] = useState(urlParams.get('search') || "");
 
+  // Clear search term if no URL parameter is present
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const searchParam = urlParams.get('search');
+    if (!searchParam && searchTerm) {
+      setSearchTerm('');
+    }
+  }, [window.location.search]);
+
   // Dropdown search queries for live results
   const { data: dropdownProducts = [] } = useQuery({
     queryKey: ['dropdown-products', dropdownSearchTerm],
@@ -196,10 +205,18 @@ const Discovery = () => {
                 <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-400 rounded-full flex items-center justify-center">
                   <Search className="w-5 h-5 text-white" />
                 </div>
-                <div>
+                <div className="flex-1">
                   <h2 className="text-xl font-bold text-gray-900">Discover</h2>
                   <p className="text-sm text-gray-600">Find products, brands, and people</p>
                 </div>
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="px-3 py-1 text-sm bg-gray-100 hover:bg-gray-200 rounded-full transition-colors"
+                  >
+                    Clear search
+                  </button>
+                )}
               </div>
               
               <div className="relative" ref={dropdownRef}>
