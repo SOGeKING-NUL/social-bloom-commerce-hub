@@ -73,10 +73,19 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
       }
     },
     onSuccess: () => {
+      console.log('Follow mutation success, invalidating queries...');
+      
       // Invalidate multiple queries to ensure counts update properly
       queryClient.invalidateQueries({ queryKey: ['is-following', profileUserId] });
       queryClient.invalidateQueries({ queryKey: ['user-profile', profileUserId] });
       queryClient.invalidateQueries({ queryKey: ['user-profile', user?.id] }); // Also update current user's profile
+      
+      // Force refetch of profile data to ensure counts are updated
+      queryClient.refetchQueries({ queryKey: ['user-profile', profileUserId] });
+      queryClient.refetchQueries({ queryKey: ['user-profile', user?.id] });
+      
+      console.log('Queries invalidated and refetched');
+      
       toast({
         title: isFollowing ? "Unfollowed" : "Following",
         description: isFollowing 
