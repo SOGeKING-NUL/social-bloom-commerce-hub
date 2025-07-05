@@ -1,6 +1,6 @@
 
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { useLocation, Redirect } from 'wouter';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import Layout from '@/components/Layout';
@@ -21,7 +21,7 @@ const Dashboard = () => {
   }
 
   if (!profile) {
-    return <Navigate to="/auth" replace />;
+    return <Redirect to="/auth" />;
   }
 
   const DashboardContent = () => (
