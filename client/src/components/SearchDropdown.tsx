@@ -101,18 +101,24 @@ const SearchDropdown = () => {
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          console.log('Search button clicked, isOpen:', isOpen);
+          setIsOpen(!isOpen);
+        }}
         className="bg-gradient-to-r from-pink-50 to-rose-50 border-pink-200 text-pink-600 hover:from-pink-100 hover:to-rose-100"
       >
         <Search className="w-4 h-4" />
       </Button>
 
-      {/* Search Dropdown Panel */}
-      <div className={`absolute top-full right-0 mt-2 w-[500px] bg-white border border-gray-200 rounded-lg shadow-xl z-50 transition-all duration-300 origin-top-right ${
-        isOpen 
-          ? 'opacity-100 scale-100 translate-y-0' 
-          : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
-      }`}>
+      {/* Search Dropdown Panel - Always render but control visibility */}
+      <div 
+        className={`fixed top-16 right-4 w-[500px] bg-white border border-gray-200 rounded-lg shadow-2xl transition-all duration-300 ${
+          isOpen 
+            ? 'opacity-100 scale-100 translate-y-0 z-50' 
+            : 'opacity-0 scale-95 -translate-y-2 pointer-events-none z-0'
+        }`}
+        style={{ zIndex: isOpen ? 9999 : -1 }}
+      >
           {/* Search Header */}
           <div className="p-4 border-b border-gray-100 bg-gray-50">
             <div className="flex items-center justify-between mb-3">
