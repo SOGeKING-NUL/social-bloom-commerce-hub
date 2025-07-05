@@ -503,6 +503,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Handle GET request for create-payment-intent (should return error)
+  app.get("/api/create-payment-intent", async (req, res) => {
+    res.status(405).json({ error: 'Method not allowed. Use POST to create payment intent.' });
+  });
+
   // Stripe payment intent creation for group checkout
   app.post("/api/create-payment-intent", async (req, res) => {
     try {
@@ -516,6 +521,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100), // Convert to cents
         currency,
+        description: 'SocialShop Purchase - E-commerce platform transaction', // Required for Indian regulations
         metadata: metadata || {},
         automatic_payment_methods: {
           enabled: true,

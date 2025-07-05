@@ -224,7 +224,7 @@ const StripeCheckout = () => {
 
   useEffect(() => {
     const createPaymentIntent = async () => {
-      if (!cartItems.length) return;
+      if (!cartItems.length || clientSecret) return; // Don't recreate if already exists
 
       const totalAmount = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
       
@@ -248,7 +248,7 @@ const StripeCheckout = () => {
     };
 
     createPaymentIntent();
-  }, [cartItems]);
+  }, [cartItems, clientSecret]);
 
   if (isLoading) {
     return (
