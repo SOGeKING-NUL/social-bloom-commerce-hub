@@ -320,6 +320,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get cart items for user
+  app.get("/api/cart/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+
+      const cartResult = await db.execute(sql`
+        SELECT 
+          c.id,
+          c.quantity,
+          p.id as product_id,
+          p.name as product_name,
+          p.price as product_price,
+          p.image_url as product_image_url
+        FROM cart_items c
+        JOIN products p ON c.product_id = p.id
+        WHERE c.user_id = ${userId}
+        ORDER BY c.added_at DESC
+      `);
+
+      const cartItems = cartResult.rows.map(row => ({
+        id: row.id,
+        quantity: row.quantity,
+        product: {
+          id: row.product_id,
+          name: row.product_name,
+          price: row.product_price,
+          image_url: row.product_image_url
+        }
+      }));
+
+      res.json(cartItems);
+    } catch (error: any) {
+      console.error('Error fetching cart:', error);
+      res.status(500).json({ 
+        error: 'Failed to fetch cart',
+        message: error.message 
+      });
+    }
+  });
+
+  // Create order endpoint for checkout
+  app.post("/api/create-order", async (req, res) => {
+    try {
+      const { user_id, total_amount, status, shipping_address, payment_intent_id, order_items } = req.body;
+
+      if (!user_id || !total_amount || !order_items || !Array.isArray(order_items)) {
+        return res.status(400).json({ error: 'Missing required fields' });
+      }
+
+      // Create order in database
+      const orderResult = await db.execute(sql`
+        INSERT INTO orders (user_id, total_amount, status, shipping_address, created_at)
+        VALUES (${user_id}, ${total_amount}, ${status || 'confirmed'}, ${shipping_address || ''}, NOW())
+        RETURNING id, user_id, total_amount, status, shipping_address, created_at
+      `);
+
+      const order = orderResult.rows[0];
+
+      // Create order items
+      for (const item of order_items) {
+        await db.execute(sql`
+          INSERT INTO order_items (order_id, product_id, quantity, price)
+          VALUES (${order.id}, ${item.product_id}, ${item.quantity}, ${item.price})
+        `);
+      }
+
+      // Clear cart for user
+      await db.execute(sql`
+        DELETE FROM cart_items WHERE user_id = ${user_id}
+      `);
+
+      res.json({ 
+        id: order.id,
+        user_id: order.user_id,
+        total_amount: order.total_amount,
+        status: order.status,
+        shipping_address: order.shipping_address,
+        created_at: order.created_at
+      });
+    } catch (error: any) {
+      console.error('Error creating order:', error);
+      res.status(500).json({ 
+        error: 'Failed to create order',
+        message: error.message 
+      });
+    }
+  });
+
   // Stripe webhook handler for payment confirmations
   app.post("/api/stripe-webhook", async (req, res) => {
     const sig = req.headers['stripe-signature'];

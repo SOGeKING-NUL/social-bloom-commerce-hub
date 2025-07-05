@@ -53,42 +53,32 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
       // Calculate total
       const totalAmount = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
 
-      // Create order
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
+      // Create order via API
+      const orderResponse = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           user_id: user.id,
           total_amount: totalAmount,
           status: 'confirmed',
-          shipping_address: 'Test Address', // You can collect this from a form
-        })
-        .select()
-        .single();
+          shipping_address: 'Test Address',
+          payment_intent_id: paymentIntentId,
+          order_items: cartItems.map(item => ({
+            product_id: item.product.id,
+            quantity: item.quantity,
+            price: item.product.price
+          }))
+        }),
+      });
 
-      if (orderError) throw orderError;
+      if (!orderResponse.ok) {
+        const errorData = await orderResponse.json();
+        throw new Error(errorData.error || 'Failed to create order');
+      }
 
-      // Create order items
-      const orderItems = cartItems.map(item => ({
-        order_id: order.id,
-        product_id: item.product.id,
-        quantity: item.quantity,
-        price: item.product.price
-      }));
-
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItems);
-
-      if (itemsError) throw itemsError;
-
-      // Clear cart
-      const { error: clearCartError } = await supabase
-        .from('cart_items')
-        .delete()
-        .eq('user_id', user.id);
-
-      if (clearCartError) throw clearCartError;
-
+      const order = await orderResponse.json();
       return order;
     },
     onSuccess: () => {
@@ -195,28 +185,17 @@ const StripeCheckout = () => {
   const [clientSecret, setClientSecret] = useState("");
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  // Fetch cart items
+  // Fetch cart items via API
   const { data: cart, isLoading } = useQuery({
     queryKey: ['/api/cart'],
     queryFn: async () => {
       if (!user) return [];
       
-      const { data, error } = await supabase
-        .from('cart_items')
-        .select(`
-          id,
-          quantity,
-          product:products (
-            id,
-            name,
-            price,
-            image_url
-          )
-        `)
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-      return data || [];
+      const response = await fetch(`/api/cart/${user.id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch cart');
+      }
+      return response.json();
     },
     enabled: !!user
   });
