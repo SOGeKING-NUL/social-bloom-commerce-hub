@@ -73,6 +73,8 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
       }
     },
     onSuccess: async () => {
+      console.log('Follow mutation succeeded, invalidating cache for profile:', profileUserId);
+      
       // Clear all related cache entries completely
       queryClient.removeQueries({ queryKey: ['is-following'] });
       queryClient.removeQueries({ queryKey: ['user-profile'] });
@@ -80,8 +82,10 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
       queryClient.removeQueries({ queryKey: ['following'] });
       
       // Force immediate refetch
-      queryClient.refetchQueries({ queryKey: ['user-profile', profileUserId] });
-      queryClient.refetchQueries({ queryKey: ['user-profile', user?.id] });
+      await queryClient.refetchQueries({ queryKey: ['user-profile', profileUserId] });
+      await queryClient.refetchQueries({ queryKey: ['user-profile', user?.id] });
+      
+      console.log('Cache invalidated and refetched');
       
       toast({
         title: isFollowing ? "Unfollowed" : "Following",
