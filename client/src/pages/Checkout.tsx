@@ -62,22 +62,17 @@ const Checkout = () => {
   const queryClient = useQueryClient();
   const [location, setLocation] = useLocation();
 
-  // Fetch cart items for checkout
+  // Fetch cart items for checkout via API
   const { data: cartItems, isLoading } = useQuery({
     queryKey: ['cart-items', user?.id],
     queryFn: async () => {
       if (!user) return [];
       
-      const { data, error } = await supabase
-        .from('cart_items')
-        .select(`
-          id,
-          quantity,
-          product:products(id, name, price, image_url)
-        `)
-        .eq('user_id', user.id);
-      
-      if (error) throw error;
+      const response = await fetch(`/api/cart/${user.id}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch cart');
+      }
+      const data = await response.json();
       return data as CartItem[];
     },
     enabled: !!user,
@@ -97,40 +92,28 @@ const Checkout = () => {
 
       if (!user?.id) throw new Error('User not authenticated');
       
-      const { data, error } = await supabase
-        .from('orders')
-        .insert({
+      const orderResponse = await fetch('/api/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           user_id: user.id,
           total_amount: total,
           status: 'pending',
           shipping_address: sameAsBilling ? `${billingInfo.address}, ${billingInfo.city}, ${billingInfo.state} ${billingInfo.zipCode}` : `${shippingInfo.address}, ${shippingInfo.city}, ${shippingInfo.state} ${shippingInfo.zipCode}`,
-        })
-        .select()
-        .single();
+          payment_intent_id: null,
+          order_items: orderItems
+        }),
+      });
 
-      if (error) throw error;
+      if (!orderResponse.ok) {
+        const errorData = await orderResponse.json();
+        throw new Error(errorData.error || 'Failed to create order');
+      }
 
-      // Insert order items
-      const orderItemsWithOrderId = orderItems.map(item => ({
-        ...item,
-        order_id: data.id
-      }));
-
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(orderItemsWithOrderId);
-
-      if (itemsError) throw itemsError;
-
-      // Clear cart
-      const { error: clearCartError } = await supabase
-        .from('cart_items')
-        .delete()
-        .eq('user_id', user.id);
-
-      if (clearCartError) throw clearCartError;
-
-      return data;
+      const order = await orderResponse.json();
+      return order;
     },
     onSuccess: (order) => {
       queryClient.invalidateQueries({ queryKey: ['cart-items', user?.id] });
