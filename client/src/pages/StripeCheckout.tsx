@@ -43,12 +43,12 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
   const { toast } = useToast();
   const [processing, setProcessing] = useState(false);
   const [location, setLocation] = useLocation();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const queryClient = useQueryClient();
 
   const createOrderMutation = useMutation({
     mutationFn: async (paymentIntentId: string) => {
-      if (!user) throw new Error("User not authenticated");
+      if (!user || !profile) throw new Error("User not authenticated or profile not found");
 
       // Calculate total
       const totalAmount = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
@@ -57,7 +57,7 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
-          user_id: user.id,
+          user_id: profile.id,
           total_amount: totalAmount,
           status: 'confirmed',
           shipping_address: 'Test Address',
@@ -84,7 +84,7 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
       const { error: clearError } = await supabase
         .from('cart_items')
         .delete()
-        .eq('user_id', user.id);
+        .eq('user_id', profile.id);
 
       if (clearError) throw clearError;
 
@@ -237,7 +237,7 @@ const StripeCheckout = () => {
           body: JSON.stringify({
             amount: totalAmount,
             currency: 'usd',
-            customer_name: user?.full_name || 'Customer',
+            customer_name: profile?.full_name || 'Customer',
             customer_address: 'Test Address for Indian Regulations Compliance'
           }),
         });
