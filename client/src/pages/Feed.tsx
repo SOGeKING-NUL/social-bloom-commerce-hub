@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Heart, MessageCircle, Share, Plus, Image } from "lucide-react";
@@ -13,7 +14,6 @@ import { Textarea } from "@/components/ui/textarea";
 import CommentsDialog from "@/components/CommentsDialog";
 import InstagramStylePostCreator from "@/components/InstagramStylePostCreator";
 import SearchSidebar from "@/components/SearchSidebar";
-import { useLocation } from "wouter";
 
 const Feed = () => {
   const { toast } = useToast();
