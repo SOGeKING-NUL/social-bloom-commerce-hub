@@ -53,36 +53,46 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
       // Calculate total
       const totalAmount = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
 
-      // Create order via API
-      const orderResponse = await fetch('/api/create-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Create order in Supabase
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert({
           user_id: user.id,
           total_amount: totalAmount,
           status: 'confirmed',
           shipping_address: 'Test Address',
-          payment_intent_id: paymentIntentId,
-          order_items: cartItems.map(item => ({
-            product_id: item.product.id,
-            quantity: item.quantity,
-            price: item.product.price
-          }))
-        }),
-      });
+          payment_intent_id: paymentIntentId
+        })
+        .select()
+        .single();
 
-      if (!orderResponse.ok) {
-        const errorData = await orderResponse.json();
-        throw new Error(errorData.error || 'Failed to create order');
-      }
+      if (orderError) throw orderError;
 
-      const order = await orderResponse.json();
+      // Create order items in Supabase
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(cartItems.map(item => ({
+          order_id: order.id,
+          product_id: item.product.id,
+          quantity: item.quantity,
+          price: item.product.price
+        })));
+
+      if (itemsError) throw itemsError;
+
+      // Clear cart after successful order
+      const { error: clearError } = await supabase
+        .from('cart_items')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (clearError) throw clearError;
+
       return order;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/cart'] });
+      queryClient.invalidateQueries({ queryKey: ['cart-items'] });
+      queryClient.invalidateQueries({ queryKey: ['cart-count'] });
       toast({
         title: "Order placed successfully!",
         description: "Thank you for your purchase. You'll receive a confirmation email shortly.",
@@ -185,17 +195,23 @@ const StripeCheckout = () => {
   const [clientSecret, setClientSecret] = useState("");
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
-  // Fetch cart items via API
+  // Fetch cart items from Supabase
   const { data: cart, isLoading } = useQuery({
-    queryKey: ['/api/cart'],
+    queryKey: ['cart-items', user?.id],
     queryFn: async () => {
       if (!user) return [];
       
-      const response = await fetch(`/api/cart/${user.id}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch cart');
-      }
-      return response.json();
+      const { data, error } = await supabase
+        .from('cart_items')
+        .select(`
+          id,
+          quantity,
+          product:products(id, name, price, image_url)
+        `)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      return data as CartItem[];
     },
     enabled: !!user
   });
