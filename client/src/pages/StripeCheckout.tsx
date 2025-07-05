@@ -70,20 +70,38 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
         throw orderError;
       }
 
+      if (!order) {
+        throw new Error('Order creation failed: no order returned');
+      }
+
+      console.log('Order created successfully:', order.id);
+
       // Note: payment_intent_id update skipped due to Supabase schema cache issue
       // Order is created successfully, payment intent ID can be tracked separately if needed
 
       // Create order items in Supabase
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(cartItems.map(item => ({
-          order_id: order.id,
-          product_id: item.product.id,
-          quantity: item.quantity,
-          price: item.product.price
-        })));
+      const orderItemsData = cartItems.map(item => ({
+        order_id: order.id,
+        product_id: item.product.id,
+        quantity: item.quantity,
+        price: Number(item.product.price) // Ensure price is a number
+      }));
 
-      if (itemsError) throw itemsError;
+      console.log('Creating order items:', orderItemsData);
+      console.log('Order ID from order:', order.id);
+      
+      // Try each item individually to get specific error
+      for (const itemData of orderItemsData) {
+        const { error: itemError } = await supabase
+          .from('order_items')
+          .insert(itemData);
+        
+        if (itemError) {
+          console.error('Individual order item error:', JSON.stringify(itemError, null, 2));
+          console.error('Failed item data:', itemData);
+          throw itemError;
+        }
+      }
 
       // Clear cart after successful order
       const { error: clearError } = await supabase
