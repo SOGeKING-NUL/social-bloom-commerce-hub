@@ -80,7 +80,7 @@ const SearchDropdown = () => {
   };
 
   const handleUserClick = (userId: string) => {
-    setLocation(`/profile/${userId}`);
+    setLocation(`/users/${userId}`);
     setIsOpen(false);
     setSearchTerm("");
   };
@@ -108,8 +108,11 @@ const SearchDropdown = () => {
       </Button>
 
       {/* Search Dropdown */}
-      {isOpen && (
-        <div className="absolute top-full right-0 mt-2 w-96 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-96 overflow-hidden">
+      <div className={`absolute top-full right-0 mt-2 w-96 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-96 overflow-hidden transition-all duration-200 origin-top-right ${
+        isOpen 
+          ? 'opacity-100 scale-100 translate-y-0' 
+          : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
+      }`}>
           {/* Search Header */}
           <div className="p-4 border-b border-gray-100">
             <div className="flex items-center justify-between mb-3">
@@ -249,8 +252,7 @@ const SearchDropdown = () => {
               </div>
             )}
           </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 };
