@@ -15,18 +15,8 @@ const Discovery = () => {
   const [dropdownSearchTerm, setDropdownSearchTerm] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
   
-  // Get search term from URL params or state
-  const urlParams = new URLSearchParams(window.location.search);
-  const [searchTerm, setSearchTerm] = useState(urlParams.get('search') || "");
-
-  // Clear search term if no URL parameter is present
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const searchParam = urlParams.get('search');
-    if (!searchParam && searchTerm) {
-      setSearchTerm('');
-    }
-  }, [window.location.search]);
+  // Get search term from URL params or state - default to empty to show all products
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Dropdown search queries for live results
   const { data: dropdownProducts = [] } = useQuery({
@@ -145,8 +135,7 @@ const Discovery = () => {
         throw error;
       }
       
-      console.log('Products fetched:', data?.length, 'products');
-      console.log('Search term:', searchTerm, 'Category:', selectedCategory);
+
       
       return data?.map(product => ({
         ...product,
