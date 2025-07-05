@@ -360,6 +360,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update cart item quantity
+  app.put("/api/cart-item/:itemId", async (req, res) => {
+    try {
+      const { itemId } = req.params;
+      const { quantity } = req.body;
+
+      await db.execute(sql`
+        UPDATE cart_items 
+        SET quantity = ${quantity}
+        WHERE id = ${itemId}
+      `);
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error updating cart item:', error);
+      res.status(500).json({ 
+        error: 'Failed to update cart item',
+        message: error.message 
+      });
+    }
+  });
+
+  // Delete cart item
+  app.delete("/api/cart-item/:itemId", async (req, res) => {
+    try {
+      const { itemId } = req.params;
+
+      await db.execute(sql`
+        DELETE FROM cart_items 
+        WHERE id = ${itemId}
+      `);
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting cart item:', error);
+      res.status(500).json({ 
+        error: 'Failed to delete cart item',
+        message: error.message 
+      });
+    }
+  });
+
+  // Clear cart for user
+  app.delete("/api/cart/clear/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+
+      await db.execute(sql`
+        DELETE FROM cart_items 
+        WHERE user_id = ${userId}
+      `);
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error clearing cart:', error);
+      res.status(500).json({ 
+        error: 'Failed to clear cart',
+        message: error.message 
+      });
+    }
+  });
+
   // Create order endpoint for checkout
   app.post("/api/create-order", async (req, res) => {
     try {
