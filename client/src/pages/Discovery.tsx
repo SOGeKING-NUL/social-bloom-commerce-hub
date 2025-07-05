@@ -297,7 +297,7 @@ const Discovery = () => {
                           onClick={handleViewAllDropdownResults}
                           className="w-full px-4 py-2 text-pink-600 hover:bg-pink-50 rounded-lg transition-colors font-medium"
                         >
-                          View all results for "{dropdownSearchTerm}" →
+                          View all {dropdownProducts.length} products for "{dropdownSearchTerm}" →
                         </button>
                       </div>
                     )}
@@ -313,24 +313,7 @@ const Discovery = () => {
                 )}
               </div>
               
-              {/* Search Stats */}
-              {searchTerm && (
-                <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
-                  <div className="flex items-center gap-4">
-                    <span className="font-medium">Found: {products.length} products, {users.length} people</span>
-                  </div>
-                  <div className="text-xs bg-pink-100 text-pink-700 px-3 py-1 rounded-full font-medium">
-                    Results for "{searchTerm}"
-                  </div>
-                </div>
-              )}
-              
-              {/* Dropdown Stats */}
-              {isDropdownOpen && dropdownSearchTerm && (
-                <div className="mt-2 text-xs text-gray-500">
-                  Live search: {dropdownProducts.length} products, {dropdownUsers.length} people
-                </div>
-              )}
+
             </div>
           </div>
 
@@ -378,67 +361,19 @@ const Discovery = () => {
             </div>
           )}
 
-          {/* Mixed Results - Show both users and products when searching */}
+          {/* Products Results - Show only products when searching */}
           {searchTerm && (
-            <div className="space-y-8">
-              {/* Users Section */}
-              {users.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-4">
-                    <User className="w-5 h-5 text-gray-600" />
-                    <h2 className="text-lg font-semibold">People</h2>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {usersLoading ? (
-                      Array.from({ length: 3 }).map((_, i) => (
-                        <div key={i} className="bg-white rounded-xl p-4 animate-pulse">
-                          <div className="flex items-center space-x-4">
-                            <div className="w-12 h-12 bg-gray-200 rounded-full" />
-                            <div className="flex-1 space-y-2">
-                              <div className="h-4 bg-gray-200 rounded w-3/4" />
-                              <div className="h-3 bg-gray-200 rounded w-1/2" />
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      users.map((user) => (
-                        <div
-                          key={user.id}
-                          className="bg-white rounded-xl p-4 cursor-pointer hover:shadow-md transition-shadow"
-                          onClick={() => setLocation(`/profile/${user.id}`)}
-                        >
-                          <div className="flex items-center space-x-4">
-                            <Avatar className="w-12 h-12">
-                              <AvatarImage src={user.avatar_url || undefined} />
-                              <AvatarFallback>
-                                {user.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-gray-900">
-                                {user.full_name || 'Unknown User'}
-                              </h3>
-                              <p className="text-sm text-gray-600">{user.email}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              )}
-
+            <div>
               {/* Products Section */}
               {products.length > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-4">
                     <ShoppingBag className="w-5 h-5 text-gray-600" />
-                    <h2 className="text-lg font-semibold">Products</h2>
+                    <h2 className="text-lg font-semibold">Products ({products.length})</h2>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {productsLoading ? (
-                      Array.from({ length: 4 }).map((_, i) => (
+                      Array.from({ length: 8 }).map((_, i) => (
                         <div key={i} className="aspect-square bg-gray-200 rounded-xl animate-pulse" />
                       ))
                     ) : (
@@ -451,11 +386,11 @@ const Discovery = () => {
               )}
 
               {/* No Results */}
-              {!usersLoading && !productsLoading && users.length === 0 && products.length === 0 && (
+              {!productsLoading && products.length === 0 && (
                 <div className="text-center py-12">
                   <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500 text-lg">No results found</p>
-                  <p className="text-gray-400">Try searching for something else</p>
+                  <p className="text-gray-500 text-lg">No products found</p>
+                  <p className="text-gray-400">Try searching for different keywords</p>
                 </div>
               )}
             </div>
