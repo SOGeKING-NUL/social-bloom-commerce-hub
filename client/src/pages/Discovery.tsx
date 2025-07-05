@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
@@ -11,10 +11,95 @@ import ProductCard from "@/components/ProductCard";
 const Discovery = () => {
   const [location, setLocation] = useLocation();
   const [selectedCategory, setSelectedCategory] = useState("");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [dropdownSearchTerm, setDropdownSearchTerm] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
   
   // Get search term from URL params or state
   const urlParams = new URLSearchParams(window.location.search);
   const [searchTerm, setSearchTerm] = useState(urlParams.get('search') || "");
+
+  // Dropdown search queries for live results
+  const { data: dropdownProducts = [] } = useQuery({
+    queryKey: ['dropdown-products', dropdownSearchTerm],
+    queryFn: async () => {
+      if (dropdownSearchTerm.length < 2) return [];
+      
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          id,
+          name,
+          price,
+          image_url,
+          category,
+          vendor_id,
+          vendor_profile:profiles!vendor_id (
+            full_name,
+            email
+          )
+        `)
+        .ilike('name', `%${dropdownSearchTerm}%`)
+        .limit(3);
+      
+      if (error) return [];
+      return data || [];
+    },
+    enabled: dropdownSearchTerm.length >= 2,
+  });
+
+  const { data: dropdownUsers = [] } = useQuery({
+    queryKey: ['dropdown-users', dropdownSearchTerm],
+    queryFn: async () => {
+      if (dropdownSearchTerm.length < 2) return [];
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, avatar_url')
+        .ilike('full_name', `%${dropdownSearchTerm}%`)
+        .limit(3);
+      
+      if (error) return [];
+      return data || [];
+    },
+    enabled: dropdownSearchTerm.length >= 2,
+  });
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Dropdown handlers
+  const handleDropdownProductClick = (productId: string) => {
+    setLocation(`/products/${productId}`);
+    setIsDropdownOpen(false);
+    setDropdownSearchTerm('');
+  };
+
+  const handleDropdownUserClick = (userId: string) => {
+    setLocation(`/users/${userId}`);
+    setIsDropdownOpen(false);
+    setDropdownSearchTerm('');
+  };
+
+  const handleDropdownSearchChange = (value: string) => {
+    setDropdownSearchTerm(value);
+    setIsDropdownOpen(value.length > 0);
+  };
+
+  const handleViewAllDropdownResults = () => {
+    setSearchTerm(dropdownSearchTerm);
+    setIsDropdownOpen(false);
+    setDropdownSearchTerm('');
+  };
 
   // Fetch products
   const { data: products = [], isLoading: productsLoading } = useQuery({
@@ -111,21 +196,120 @@ const Discovery = () => {
                 </div>
               </div>
               
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <div className="relative" ref={dropdownRef}>
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 z-10" />
                 <Input
                   placeholder="Search for products, brands, categories, or people..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={dropdownSearchTerm}
+                  onChange={(e) => handleDropdownSearchChange(e.target.value)}
+                  onFocus={() => dropdownSearchTerm.length > 0 && setIsDropdownOpen(true)}
                   className="pl-12 pr-12 py-4 text-lg border-gray-200 rounded-xl bg-gray-50 focus:bg-white transition-colors shadow-sm hover:shadow-md focus:shadow-lg"
                 />
-                {searchTerm && (
+                {dropdownSearchTerm && (
                   <button
-                    onClick={() => setSearchTerm('')}
-                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    onClick={() => {
+                      setDropdownSearchTerm('');
+                      setIsDropdownOpen(false);
+                    }}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors z-10"
                   >
                     <X className="w-5 h-5" />
                   </button>
+                )}
+
+                {/* Search Dropdown */}
+                {isDropdownOpen && dropdownSearchTerm.length >= 2 && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-96 overflow-hidden">
+                    {/* Products Section */}
+                    {dropdownProducts.length > 0 && (
+                      <div className="border-b border-gray-100">
+                        <div className="px-4 py-3 bg-gray-50 flex items-center gap-2">
+                          <ShoppingBag className="w-4 h-4 text-gray-600" />
+                          <span className="font-medium text-gray-700">Products</span>
+                        </div>
+                        {dropdownProducts.map((product) => (
+                          <div
+                            key={product.id}
+                            onClick={() => handleDropdownProductClick(product.id)}
+                            className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                          >
+                            <div className="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                              {product.image_url ? (
+                                <img 
+                                  src={product.image_url} 
+                                  alt={product.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-pink-100 flex items-center justify-center">
+                                  <ShoppingBag className="w-5 h-5 text-pink-400" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 truncate">{product.name}</p>
+                              <div className="flex items-center justify-between">
+                                <p className="text-sm text-gray-500 truncate">
+                                  by {product.vendor_profile?.full_name || 'Unknown Vendor'}
+                                </p>
+                                <p className="text-sm font-medium text-green-600">₹{product.price}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Users Section */}
+                    {dropdownUsers.length > 0 && (
+                      <div className="border-b border-gray-100">
+                        <div className="px-4 py-3 bg-gray-50 flex items-center gap-2">
+                          <User className="w-4 h-4 text-gray-600" />
+                          <span className="font-medium text-gray-700">People</span>
+                        </div>
+                        {dropdownUsers.map((user) => (
+                          <div
+                            key={user.id}
+                            onClick={() => handleDropdownUserClick(user.id)}
+                            className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                          >
+                            <Avatar className="w-10 h-10">
+                              <AvatarImage src={user.avatar_url || undefined} />
+                              <AvatarFallback className="bg-gradient-to-br from-pink-400 to-rose-500 text-white font-medium">
+                                {user.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-900 truncate">
+                                {user.full_name || 'Unknown User'}
+                              </p>
+                              <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* View All Results */}
+                    {(dropdownProducts.length > 0 || dropdownUsers.length > 0) && (
+                      <div className="p-3">
+                        <button
+                          onClick={handleViewAllDropdownResults}
+                          className="w-full px-4 py-2 text-pink-600 hover:bg-pink-50 rounded-lg transition-colors font-medium"
+                        >
+                          View all results for "{dropdownSearchTerm}" →
+                        </button>
+                      </div>
+                    )}
+
+                    {/* No Results */}
+                    {dropdownProducts.length === 0 && dropdownUsers.length === 0 && (
+                      <div className="p-6 text-center text-gray-500">
+                        <Search className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                        <p>No results found for "{dropdownSearchTerm}"</p>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
               
@@ -136,8 +320,15 @@ const Discovery = () => {
                     <span className="font-medium">Found: {products.length} products, {users.length} people</span>
                   </div>
                   <div className="text-xs bg-pink-100 text-pink-700 px-3 py-1 rounded-full font-medium">
-                    Searching "{searchTerm}"
+                    Results for "{searchTerm}"
                   </div>
+                </div>
+              )}
+              
+              {/* Dropdown Stats */}
+              {isDropdownOpen && dropdownSearchTerm && (
+                <div className="mt-2 text-xs text-gray-500">
+                  Live search: {dropdownProducts.length} products, {dropdownUsers.length} people
                 </div>
               )}
             </div>
