@@ -107,102 +107,77 @@ const SearchDropdown = () => {
         <Search className="w-4 h-4" />
       </Button>
 
-      {/* Search Dropdown */}
-      <div className={`absolute top-full right-0 mt-2 w-96 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-96 overflow-hidden transition-all duration-200 origin-top-right ${
+      {/* Search Dropdown Panel */}
+      <div className={`absolute top-full right-0 mt-2 w-[500px] bg-white border border-gray-200 rounded-lg shadow-xl z-50 transition-all duration-300 origin-top-right ${
         isOpen 
           ? 'opacity-100 scale-100 translate-y-0' 
           : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
       }`}>
           {/* Search Header */}
-          <div className="p-4 border-b border-gray-100">
+          <div className="p-4 border-b border-gray-100 bg-gray-50">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-900">Search</h3>
+              <h3 className="font-semibold text-gray-800 text-lg">Search Products & People</h3>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsOpen(false)}
-                className="h-6 w-6 p-0"
+                className="h-8 w-8 p-0 hover:bg-gray-200"
               >
                 <X className="w-4 h-4" />
               </Button>
             </div>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <Input
                 ref={inputRef}
-                placeholder="Search people and products..."
+                placeholder="Search for products, brands, and people..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 border-gray-200 focus:border-pink-300"
+                className="pl-12 pr-4 py-3 text-base border-gray-300 focus:border-pink-400 focus:ring-pink-200 rounded-lg"
               />
             </div>
           </div>
 
-          {/* Search Results */}
-          <div className="max-h-80 overflow-y-auto">
+          {/* Search Results Panel */}
+          <div className="max-h-[400px] overflow-y-auto">
             {searchTerm.length < 2 ? (
-              <div className="p-6 text-center text-gray-500">
-                <Search className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                <p>Start typing to search...</p>
+              <div className="p-8 text-center text-gray-500">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Search className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-lg font-medium mb-2">Start typing to search</p>
+                <p className="text-sm text-gray-400">Find products, brands, and people</p>
               </div>
             ) : isLoading ? (
-              <div className="p-6">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="flex items-center space-x-3 mb-3 animate-pulse">
-                    <div className="w-10 h-10 bg-gray-200 rounded-full" />
-                    <div className="flex-1 space-y-1">
+              <div className="p-4 space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center space-x-4 p-3 animate-pulse">
+                    <div className="w-12 h-12 bg-gray-200 rounded-lg" />
+                    <div className="flex-1 space-y-2">
                       <div className="h-4 bg-gray-200 rounded w-3/4" />
                       <div className="h-3 bg-gray-200 rounded w-1/2" />
                     </div>
+                    <div className="w-16 h-4 bg-gray-200 rounded" />
                   </div>
                 ))}
               </div>
             ) : showResults ? (
-              <div className="py-2">
-                {/* Users Section */}
-                {users.length > 0 && (
-                  <div className="mb-4">
-                    <div className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-50">
-                      <User className="w-4 h-4" />
-                      People
-                    </div>
-                    {users.map((user) => (
-                      <div
-                        key={user.id}
-                        onClick={() => handleUserClick(user.id)}
-                        className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
-                      >
-                        <Avatar className="w-10 h-10">
-                          <AvatarImage src={user.avatar_url || undefined} />
-                          <AvatarFallback>
-                            {user.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 truncate">
-                            {user.full_name || 'Unknown User'}
-                          </p>
-                          <p className="text-sm text-gray-500 truncate">{user.email}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
+              <div>
                 {/* Products Section */}
                 {products.length > 0 && (
-                  <div className="mb-4">
-                    <div className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 bg-gray-50">
-                      <ShoppingBag className="w-4 h-4" />
-                      Products
+                  <div className="border-b border-gray-100 last:border-b-0">
+                    <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border-b border-gray-100">
+                      <ShoppingBag className="w-5 h-5 text-gray-600" />
+                      <span className="font-semibold text-gray-700">Products</span>
+                      <span className="text-sm text-gray-500">({products.length})</span>
                     </div>
                     {products.map((product) => (
                       <div
                         key={product.id}
                         onClick={() => handleProductClick(product.id)}
-                        className="flex items-center space-x-3 px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors"
+                        className="flex items-center space-x-4 p-4 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-50 last:border-b-0"
                       >
-                        <div className="w-10 h-10 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                        <div className="w-14 h-14 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 border">
                           {product.image_url ? (
                             <img 
                               src={product.image_url} 
@@ -211,19 +186,22 @@ const SearchDropdown = () => {
                             />
                           ) : (
                             <div className="w-full h-full bg-gradient-to-br from-pink-100 to-rose-100 flex items-center justify-center">
-                              <ShoppingBag className="w-5 h-5 text-pink-400" />
+                              <ShoppingBag className="w-6 h-6 text-pink-400" />
                             </div>
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-gray-900 truncate">{product.name}</p>
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm text-gray-500 truncate">
-                              {product.vendor_profile?.full_name || 'Unknown Vendor'}
-                            </p>
-                            <p className="text-sm font-medium text-pink-600">
-                              ₹{product.price}
-                            </p>
+                          <p className="font-semibold text-gray-900 truncate text-base">{product.name}</p>
+                          <p className="text-sm text-gray-600 truncate">
+                            by {product.vendor_profile?.full_name || 'Unknown Vendor'}
+                          </p>
+                          <div className="flex items-center mt-1">
+                            <span className="text-lg font-bold text-green-600">₹{product.price}</span>
+                            {product.category && (
+                              <span className="ml-2 px-2 py-1 bg-gray-100 text-xs text-gray-600 rounded-full">
+                                {product.category}
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -231,24 +209,62 @@ const SearchDropdown = () => {
                   </div>
                 )}
 
-                {/* View All Results */}
+                {/* People Section */}
+                {users.length > 0 && (
+                  <div className="border-b border-gray-100 last:border-b-0">
+                    <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border-b border-gray-100">
+                      <User className="w-5 h-5 text-gray-600" />
+                      <span className="font-semibold text-gray-700">People</span>
+                      <span className="text-sm text-gray-500">({users.length})</span>
+                    </div>
+                    {users.map((user) => (
+                      <div
+                        key={user.id}
+                        onClick={() => handleUserClick(user.id)}
+                        className="flex items-center space-x-4 p-4 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-50 last:border-b-0"
+                      >
+                        <Avatar className="w-12 h-12 border-2 border-gray-200">
+                          <AvatarImage src={user.avatar_url || undefined} />
+                          <AvatarFallback className="bg-gradient-to-br from-pink-400 to-rose-500 text-white font-semibold">
+                            {user.full_name?.charAt(0) || user.email?.charAt(0) || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-gray-900 truncate text-base">
+                            {user.full_name || 'Unknown User'}
+                          </p>
+                          <p className="text-sm text-gray-600 truncate">{user.email}</p>
+                          <div className="flex items-center mt-1">
+                            <span className="px-2 py-1 bg-pink-100 text-xs text-pink-700 rounded-full">
+                              User Profile
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* View All Results Footer */}
                 {(users.length > 0 || products.length > 0) && (
-                  <div className="border-t border-gray-100 p-3">
+                  <div className="p-4 bg-gray-50 border-t border-gray-200">
                     <Button
                       onClick={handleViewAllResults}
-                      variant="ghost"
-                      className="w-full text-pink-600 hover:bg-pink-50"
+                      variant="outline"
+                      className="w-full py-3 text-blue-600 border-blue-200 hover:bg-blue-50 hover:border-blue-300 font-medium"
                     >
-                      View all results for "{searchTerm}"
+                      View all results for "{searchTerm}" →
                     </Button>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="p-6 text-center text-gray-500">
-                <Search className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                <p>No results found</p>
-                <p className="text-sm">Try searching for something else</p>
+              <div className="p-8 text-center text-gray-500">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Search className="w-8 h-8 text-gray-400" />
+                </div>
+                <p className="text-lg font-medium mb-2">No results found</p>
+                <p className="text-sm text-gray-400">Try searching with different keywords</p>
               </div>
             )}
           </div>
