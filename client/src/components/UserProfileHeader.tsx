@@ -80,9 +80,18 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
       queryClient.invalidateQueries({ queryKey: ['user-profile', profileUserId] });
       queryClient.invalidateQueries({ queryKey: ['user-profile', user?.id] }); // Also update current user's profile
       
-      // Force refetch of profile data to ensure counts are updated
-      queryClient.refetchQueries({ queryKey: ['user-profile', profileUserId] });
-      queryClient.refetchQueries({ queryKey: ['user-profile', user?.id] });
+      // Invalidate followers/following lists
+      queryClient.invalidateQueries({ queryKey: ['followers', profileUserId] });
+      queryClient.invalidateQueries({ queryKey: ['following', profileUserId] });
+      queryClient.invalidateQueries({ queryKey: ['followers', user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['following', user?.id] });
+      
+      // Force refetch of profile data after a short delay to ensure database trigger completes
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ['user-profile', profileUserId] });
+        queryClient.refetchQueries({ queryKey: ['user-profile', user?.id] });
+        console.log('Delayed refetch completed');
+      }, 500);
       
       console.log('Queries invalidated and refetched');
       

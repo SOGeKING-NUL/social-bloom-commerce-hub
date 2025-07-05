@@ -111,7 +111,8 @@ const FollowersDialog = ({
   });
 
   const handleUserClick = (userId: string) => {
-    navigate(`/profile/${userId}`);
+    console.log('Navigating to profile:', userId);
+    navigate(`/user/${userId}`);
     onOpenChange(false);
   };
 
