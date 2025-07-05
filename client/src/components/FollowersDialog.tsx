@@ -30,23 +30,40 @@ const FollowersDialog = ({
   const { data: followers = [], isLoading: followersLoading } = useQuery({
     queryKey: ['followers', profileUserId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      console.log('Fetching followers for:', profileUserId);
+      
+      // First get follow relationships
+      const { data: followData, error: followError } = await supabase
         .from('follows')
-        .select(`
-          follower_id,
-          created_at,
-          follower:profiles!follows_follower_id_fkey (
-            id,
-            full_name,
-            email,
-            avatar_url
-          )
-        `)
+        .select('follower_id, created_at')
         .eq('following_id', profileUserId)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
-      return data.map((f: any) => f.follower).filter(Boolean);
+      if (followError) {
+        console.error('Follow relationships query error:', followError);
+        throw followError;
+      }
+      
+      console.log('Follow relationships:', followData);
+      
+      if (!followData || followData.length === 0) {
+        return [];
+      }
+      
+      // Then get profile data for each follower
+      const followerIds = followData.map(f => f.follower_id);
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, avatar_url')
+        .in('id', followerIds);
+      
+      if (profileError) {
+        console.error('Profiles query error:', profileError);
+        throw profileError;
+      }
+      
+      console.log('Follower profiles:', profileData);
+      return profileData || [];
     },
     enabled: isOpen,
   });
@@ -55,23 +72,40 @@ const FollowersDialog = ({
   const { data: following = [], isLoading: followingLoading } = useQuery({
     queryKey: ['following', profileUserId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      console.log('Fetching following for:', profileUserId);
+      
+      // First get follow relationships
+      const { data: followData, error: followError } = await supabase
         .from('follows')
-        .select(`
-          following_id,
-          created_at,
-          following:profiles!follows_following_id_fkey (
-            id,
-            full_name,
-            email,
-            avatar_url
-          )
-        `)
+        .select('following_id, created_at')
         .eq('follower_id', profileUserId)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
-      return data.map((f: any) => f.following).filter(Boolean);
+      if (followError) {
+        console.error('Follow relationships query error:', followError);
+        throw followError;
+      }
+      
+      console.log('Following relationships:', followData);
+      
+      if (!followData || followData.length === 0) {
+        return [];
+      }
+      
+      // Then get profile data for each following
+      const followingIds = followData.map(f => f.following_id);
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, avatar_url')
+        .in('id', followingIds);
+      
+      if (profileError) {
+        console.error('Profiles query error:', profileError);
+        throw profileError;
+      }
+      
+      console.log('Following profiles:', profileData);
+      return profileData || [];
     },
     enabled: isOpen,
   });

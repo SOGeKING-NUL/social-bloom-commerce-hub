@@ -256,6 +256,7 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
               <div 
                 className="text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors"
                 onClick={() => {
+                  console.log('Followers clicked, opening dialog');
                   setFollowersDialogTab('followers');
                   setShowFollowersDialog(true);
                 }}
@@ -268,6 +269,7 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
               <div 
                 className="text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors"
                 onClick={() => {
+                  console.log('Following clicked, opening dialog');
                   setFollowersDialogTab('following');
                   setShowFollowersDialog(true);
                 }}
