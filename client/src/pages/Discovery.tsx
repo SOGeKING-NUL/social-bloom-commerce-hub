@@ -135,11 +135,6 @@ const Discovery = () => {
         throw error;
       }
       
-      console.log('Query executed with searchTerm:', searchTerm, 'selectedCategory:', selectedCategory);
-      console.log('Products fetched:', data?.length, 'products');
-      
-
-      
       return data?.map(product => ({
         ...product,
         description: product.description || undefined,

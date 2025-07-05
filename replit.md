@@ -178,6 +178,13 @@ The application is configured for Replit deployment with:
   - **Direct navigation**: Click on users to go to their profiles, products to product pages
   - **Smart suggestions**: Displays top 5 results per category with avatars and details
   - **View all results**: Option to navigate to full discovery page with search pre-filled
+- January 17, 2025: **Enhanced follow system with clickable followers/following lists**
+  - **Database triggers**: Automatic follower/following count updates when users follow/unfollow
+  - **Clickable stats**: Made followers and following numbers clickable in user profiles
+  - **FollowersDialog component**: Modal showing followers and following lists with tabs
+  - **Real-time counts**: Follow/unfollow actions instantly update displayed counts
+  - **User navigation**: Click on users in followers/following lists to visit their profiles
+  - **Proper data flow**: Follow system now maintains accurate count synchronization
 
 ## User Preferences
 

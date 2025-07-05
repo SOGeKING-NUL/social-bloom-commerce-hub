@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import FollowersDialog from "./FollowersDialog";
 
 interface UserProfileHeaderProps {
   profileUserId: string;
@@ -24,6 +25,8 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
   const queryClient = useQueryClient();
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState<string>("");
+  const [showFollowersDialog, setShowFollowersDialog] = useState(false);
+  const [followersDialogTab, setFollowersDialogTab] = useState<'followers' | 'following'>('followers');
 
   // Check if current user is following this profile
   const { data: isFollowing = false } = useQuery({
@@ -241,13 +244,25 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
                 </div>
                 <div className="text-gray-600 dark:text-gray-300">Posts</div>
               </div>
-              <div className="text-center">
+              <div 
+                className="text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors"
+                onClick={() => {
+                  setFollowersDialogTab('followers');
+                  setShowFollowersDialog(true);
+                }}
+              >
                 <div className="font-bold text-lg text-gray-900 dark:text-white">
                   {profile?.followers_count || 0}
                 </div>
                 <div className="text-gray-600 dark:text-gray-300">Followers</div>
               </div>
-              <div className="text-center">
+              <div 
+                className="text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors"
+                onClick={() => {
+                  setFollowersDialogTab('following');
+                  setShowFollowersDialog(true);
+                }}
+              >
                 <div className="font-bold text-lg text-gray-900 dark:text-white">
                   {profile?.following_count || 0}
                 </div>
@@ -335,6 +350,15 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Followers Dialog */}
+      <FollowersDialog
+        isOpen={showFollowersDialog}
+        onOpenChange={setShowFollowersDialog}
+        profileUserId={profileUserId}
+        profileName={profile?.full_name || 'User'}
+        initialTab={followersDialogTab}
+      />
     </div>
   );
 };
