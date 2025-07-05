@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Search, ShoppingBag, User, Grid } from "lucide-react";
+import { Search, ShoppingBag, User, Grid, X } from "lucide-react";
 import { useLocation } from "wouter";
 import Layout from "@/components/Layout";
 import ProductCard from "@/components/ProductCard";
@@ -50,8 +50,10 @@ const Discovery = () => {
       
       return data?.map(product => ({
         ...product,
+        description: product.description || undefined,
         image_url: product.image_url || undefined,
         category: product.category || undefined,
+        stock_quantity: product.stock_quantity || undefined,
         vendor_profile: product.vendor_profile || null,
         vendor_kyc: product.vendor_profile?.vendor_kyc_data || []
       })) || [];
@@ -96,16 +98,48 @@ const Discovery = () => {
     <Layout>
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-6xl mx-auto px-4 py-6">
-          {/* Unified Search Header */}
-          <div className="mb-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-              <Input
-                placeholder="Search people and products..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-3 text-lg border-gray-200 rounded-xl bg-white shadow-sm"
-              />
+          {/* Enhanced Search Header */}
+          <div className="mb-8">
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-gradient-to-br from-pink-500 to-rose-400 rounded-full flex items-center justify-center">
+                  <Search className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Discover</h2>
+                  <p className="text-sm text-gray-600">Find products, brands, and people</p>
+                </div>
+              </div>
+              
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Input
+                  placeholder="Search for products, brands, categories, or people..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-12 pr-12 py-4 text-lg border-gray-200 rounded-xl bg-gray-50 focus:bg-white transition-colors shadow-sm hover:shadow-md focus:shadow-lg"
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+              
+              {/* Search Stats */}
+              {searchTerm && (
+                <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+                  <div className="flex items-center gap-4">
+                    <span className="font-medium">Found: {products.length} products, {users.length} people</span>
+                  </div>
+                  <div className="text-xs bg-pink-100 text-pink-700 px-3 py-1 rounded-full font-medium">
+                    Searching "{searchTerm}"
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -218,7 +252,7 @@ const Discovery = () => {
                       ))
                     ) : (
                       products.map((product) => (
-                        <ProductCard key={product.id} product={product} />
+                        <ProductCard key={product.id} product={product as any} />
                       ))
                     )}
                   </div>
@@ -250,7 +284,7 @@ const Discovery = () => {
                   ))
                 ) : products.length > 0 ? (
                   products.map((product) => (
-                    <ProductCard key={product.id} product={product} />
+                    <ProductCard key={product.id} product={product as any} />
                   ))
                 ) : (
                   <div className="col-span-full text-center py-12">

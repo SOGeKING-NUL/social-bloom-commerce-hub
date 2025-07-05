@@ -8,7 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import UserProfileDropdown from "@/components/UserProfileDropdown";
 import CartIcon from "@/components/CartIcon";
-import SearchDropdown from "@/components/SearchDropdown";
+
 
 const Header = () => {
   const [location, setLocation] = useLocation();
@@ -70,7 +70,6 @@ const Header = () => {
 
           
           <div className="flex items-center space-x-4">
-            <SearchDropdown />
             {user && (
               <>
                 <Button
