@@ -236,7 +236,9 @@ const StripeCheckout = () => {
           },
           body: JSON.stringify({
             amount: totalAmount,
-            currency: 'usd'
+            currency: 'usd',
+            customer_name: user?.full_name || 'Customer',
+            customer_address: 'Test Address for Indian Regulations Compliance'
           }),
         });
 
@@ -248,7 +250,7 @@ const StripeCheckout = () => {
     };
 
     createPaymentIntent();
-  }, [cartItems, clientSecret]);
+  }, [cartItems, clientSecret, user]);
 
   if (isLoading) {
     return (

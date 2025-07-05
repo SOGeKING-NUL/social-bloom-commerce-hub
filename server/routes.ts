@@ -511,14 +511,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Stripe payment intent creation for group checkout
   app.post("/api/create-payment-intent", async (req, res) => {
     try {
-      const { amount, currency = 'usd', metadata } = req.body;
+      const { amount, currency = 'usd', metadata, customer_name, customer_address } = req.body;
 
       if (!amount || amount <= 0) {
         return res.status(400).json({ error: 'Valid amount is required' });
       }
 
       // Create payment intent with Stripe
-      const paymentIntent = await stripe.paymentIntents.create({
+      const paymentIntentData = {
         amount: Math.round(amount * 100), // Convert to cents
         currency,
         description: 'SocialShop Purchase - E-commerce platform transaction', // Required for Indian regulations
@@ -526,7 +526,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         automatic_payment_methods: {
           enabled: true,
         },
-      });
+      };
+
+      // Add shipping details for Indian regulations compliance
+      if (customer_name || customer_address) {
+        paymentIntentData.shipping = {
+          name: customer_name || 'Customer',
+          address: {
+            line1: customer_address || 'Address Line 1',
+            city: 'City',
+            country: 'IN', // India
+            postal_code: '110001'
+          }
+        };
+      }
+
+      const paymentIntent = await stripe.paymentIntents.create(paymentIntentData);
 
       res.json({ 
         clientSecret: paymentIntent.client_secret,

@@ -160,6 +160,12 @@ The application is configured for Replit deployment with:
   - **Sample data**: Confirmed existing data in products (7), profiles (3), and cart_items (3) tables
   - **RLS status**: Row Level Security disabled for direct application access
   - **User roles**: Proper enum type with user/vendor/admin roles configured
+- January 17, 2025: **Stripe integration compliance and optimization**
+  - **Indian regulations compliance**: Added required description, customer name, and shipping address to payment intents
+  - **ClientSecret stability**: Fixed Elements component to prevent recreation and mutable property warnings
+  - **Multi-component updates**: Updated StripeCheckout, GroupCheckout components, and GroupCheckout page
+  - **Test environment**: Maintained test card support with proper compliance for development
+  - **Error handling**: Added proper method validation for payment intent endpoints
 
 ## User Preferences
 

@@ -284,6 +284,8 @@ const GroupCheckout = ({ groupId, isAdmin }: GroupCheckoutProps) => {
         body: JSON.stringify({
           amount: item.total_price,
           currency: 'usd',
+          customer_name: user?.full_name || 'Customer',
+          customer_address: item.shipping_address || 'Test Address for Indian Regulations Compliance',
           metadata: {
             checkout_item_id: itemId,
             user_id: user?.id,

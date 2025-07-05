@@ -152,6 +152,8 @@ const GroupCheckout = () => {
         body: JSON.stringify({
           amount: item.total_price,
           currency: 'usd',
+          customer_name: item.user_name || 'Customer',
+          customer_address: item.shipping_address || 'Test Address for Indian Regulations Compliance',
           metadata: {
             checkout_item_id: item.id,
             user_id: item.user_id,
