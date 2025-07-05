@@ -250,7 +250,7 @@ const StripeCheckout = () => {
     };
 
     createPaymentIntent();
-  }, [cartItems, clientSecret, user]);
+  }, [cartItems, clientSecret, profile]);
 
   if (isLoading) {
     return (
