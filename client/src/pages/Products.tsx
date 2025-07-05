@@ -7,54 +7,68 @@ import { Search, Filter, Grid, User } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
+import { supabase } from "@/integrations/supabase/client";
 
 const Products = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
 
-  // Fetch products
+  // Fetch products from Supabase
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products', searchTerm, selectedCategory],
     queryFn: async () => {
-      console.log('Fetching products with searchTerm:', searchTerm, 'category:', selectedCategory);
-      const params = new URLSearchParams();
-      if (searchTerm) params.append('search', searchTerm);
-      if (selectedCategory) params.append('category', selectedCategory);
+      let query = supabase
+        .from('products')
+        .select(`
+          *,
+          vendor_profile:profiles!inner(full_name, email),
+          vendor_kyc:vendor_kyc(business_name, display_business_name)
+        `);
       
-      const response = await fetch(`/api/products?${params.toString()}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch products');
+      if (searchTerm) {
+        query = query.ilike('name', `%${searchTerm}%`);
       }
       
-      const data = await response.json();
-      console.log('Products data from API:', data);
-      return data;
+      if (selectedCategory && selectedCategory !== 'all') {
+        query = query.eq('category', selectedCategory);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
     },
   });
 
-  // Fetch categories
+  // Fetch categories from Supabase
   const { data: categories = [] } = useQuery({
     queryKey: ['product-categories'],
     queryFn: async () => {
-      const response = await fetch('/api/categories');
-      if (!response.ok) {
-        throw new Error('Failed to fetch categories');
-      }
-      return response.json();
+      const { data, error } = await supabase
+        .from('products')
+        .select('category')
+        .not('category', 'is', null);
+      
+      if (error) throw error;
+      
+      // Get unique categories
+      const uniqueCategories = [...new Set(data?.map(p => p.category))];
+      return uniqueCategories;
     },
   });
 
-  // Fetch users for search
+  // Fetch users for search from Supabase
   const { data: users = [] } = useQuery({
     queryKey: ['users', searchTerm],
     queryFn: async () => {
       if (!searchTerm) return [];
       
-      const response = await fetch(`/api/users/search?q=${encodeURIComponent(searchTerm)}`);
-      if (!response.ok) {
-        throw new Error('Failed to search users');
-      }
-      return response.json();
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .ilike('full_name', `%${searchTerm}%`);
+      
+      if (error) throw error;
+      return data || [];
     },
   });
 

@@ -32,17 +32,22 @@ const Cart = () => {
   const queryClient = useQueryClient();
   const [location, setLocation] = useLocation();
 
-  // Fetch cart items via API
+  // Fetch cart items from Supabase
   const { data: cartItems, isLoading } = useQuery({
     queryKey: ['cart-items', user?.id],
     queryFn: async () => {
       if (!user) return [];
       
-      const response = await fetch(`/api/cart/${user.id}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch cart');
-      }
-      const data = await response.json();
+      const { data, error } = await supabase
+        .from('cart_items')
+        .select(`
+          id,
+          quantity,
+          product:products(id, name, price, image_url, description, category)
+        `)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
       return data as CartItem[];
     },
     enabled: !!user,
@@ -52,17 +57,17 @@ const Cart = () => {
   const updateQuantityMutation = useMutation({
     mutationFn: async ({ itemId, quantity }: { itemId: string; quantity: number }) => {
       if (quantity <= 0) {
-        const response = await fetch(`/api/cart-item/${itemId}`, {
-          method: 'DELETE',
-        });
-        if (!response.ok) throw new Error('Failed to remove item');
+        const { error } = await supabase
+          .from('cart_items')
+          .delete()
+          .eq('id', itemId);
+        if (error) throw error;
       } else {
-        const response = await fetch(`/api/cart-item/${itemId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ quantity }),
-        });
-        if (!response.ok) throw new Error('Failed to update quantity');
+        const { error } = await supabase
+          .from('cart_items')
+          .update({ quantity })
+          .eq('id', itemId);
+        if (error) throw error;
       }
     },
     onSuccess: () => {
@@ -81,10 +86,11 @@ const Cart = () => {
   // Remove item mutation
   const removeItemMutation = useMutation({
     mutationFn: async (itemId: string) => {
-      const response = await fetch(`/api/cart-item/${itemId}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Failed to remove item');
+      const { error } = await supabase
+        .from('cart_items')
+        .delete()
+        .eq('id', itemId);
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cart-items', user?.id] });
@@ -108,10 +114,11 @@ const Cart = () => {
     mutationFn: async () => {
       if (!user?.id) throw new Error('User not authenticated');
       
-      const response = await fetch(`/api/cart/clear/${user.id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Failed to clear cart');
+      const { error } = await supabase
+        .from('cart_items')
+        .delete()
+        .eq('user_id', user.id);
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cart-items', user?.id] });
