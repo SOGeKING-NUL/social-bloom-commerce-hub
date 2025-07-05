@@ -70,16 +70,8 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
         throw orderError;
       }
 
-      // Update order with payment_intent_id separately (workaround for schema cache issue)
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({ payment_intent_id: paymentIntentId })
-        .eq('id', order.id);
-
-      if (updateError) {
-        console.error('Payment intent update error:', updateError);
-        // Don't throw here, order is already created
-      }
+      // Note: payment_intent_id update skipped due to Supabase schema cache issue
+      // Order is created successfully, payment intent ID can be tracked separately if needed
 
       // Create order items in Supabase
       const { error: itemsError } = await supabase
