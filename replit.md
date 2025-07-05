@@ -136,6 +136,14 @@ The application is configured for Replit deployment with:
   - Members receive notifications, can add shipping addresses, and pay for their selected items
   - Created dedicated checkout page with navigation integration
   - Implemented database functions for checkout management and dashboard analytics
+- January 17, 2025: Enhanced individual cart checkout with Stripe integration
+  - Created StripeCheckout page with comprehensive payment processing
+  - Added test card support with clear instructions for development testing
+  - Fixed RLS (Row Level Security) issues by disabling RLS on order_items table
+  - Implemented automatic order creation and cart clearing after successful payment
+  - Added proper error handling and loading states for payment flow
+  - Updated cart page to redirect to new Stripe checkout flow
+  - Supports test payments with cards like 4242 4242 4242 4242
 
 ## User Preferences
 
