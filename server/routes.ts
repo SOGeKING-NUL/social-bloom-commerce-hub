@@ -11,6 +11,221 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  
+  // Products API
+  app.get("/api/products", async (req, res) => {
+    try {
+      const { search, vendor_id, category } = req.query;
+      let query = db.select().from(sql`products`);
+      
+      // Add WHERE conditions based on query parameters
+      const conditions = [];
+      if (search) {
+        conditions.push(sql`name ILIKE ${`%${search}%`} OR description ILIKE ${`%${search}%`}`);
+      }
+      if (vendor_id) {
+        conditions.push(sql`vendor_id = ${vendor_id}`);
+      }
+      if (category) {
+        conditions.push(sql`category = ${category}`);
+      }
+      
+      if (conditions.length > 0) {
+        query = query.where(sql`${conditions.join(' AND ')}`);
+      }
+      
+      const products = await query;
+      res.json(products);
+    } catch (error: any) {
+      console.error('Error fetching products:', error);
+      res.status(500).json({ error: 'Failed to fetch products' });
+    }
+  });
+
+  // Single product API
+  app.get("/api/products/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const product = await db.execute(sql`
+        SELECT p.*, 
+               v.full_name as vendor_name,
+               v.email as vendor_email
+        FROM products p
+        LEFT JOIN profiles v ON p.vendor_id = v.id
+        WHERE p.id = ${id}
+      `);
+      
+      if (product.rows.length === 0) {
+        return res.status(404).json({ error: 'Product not found' });
+      }
+      
+      res.json(product.rows[0]);
+    } catch (error: any) {
+      console.error('Error fetching product:', error);
+      res.status(500).json({ error: 'Failed to fetch product' });
+    }
+  });
+
+  // Profiles API
+  app.get("/api/profiles/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const profile = await db.execute(sql`
+        SELECT * FROM profiles WHERE id = ${id}
+      `);
+      
+      if (profile.rows.length === 0) {
+        return res.status(404).json({ error: 'Profile not found' });
+      }
+      
+      res.json(profile.rows[0]);
+    } catch (error: any) {
+      console.error('Error fetching profile:', error);
+      res.status(500).json({ error: 'Failed to fetch profile' });
+    }
+  });
+
+  // Update profile API
+  app.put("/api/profiles/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { full_name, bio, website, location, avatar_url } = req.body;
+      
+      const result = await db.execute(sql`
+        UPDATE profiles 
+        SET full_name = ${full_name}, 
+            bio = ${bio}, 
+            website = ${website}, 
+            location = ${location}, 
+            avatar_url = ${avatar_url},
+            updated_at = NOW()
+        WHERE id = ${id}
+        RETURNING *
+      `);
+      
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'Profile not found' });
+      }
+      
+      res.json(result.rows[0]);
+    } catch (error: any) {
+      console.error('Error updating profile:', error);
+      res.status(500).json({ error: 'Failed to update profile' });
+    }
+  });
+
+  // KYC API
+  app.post("/api/kyc", async (req, res) => {
+    try {
+      const { user_id, business_name, business_type, tax_id, address, phone, website, description } = req.body;
+      
+      const result = await db.execute(sql`
+        INSERT INTO vendor_kyc (user_id, business_name, business_type, tax_id, address, phone, website, description, status, created_at, updated_at)
+        VALUES (${user_id}, ${business_name}, ${business_type}, ${tax_id}, ${address}, ${phone}, ${website}, ${description}, 'pending', NOW(), NOW())
+        RETURNING *
+      `);
+      
+      res.json(result.rows[0]);
+    } catch (error: any) {
+      console.error('Error creating KYC:', error);
+      res.status(500).json({ error: 'Failed to create KYC' });
+    }
+  });
+
+  // Get KYC status
+  app.get("/api/kyc/:user_id", async (req, res) => {
+    try {
+      const { user_id } = req.params;
+      const kyc = await db.execute(sql`
+        SELECT * FROM vendor_kyc WHERE user_id = ${user_id} ORDER BY created_at DESC LIMIT 1
+      `);
+      
+      if (kyc.rows.length === 0) {
+        return res.status(404).json({ error: 'KYC not found' });
+      }
+      
+      res.json(kyc.rows[0]);
+    } catch (error: any) {
+      console.error('Error fetching KYC:', error);
+      res.status(500).json({ error: 'Failed to fetch KYC' });
+    }
+  });
+
+  // Categories API
+  app.get("/api/categories", async (req, res) => {
+    try {
+      const categories = await db.execute(sql`
+        SELECT DISTINCT category 
+        FROM products 
+        WHERE category IS NOT NULL AND is_active = true
+      `);
+      
+      const uniqueCategories = categories.rows
+        .map(row => row.category)
+        .filter(Boolean);
+      
+      res.json(uniqueCategories);
+    } catch (error: any) {
+      console.error('Error fetching categories:', error);
+      res.status(500).json({ error: 'Failed to fetch categories' });
+    }
+  });
+
+  // Users search API
+  app.get("/api/users/search", async (req, res) => {
+    try {
+      const { q } = req.query;
+      if (!q) {
+        return res.json([]);
+      }
+      
+      const users = await db.execute(sql`
+        SELECT id, full_name, email, avatar_url 
+        FROM profiles 
+        WHERE (full_name ILIKE ${`%${q}%`} OR email ILIKE ${`%${q}%`})
+        LIMIT 20
+      `);
+      
+      res.json(users.rows);
+    } catch (error: any) {
+      console.error('Error searching users:', error);
+      res.status(500).json({ error: 'Failed to search users' });
+    }
+  });
+
+  // Add to cart API
+  app.post("/api/cart/add", async (req, res) => {
+    try {
+      const { user_id, product_id, quantity } = req.body;
+      
+      // Check if item already exists in cart
+      const existingItem = await db.execute(sql`
+        SELECT * FROM cart_items WHERE user_id = ${user_id} AND product_id = ${product_id}
+      `);
+      
+      if (existingItem.rows.length > 0) {
+        // Update quantity
+        const result = await db.execute(sql`
+          UPDATE cart_items 
+          SET quantity = quantity + ${quantity}
+          WHERE user_id = ${user_id} AND product_id = ${product_id}
+          RETURNING *
+        `);
+        res.json(result.rows[0]);
+      } else {
+        // Insert new item
+        const result = await db.execute(sql`
+          INSERT INTO cart_items (user_id, product_id, quantity)
+          VALUES (${user_id}, ${product_id}, ${quantity})
+          RETURNING *
+        `);
+        res.json(result.rows[0]);
+      }
+    } catch (error: any) {
+      console.error('Error adding to cart:', error);
+      res.status(500).json({ error: 'Failed to add to cart' });
+    }
+  });
   // Mock data for demonstration
   const mockPosts = [
     {

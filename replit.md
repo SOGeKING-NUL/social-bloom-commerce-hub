@@ -144,6 +144,14 @@ The application is configured for Replit deployment with:
   - Added proper error handling and loading states for payment flow
   - Updated cart page to redirect to new Stripe checkout flow
   - Supports test payments with cards like 4242 4242 4242 4242
+- January 17, 2025: **CRITICAL: Complete database migration from mixed Supabase/PostgreSQL to unified PostgreSQL**
+  - **Issue**: Application was using both Supabase and local PostgreSQL causing data inconsistency and empty cart problems
+  - **Solution**: Migrated entire application to use only local PostgreSQL through REST API endpoints
+  - **Migration scope**: Products, profiles, cart, orders, KYC, categories, user search
+  - **New API endpoints**: /api/products, /api/categories, /api/users/search, /api/profiles, /api/kyc, /api/cart/add
+  - **Benefits**: Consistent data source, easier AWS RDS deployment, no vendor lock-in
+  - **Architecture**: Single PostgreSQL database accessed via Express.js API endpoints
+  - **Cart issue resolved**: Cart now properly displays items through unified database
 
 ## User Preferences
 

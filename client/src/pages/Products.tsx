@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,63 +17,18 @@ const Products = () => {
     queryKey: ['products', searchTerm, selectedCategory],
     queryFn: async () => {
       console.log('Fetching products with searchTerm:', searchTerm, 'category:', selectedCategory);
-      let query = supabase
-        .from('products')
-        .select(`
-          *,
-          vendor_profile:profiles!vendor_id (
-            full_name,
-            email,
-            vendor_kyc_data:vendor_kyc!vendor_id ( 
-              display_business_name,
-              business_name
-            )
-          )
-        `)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (searchTerm) {
-        query = query.ilike('name', `%${searchTerm}%`);
+      const params = new URLSearchParams();
+      if (searchTerm) params.append('search', searchTerm);
+      if (selectedCategory) params.append('category', selectedCategory);
+      
+      const response = await fetch(`/api/products?${params.toString()}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch products');
       }
       
-      if (selectedCategory) {
-        query = query.eq('category', selectedCategory);
-      }
-
-      const { data, error } = await query;
-      
-      if (error) {
-        console.error('Error fetching products:', error.message, error.details, error.hint);
-        throw error;
-      }
-      
-      console.log('Raw products data from Supabase:', data);
-      
-      const processedProducts = (data || []).map(product => {
-        const profileData = product.vendor_profile;
-        const kycDataFromProfile = profileData?.vendor_kyc_data || [];
-        
-        // Ensure kycDataForCard is always an array
-        const kycDataForCard = Array.isArray(kycDataFromProfile) 
-          ? kycDataFromProfile 
-          : (kycDataFromProfile ? [kycDataFromProfile] : []);
-
-        // Create a clean vendor_profile object for the card, without vendor_kyc_data nested inside
-        const cleanVendorProfile = profileData ? {
-          full_name: profileData.full_name,
-          email: profileData.email
-        } : null;
-
-        return {
-          ...product, // original product fields from 'products' table
-          vendor_profile: cleanVendorProfile, // Pass the cleaned profile
-          vendor_kyc: kycDataForCard // Pass the extracted and formatted KYC data
-        };
-      });
-      
-      console.log('Processed products for display:', processedProducts);
-      return processedProducts;
+      const data = await response.json();
+      console.log('Products data from API:', data);
+      return data;
     },
   });
 
@@ -82,16 +36,11 @@ const Products = () => {
   const { data: categories = [] } = useQuery({
     queryKey: ['product-categories'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('category')
-        .not('category', 'is', null)
-        .eq('is_active', true);
-      
-      if (error) throw error;
-      
-      const uniqueCategories = Array.from(new Set(data.map(item => item.category)));
-      return uniqueCategories.filter(Boolean);
+      const response = await fetch('/api/categories');
+      if (!response.ok) {
+        throw new Error('Failed to fetch categories');
+      }
+      return response.json();
     },
   });
 
@@ -101,14 +50,11 @@ const Products = () => {
     queryFn: async () => {
       if (!searchTerm) return [];
       
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, email, avatar_url')
-        .or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
-        .limit(20);
-      
-      if (error) throw error;
-      return data || [];
+      const response = await fetch(`/api/users/search?q=${encodeURIComponent(searchTerm)}`);
+      if (!response.ok) {
+        throw new Error('Failed to search users');
+      }
+      return response.json();
     },
   });
 
