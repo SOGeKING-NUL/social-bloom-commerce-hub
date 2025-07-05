@@ -55,7 +55,7 @@ const Discovery = () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, email, avatar_url')
-        .ilike('full_name', `%${dropdownSearchTerm}%`)
+        .or(`full_name.ilike.%${dropdownSearchTerm}%,email.ilike.%${dropdownSearchTerm}%`)
         .limit(3);
       
       if (error) return [];
