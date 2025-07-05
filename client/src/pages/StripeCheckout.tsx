@@ -53,15 +53,14 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
       // Calculate total
       const totalAmount = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
 
-      // Create order in Supabase
+      // Create order in Supabase (without payment_intent_id first due to schema cache issue)
       const { data: order, error: orderError } = await supabase
         .from('orders')
         .insert({
           user_id: profile.id,
           total_amount: totalAmount,
           status: 'confirmed',
-          shipping_address: 'Test Address',
-          payment_intent_id: paymentIntentId
+          shipping_address: 'Test Address'
         })
         .select()
         .single();
@@ -69,6 +68,17 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
       if (orderError) {
         console.error('Order creation error details:', JSON.stringify(orderError, null, 2));
         throw orderError;
+      }
+
+      // Update order with payment_intent_id separately (workaround for schema cache issue)
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ payment_intent_id: paymentIntentId })
+        .eq('id', order.id);
+
+      if (updateError) {
+        console.error('Payment intent update error:', updateError);
+        // Don't throw here, order is already created
       }
 
       // Create order items in Supabase
