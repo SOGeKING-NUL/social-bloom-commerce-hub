@@ -13,13 +13,13 @@ import { Textarea } from "@/components/ui/textarea";
 import CommentsDialog from "@/components/CommentsDialog";
 import InstagramStylePostCreator from "@/components/InstagramStylePostCreator";
 import SearchSidebar from "@/components/SearchSidebar";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 
 const Feed = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
   const [selectedPostForComments, setSelectedPostForComments] = useState<string | null>(null);
 
   // Fetch posts from database
@@ -125,7 +125,7 @@ const Feed = () => {
   };
 
   const handleUserClick = (userId: string) => {
-    navigate(`/users/${userId}`);
+    setLocation(`/users/${userId}`);
   };
 
   if (isLoading) {
