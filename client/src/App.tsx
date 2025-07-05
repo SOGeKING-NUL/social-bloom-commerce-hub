@@ -20,6 +20,8 @@ import Orders from "./pages/Orders";
 import Profile from "./pages/Profile";
 import UserProfile from "./pages/UserProfile";
 import Wishlist from "./pages/Wishlist";
+import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
 
 import NotFound from "./pages/NotFound";
 
@@ -56,6 +58,16 @@ const App = () => (
               <Route path="/wishlist" element={
                 <ProtectedRoute>
                   <Wishlist />
+                </ProtectedRoute>
+              } />
+              <Route path="/cart" element={
+                <ProtectedRoute>
+                  <Cart />
+                </ProtectedRoute>
+              } />
+              <Route path="/checkout" element={
+                <ProtectedRoute>
+                  <Checkout />
                 </ProtectedRoute>
               } />
               <Route path="/orders" element={

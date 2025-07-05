@@ -7,7 +7,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import UserProfileDropdown from "@/components/UserProfileDropdown";
-import CartDropdown from "@/components/CartDropdown";
+import CartIcon from "@/components/CartIcon";
 
 const Header = () => {
   const navigate = useNavigate();
@@ -85,7 +85,7 @@ const Header = () => {
                     </span>
                   )}
                 </Button>
-                <CartDropdown />
+                <CartIcon />
               </>
             )}
             
