@@ -72,28 +72,16 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
         if (error) throw error;
       }
     },
-    onSuccess: () => {
-      console.log('Follow mutation success, invalidating queries...');
+    onSuccess: async () => {
+      // Clear all related cache entries completely
+      queryClient.removeQueries({ queryKey: ['is-following'] });
+      queryClient.removeQueries({ queryKey: ['user-profile'] });
+      queryClient.removeQueries({ queryKey: ['followers'] });
+      queryClient.removeQueries({ queryKey: ['following'] });
       
-      // Invalidate multiple queries to ensure counts update properly
-      queryClient.invalidateQueries({ queryKey: ['is-following', profileUserId] });
-      queryClient.invalidateQueries({ queryKey: ['user-profile', profileUserId] });
-      queryClient.invalidateQueries({ queryKey: ['user-profile', user?.id] }); // Also update current user's profile
-      
-      // Invalidate followers/following lists
-      queryClient.invalidateQueries({ queryKey: ['followers', profileUserId] });
-      queryClient.invalidateQueries({ queryKey: ['following', profileUserId] });
-      queryClient.invalidateQueries({ queryKey: ['followers', user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['following', user?.id] });
-      
-      // Force refetch of profile data after a short delay to ensure database trigger completes
-      setTimeout(() => {
-        queryClient.refetchQueries({ queryKey: ['user-profile', profileUserId] });
-        queryClient.refetchQueries({ queryKey: ['user-profile', user?.id] });
-        console.log('Delayed refetch completed');
-      }, 500);
-      
-      console.log('Queries invalidated and refetched');
+      // Force immediate refetch
+      queryClient.refetchQueries({ queryKey: ['user-profile', profileUserId] });
+      queryClient.refetchQueries({ queryKey: ['user-profile', user?.id] });
       
       toast({
         title: isFollowing ? "Unfollowed" : "Following",
@@ -265,7 +253,6 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
               <div 
                 className="text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors"
                 onClick={() => {
-                  console.log('Followers clicked, opening dialog');
                   setFollowersDialogTab('followers');
                   setShowFollowersDialog(true);
                 }}
@@ -278,7 +265,6 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
               <div 
                 className="text-center cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 p-2 rounded-lg transition-colors"
                 onClick={() => {
-                  console.log('Following clicked, opening dialog');
                   setFollowersDialogTab('following');
                   setShowFollowersDialog(true);
                 }}

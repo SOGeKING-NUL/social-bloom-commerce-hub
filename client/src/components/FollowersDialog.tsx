@@ -30,8 +30,6 @@ const FollowersDialog = ({
   const { data: followers = [], isLoading: followersLoading } = useQuery({
     queryKey: ['followers', profileUserId],
     queryFn: async () => {
-      console.log('Fetching followers for:', profileUserId);
-      
       // First get follow relationships
       const { data: followData, error: followError } = await supabase
         .from('follows')
@@ -40,11 +38,8 @@ const FollowersDialog = ({
         .order('created_at', { ascending: false });
       
       if (followError) {
-        console.error('Follow relationships query error:', followError);
         throw followError;
       }
-      
-      console.log('Follow relationships:', followData);
       
       if (!followData || followData.length === 0) {
         return [];
@@ -58,11 +53,9 @@ const FollowersDialog = ({
         .in('id', followerIds);
       
       if (profileError) {
-        console.error('Profiles query error:', profileError);
         throw profileError;
       }
       
-      console.log('Follower profiles:', profileData);
       return profileData || [];
     },
     enabled: isOpen,
@@ -72,8 +65,6 @@ const FollowersDialog = ({
   const { data: following = [], isLoading: followingLoading } = useQuery({
     queryKey: ['following', profileUserId],
     queryFn: async () => {
-      console.log('Fetching following for:', profileUserId);
-      
       // First get follow relationships
       const { data: followData, error: followError } = await supabase
         .from('follows')
@@ -82,11 +73,8 @@ const FollowersDialog = ({
         .order('created_at', { ascending: false });
       
       if (followError) {
-        console.error('Follow relationships query error:', followError);
         throw followError;
       }
-      
-      console.log('Following relationships:', followData);
       
       if (!followData || followData.length === 0) {
         return [];
@@ -100,19 +88,16 @@ const FollowersDialog = ({
         .in('id', followingIds);
       
       if (profileError) {
-        console.error('Profiles query error:', profileError);
         throw profileError;
       }
       
-      console.log('Following profiles:', profileData);
       return profileData || [];
     },
     enabled: isOpen,
   });
 
   const handleUserClick = (userId: string) => {
-    console.log('Navigating to profile:', userId);
-    navigate(`/user/${userId}`);
+    navigate(`/users/${userId}`);
     onOpenChange(false);
   };
 
