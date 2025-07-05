@@ -66,7 +66,10 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
         .select()
         .single();
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        console.error('Order creation error:', orderError);
+        throw orderError;
+      }
 
       // Create order items in Supabase
       const { error: itemsError } = await supabase
@@ -197,9 +200,9 @@ const StripeCheckout = () => {
 
   // Fetch cart items from Supabase
   const { data: cart, isLoading } = useQuery({
-    queryKey: ['cart-items', user?.id],
+    queryKey: ['cart-items', profile?.id],
     queryFn: async () => {
-      if (!user) return [];
+      if (!profile) return [];
       
       const { data, error } = await supabase
         .from('cart_items')
@@ -208,12 +211,12 @@ const StripeCheckout = () => {
           quantity,
           product:products(id, name, price, image_url)
         `)
-        .eq('user_id', user.id);
+        .eq('user_id', profile.id);
       
       if (error) throw error;
       return data as CartItem[];
     },
-    enabled: !!user
+    enabled: !!profile
   });
 
   useEffect(() => {
@@ -221,6 +224,9 @@ const StripeCheckout = () => {
       setCartItems(cart);
     }
   }, [cart]);
+
+  // Debug logging
+  console.log('StripeCheckout - user:', user?.id, 'profile:', profile?.id, 'cart items:', cartItems.length);
 
   useEffect(() => {
     const createPaymentIntent = async () => {
