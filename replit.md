@@ -172,6 +172,12 @@ The application is configured for Replit deployment with:
   - **Mixed results display**: Shows both people and products in separate sections when searching
   - **Improved UX**: No need to switch between tabs - users see all relevant results at once
   - **Maintained categories**: Category browsing still available when not searching
+- January 17, 2025: **Global search dropdown in header**
+  - **Search button in header**: Added search icon button accessible from all pages
+  - **Quick results dropdown**: Shows live search results for both users and products
+  - **Direct navigation**: Click on users to go to their profiles, products to product pages
+  - **Smart suggestions**: Displays top 5 results per category with avatars and details
+  - **View all results**: Option to navigate to full discovery page with search pre-filled
 
 ## User Preferences
 

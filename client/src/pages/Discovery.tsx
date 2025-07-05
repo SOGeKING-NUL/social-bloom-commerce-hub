@@ -9,9 +9,12 @@ import Layout from "@/components/Layout";
 import ProductCard from "@/components/ProductCard";
 
 const Discovery = () => {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
   const [location, setLocation] = useLocation();
+  const [selectedCategory, setSelectedCategory] = useState("");
+  
+  // Get search term from URL params or state
+  const urlParams = new URLSearchParams(window.location.search);
+  const [searchTerm, setSearchTerm] = useState(urlParams.get('search') || "");
 
   // Fetch products
   const { data: products = [], isLoading: productsLoading } = useQuery({
