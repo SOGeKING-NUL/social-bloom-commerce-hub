@@ -190,7 +190,7 @@ const CheckoutForm = ({ cartItems }: { cartItems: CartItem[] }) => {
 };
 
 const StripeCheckout = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [location, setLocation] = useLocation();
   const [clientSecret, setClientSecret] = useState("");
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
