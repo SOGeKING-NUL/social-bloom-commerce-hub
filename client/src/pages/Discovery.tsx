@@ -131,7 +131,13 @@ const Discovery = () => {
 
       const { data, error } = await query;
       
-      if (error) throw error;
+      if (error) {
+        console.error('Products query error:', error);
+        throw error;
+      }
+      
+      console.log('Products fetched:', data?.length, 'products');
+      console.log('Search term:', searchTerm, 'Category:', selectedCategory);
       
       return data?.map(product => ({
         ...product,
