@@ -3,6 +3,12 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
 import { eq, ilike, or, sql, desc, asc } from "drizzle-orm";
+import Stripe from "stripe";
+
+// Initialize Stripe
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2023-10-16",
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Mock data for demonstration
@@ -279,6 +285,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching profile:', error);
       res.status(500).json({ error: 'Failed to fetch profile' });
+    }
+  });
+
+  // Stripe payment intent creation for group checkout
+  app.post("/api/create-payment-intent", async (req, res) => {
+    try {
+      const { amount, currency = 'usd', metadata } = req.body;
+
+      if (!amount || amount <= 0) {
+        return res.status(400).json({ error: 'Valid amount is required' });
+      }
+
+      // Create payment intent with Stripe
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(amount * 100), // Convert to cents
+        currency,
+        metadata: metadata || {},
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      });
+
+      res.json({ 
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id
+      });
+    } catch (error: any) {
+      console.error('Error creating payment intent:', error);
+      res.status(500).json({ 
+        error: 'Failed to create payment intent',
+        message: error.message 
+      });
+    }
+  });
+
+  // Stripe webhook handler for payment confirmations
+  app.post("/api/stripe-webhook", async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    
+    if (!sig) {
+      return res.status(400).send('Missing stripe signature');
+    }
+
+    try {
+      const event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET || '');
+      
+      switch (event.type) {
+        case 'payment_intent.succeeded':
+          const paymentIntent = event.data.object;
+          
+          // Update payment status in database
+          if (paymentIntent.metadata.checkout_item_id) {
+            await db.execute(sql`
+              UPDATE group_checkout_items 
+              SET payment_status = 'paid', 
+                  stripe_payment_intent_id = ${paymentIntent.id},
+                  paid_at = NOW()
+              WHERE id = ${paymentIntent.metadata.checkout_item_id}
+            `);
+          }
+          break;
+          
+        case 'payment_intent.payment_failed':
+          const failedPayment = event.data.object;
+          
+          // Update payment status to failed
+          if (failedPayment.metadata.checkout_item_id) {
+            await db.execute(sql`
+              UPDATE group_checkout_items 
+              SET payment_status = 'failed'
+              WHERE id = ${failedPayment.metadata.checkout_item_id}
+            `);
+          }
+          break;
+          
+        default:
+          console.log(`Unhandled event type ${event.type}`);
+      }
+
+      res.json({ received: true });
+    } catch (error: any) {
+      console.error('Webhook error:', error);
+      res.status(400).send(`Webhook Error: ${error.message}`);
     }
   });
 

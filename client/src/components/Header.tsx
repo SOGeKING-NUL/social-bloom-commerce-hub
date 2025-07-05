@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Heart } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
@@ -10,8 +10,7 @@ import UserProfileDropdown from "@/components/UserProfileDropdown";
 import CartIcon from "@/components/CartIcon";
 
 const Header = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const { user, signOut } = useAuth();
 
@@ -41,7 +40,7 @@ const Header = () => {
         title: "Signed out successfully",
         description: "You have been logged out.",
       });
-      navigate("/");
+      setLocation("/");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -51,7 +50,7 @@ const Header = () => {
     }
   };
 
-  const isActive = (path: string) => location.pathname === path;
+  const isActive = (path: string) => location === path;
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-pink-100 bg-white/90 backdrop-blur-lg">
@@ -59,7 +58,7 @@ const Header = () => {
         <div className="flex items-center justify-between">
           <div 
             className="flex items-center space-x-2 cursor-pointer"
-            onClick={() => navigate("/")}
+            onClick={() => setLocation("/")}
           >
             <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-rose-500 rounded-2xl flex items-center justify-center">
               <Heart className="w-6 h-6 text-white" />
@@ -75,7 +74,7 @@ const Header = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigate("/wishlist")}
+                  onClick={() => setLocation("/wishlist")}
                   className="relative"
                 >
                   <Heart className="w-4 h-4" />
@@ -95,13 +94,13 @@ const Header = () => {
               <>
                 <Button 
                   variant="outline" 
-                  onClick={() => navigate("/auth")}
+                  onClick={() => setLocation("/auth")}
                   className="social-button border-pink-200 text-pink-600 hover:bg-pink-50"
                 >
                   Login
                 </Button>
                 <Button 
-                  onClick={() => navigate("/auth")}
+                  onClick={() => setLocation("/auth")}
                   className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
                 >
                   <Heart className="w-4 h-4 mr-2" />

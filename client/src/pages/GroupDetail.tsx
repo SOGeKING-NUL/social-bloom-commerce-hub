@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "wouter";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Users, Lock, ArrowLeft, ShoppingBag, UserPlus, Settings } from "lucide-react";
@@ -15,7 +16,7 @@ import GroupCheckout from "@/components/GroupCheckout";
 
 const GroupDetail = () => {
   const { groupId } = useParams();
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -410,7 +411,7 @@ const GroupDetail = () => {
             <div className="max-w-4xl mx-auto text-center">
               <Button
                 variant="ghost"
-                onClick={() => navigate('/groups')}
+                onClick={() => setLocation('/groups')}
                 className="mb-6 text-pink-600 hover:bg-pink-50"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
@@ -423,7 +424,7 @@ const GroupDetail = () => {
                 <p className="text-sm text-gray-600">Group ID: {groupId}</p>
               </div>
               
-              <Button onClick={() => navigate('/groups')}>
+              <Button onClick={() => setLocation('/groups')}>
                 Back to Groups
               </Button>
             </div>
@@ -441,7 +442,7 @@ const GroupDetail = () => {
             <div className="max-w-4xl mx-auto text-center">
               <Button
                 variant="ghost"
-                onClick={() => navigate('/groups')}
+                onClick={() => setLocation('/groups')}
                 className="mb-6 text-pink-600 hover:bg-pink-50"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
@@ -452,7 +453,7 @@ const GroupDetail = () => {
               <p className="text-gray-600 mb-4">The group you're looking for doesn't exist or has been removed.</p>
               <p className="text-sm text-gray-500 mb-6">Group ID: {groupId}</p>
               
-              <Button onClick={() => navigate('/groups')}>
+              <Button onClick={() => setLocation('/groups')}>
                 Back to Groups
               </Button>
             </div>
@@ -470,7 +471,7 @@ const GroupDetail = () => {
             {/* Back Button */}
             <Button
               variant="ghost"
-              onClick={() => navigate('/groups')}
+              onClick={() => setLocation('/groups')}
               className="mb-6 text-pink-600 hover:bg-pink-50"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />

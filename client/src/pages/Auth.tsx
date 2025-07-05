@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Heart, Users, ShoppingBag } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -16,16 +16,16 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [userType, setUserType] = useState("user");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const { toast } = useToast();
   const { user, signIn, signUp } = useAuth();
 
   useEffect(() => {
     // Redirect if already logged in
     if (user) {
-      navigate("/");
+      setLocation("/");
     }
-  }, [user, navigate]);
+  }, [user, setLocation]);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,7 +39,7 @@ const Auth = () => {
           title: "Welcome back!",
           description: "You have successfully logged in.",
         });
-        navigate("/dashboard");
+        setLocation("/dashboard");
       } else {
         const { error } = await signUp(email, password, fullName);
         if (error) throw error;
