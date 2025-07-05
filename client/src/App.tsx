@@ -22,6 +22,7 @@ import UserProfile from "./pages/UserProfile";
 import Wishlist from "./pages/Wishlist";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
+import StripeCheckout from "./pages/StripeCheckout";
 
 import NotFound from "./pages/NotFound";
 
@@ -81,6 +82,11 @@ const App = () => (
               <Route path="/checkout">
                 <ProtectedRoute>
                   <Checkout />
+                </ProtectedRoute>
+              </Route>
+              <Route path="/stripe-checkout">
+                <ProtectedRoute>
+                  <StripeCheckout />
                 </ProtectedRoute>
               </Route>
               <Route path="/orders">

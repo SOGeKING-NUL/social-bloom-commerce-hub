@@ -151,8 +151,8 @@ const Cart = () => {
   };
 
   const handleCheckout = () => {
-    // Create a checkout session and redirect
-    setLocation('/checkout');
+    // Redirect to Stripe checkout page
+    setLocation('/stripe-checkout');
   };
 
   const subtotal = cartItems?.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) || 0;
