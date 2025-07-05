@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import JoinRequestsDialog from "@/components/JoinRequestsDialog";
 import InviteMembersDialog from "@/components/InviteMembersDialog";
+import VendorProductsView from "@/components/VendorProductsView";
 
 const GroupDetail = () => {
   const { groupId } = useParams();
@@ -732,38 +733,14 @@ const GroupDetail = () => {
               </div>
             )}
 
-            {/* Product Section */}
+            {/* Vendor Products Section */}
             {canViewProduct && group.product && (
               <div className="smooth-card p-6 mb-8">
-                <h2 className="text-2xl font-semibold mb-4">Featured Product</h2>
-                <div className="flex flex-col md:flex-row gap-6">
-                  <div className="md:w-1/3">
-                    <img 
-                      src={group.product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=300&fit=crop"} 
-                      alt={group.product.name}
-                      className="w-full h-48 object-cover rounded-lg"
-                    />
-                  </div>
-                  <div className="md:w-2/3">
-                    <h3 className="text-xl font-semibold mb-2">{group.product.name}</h3>
-                    <p className="text-gray-600 mb-4">{group.product.description}</p>
-                    <p className="text-2xl font-bold text-pink-600 mb-4">${group.product.price}</p>
-                    <p className="text-sm text-gray-500 mb-4">
-                      By {group.product.vendor_profile?.full_name || group.product.vendor_profile?.email || 'Unknown Vendor'}
-                    </p>
-                    
-                    {group.isJoined && (
-                      <Button 
-                        onClick={handleAddToCart}
-                        disabled={addToCartMutation.isPending}
-                        className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
-                      >
-                        <ShoppingBag className="w-4 h-4 mr-2" />
-                        {addToCartMutation.isPending ? 'Adding...' : 'Add to Cart'}
-                      </Button>
-                    )}
-                  </div>
-                </div>
+                <VendorProductsView 
+                  groupId={groupId!} 
+                  vendorId={group.product.vendor_id}
+                  isGroupMember={group.isJoined}
+                />
               </div>
             )}
 
@@ -771,7 +748,7 @@ const GroupDetail = () => {
               <div className="smooth-card p-6 mb-8 text-center">
                 <Lock className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-600 mb-2">Private Group Content</h3>
-                <p className="text-gray-500">Join the group to see the featured product and other exclusive content.</p>
+                <p className="text-gray-500">Join the group to see the featured products and other exclusive content.</p>
               </div>
             )}
 
