@@ -166,6 +166,12 @@ The application is configured for Replit deployment with:
   - **Multi-component updates**: Updated StripeCheckout, GroupCheckout components, and GroupCheckout page
   - **Test environment**: Maintained test card support with proper compliance for development
   - **Error handling**: Added proper method validation for payment intent endpoints
+- January 17, 2025: **Unified discovery search interface**
+  - **Removed tab navigation**: Eliminated separate tabs for People and Products sections
+  - **Single search input**: Now searches both users and products simultaneously from one search field
+  - **Mixed results display**: Shows both people and products in separate sections when searching
+  - **Improved UX**: No need to switch between tabs - users see all relevant results at once
+  - **Maintained categories**: Category browsing still available when not searching
 
 ## User Preferences
 
