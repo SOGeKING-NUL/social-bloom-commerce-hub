@@ -1,5 +1,5 @@
 
-import { ChevronLeft, Home, User, ShoppingBag, Users, Settings } from "lucide-react";
+import { ChevronLeft, Home, User, ShoppingBag, Users, Settings, CreditCard } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,6 +15,7 @@ const Navigation = () => {
     { path: "/", icon: Home, label: "Home", auth: true },
     { path: "/discovery", icon: ShoppingBag, label: "Discovery" },
     { path: "/groups", icon: Users, label: "Groups", auth: true },
+    { path: "/checkout", icon: CreditCard, label: "Checkout", auth: true },
     { path: "/dashboard", icon: User, label: "Dashboard", auth: true },
   ];
 

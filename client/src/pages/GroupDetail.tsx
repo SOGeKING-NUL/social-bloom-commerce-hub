@@ -11,6 +11,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import JoinRequestsDialog from "@/components/JoinRequestsDialog";
 import InviteMembersDialog from "@/components/InviteMembersDialog";
 import VendorProductsView from "@/components/VendorProductsView";
+import GroupCheckout from "@/components/GroupCheckout";
 
 const GroupDetail = () => {
   const { groupId } = useParams();
@@ -740,6 +741,16 @@ const GroupDetail = () => {
                   groupId={groupId!} 
                   vendorId={group.product.vendor_id}
                   isGroupMember={group.isJoined}
+                />
+              </div>
+            )}
+
+            {/* Group Checkout Section */}
+            {canViewProduct && group.isJoined && (
+              <div className="smooth-card p-6 mb-8">
+                <GroupCheckout 
+                  groupId={groupId!}
+                  isAdmin={group.isCreator || false}
                 />
               </div>
             )}
