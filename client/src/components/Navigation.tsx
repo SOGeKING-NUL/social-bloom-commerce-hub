@@ -1,12 +1,11 @@
 
 import { ChevronLeft, Home, User, ShoppingBag, Users, Settings, CreditCard } from "lucide-react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 
 const Navigation = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const [location, setLocation] = useLocation();
   const { user, profile } = useAuth();
 
   const canGoBack = window.history.length > 1;
@@ -47,7 +46,7 @@ const Navigation = () => {
                 key={item.path}
                 variant={isActive ? "default" : "ghost"}
                 size="sm"
-                onClick={() => navigate(item.path)}
+                onClick={() => setLocation(item.path)}
                 className={`flex items-center space-x-1 md:space-x-2 ${
                   isActive ? "bg-pink-500 text-white" : "text-gray-600 hover:text-pink-500"
                 }`}

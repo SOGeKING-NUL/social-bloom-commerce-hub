@@ -30,7 +30,7 @@ const Cart = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
 
   // Fetch cart items
   const { data: cartItems, isLoading } = useQuery({
@@ -152,7 +152,7 @@ const Cart = () => {
 
   const handleCheckout = () => {
     // Create a checkout session and redirect
-    navigate('/checkout');
+    setLocation('/checkout');
   };
 
   const subtotal = cartItems?.reduce((sum, item) => sum + (item.product.price * item.quantity), 0) || 0;
@@ -167,7 +167,7 @@ const Cart = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate(-1)}
+            onClick={() => window.history.back()}
             className="flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -347,7 +347,7 @@ const Cart = () => {
             <h2 className="text-2xl font-semibold text-gray-600 mb-4">Your cart is empty</h2>
             <p className="text-gray-500 mb-8">Browse our groups and discover amazing products</p>
             <Button 
-              onClick={() => navigate('/groups')}
+              onClick={() => setLocation('/groups')}
               className="bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
             >
               Continue Shopping

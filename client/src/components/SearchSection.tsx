@@ -4,13 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Grid, User, MessageCircle, Heart, Eye } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
 const SearchSection = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
 
   // Fetch posts based on search
   const { data: posts = [], isLoading: postsLoading } = useQuery({
@@ -80,7 +80,7 @@ const SearchSection = () => {
   });
 
   const handleUserClick = (userId: string) => {
-    navigate(`/users/${userId}`);
+    setLocation(`/users/${userId}`);
   };
 
   const handlePostClick = (postId: string) => {

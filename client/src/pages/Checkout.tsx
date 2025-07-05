@@ -60,7 +60,7 @@ const Checkout = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
 
   // Fetch cart items for checkout
   const { data: cartItems, isLoading } = useQuery({
@@ -139,7 +139,7 @@ const Checkout = () => {
         title: "Order Placed Successfully!",
         description: `Your order #${order.id} has been placed and is being processed.`,
       });
-      navigate('/orders');
+      setLocation('/orders');
     },
     onError: (error) => {
       toast({
@@ -213,7 +213,7 @@ const Checkout = () => {
         <div className="container mx-auto px-4 py-8 text-center">
           <h1 className="text-2xl font-bold mb-4">Your cart is empty</h1>
           <p className="text-gray-600 mb-8">Add some items to your cart before checking out.</p>
-          <Button onClick={() => navigate('/groups')}>Continue Shopping</Button>
+          <Button onClick={() => setLocation('/groups')}>Continue Shopping</Button>
         </div>
       </Layout>
     );
@@ -226,7 +226,7 @@ const Checkout = () => {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate('/cart')}
+            onClick={() => setLocation('/cart')}
             className="flex items-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />

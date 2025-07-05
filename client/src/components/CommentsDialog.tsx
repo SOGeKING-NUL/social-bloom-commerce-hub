@@ -26,7 +26,7 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
   const [newComment, setNewComment] = useState("");
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
@@ -187,7 +187,7 @@ const CommentsDialog = ({ postId, isOpen, onOpenChange }: CommentsDialogProps) =
   };
 
   const handleUserClick = (userId: string) => {
-    navigate(`/users/${userId}`);
+    setLocation(`/users/${userId}`);
   };
 
   return (

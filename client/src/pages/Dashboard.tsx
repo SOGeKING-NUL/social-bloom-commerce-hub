@@ -10,7 +10,7 @@ import AdminDashboard from '@/components/dashboards/AdminDashboard';
 
 const Dashboard = () => {
   const { profile, loading } = useAuth();
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
 
   if (loading) {
     return (
@@ -29,7 +29,7 @@ const Dashboard = () => {
       <div className="flex items-center">
         <Button
           variant="outline"
-          onClick={() => navigate(-1)}
+          onClick={() => window.history.back()}
           className="mr-4"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />

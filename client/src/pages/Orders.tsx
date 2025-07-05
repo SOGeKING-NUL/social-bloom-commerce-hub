@@ -11,7 +11,7 @@ import Header from '@/components/Header';
 
 const Orders = () => {
   const { user } = useAuth();
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
 
   const { data: orders, isLoading } = useQuery({
     queryKey: ['user-orders', user?.id],
@@ -72,7 +72,7 @@ const Orders = () => {
         <div className="max-w-4xl mx-auto">
           <Button 
             variant="outline" 
-            onClick={() => navigate(-1)}
+            onClick={() => window.history.back()}
             className="mb-6"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -89,7 +89,7 @@ const Orders = () => {
               <Package className="w-16 h-16 mx-auto text-gray-400 mb-4" />
               <h2 className="text-2xl font-bold mb-2">No orders yet</h2>
               <p className="text-gray-600 mb-6">Start shopping to see your orders here!</p>
-              <Button onClick={() => navigate('/products')}>
+              <Button onClick={() => setLocation('/products')}>
                 Browse Products
               </Button>
             </div>

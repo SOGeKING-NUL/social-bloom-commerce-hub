@@ -17,7 +17,7 @@ import EditGroupDialog from "@/components/EditGroupDialog";
 import JoinRequestsDialog from "@/components/JoinRequestsDialog";
 
 const Profile = () => {
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
   const { user, profile, updateProfile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -241,7 +241,7 @@ const Profile = () => {
           <div className="flex items-center mb-6">
             <Button
               variant="ghost"
-              onClick={() => navigate(-1)}
+              onClick={() => window.history.back()}
               className="mr-4"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -420,7 +420,7 @@ const Profile = () => {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => navigate(`/groups/${group.id}`)}
+                            onClick={() => setLocation(`/groups/${group.id}`)}
                             className="flex-1"
                           >
                             View

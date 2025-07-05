@@ -5,14 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Grid, User, ShoppingBag } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 import Layout from "@/components/Layout";
 import ProductCard from "@/components/ProductCard";
 
 const Discovery = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
 
   // Fetch products
   const { data: products = [], isLoading: productsLoading } = useQuery({
@@ -209,7 +209,7 @@ const Discovery = () => {
                   <div
                     key={user.id}
                     className="bg-white rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => navigate(`/profile/${user.id}`)}
+                    onClick={() => setLocation(`/profile/${user.id}`)}
                   >
                     <div className="flex items-center space-x-4">
                       <Avatar className="w-12 h-12">

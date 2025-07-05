@@ -3,10 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Users, Package } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 
 const GroupsPreview = () => {
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
 
   // Fetch groups from database with simpler approach
   const { data: groups = [], isLoading, error } = useQuery({
@@ -98,7 +98,7 @@ const GroupsPreview = () => {
 
   const handleGroupClick = (groupId: string) => {
     console.log('GroupsPreview: Navigating to group:', groupId);
-    navigate(`/groups/${groupId}`);
+    setLocation(`/groups/${groupId}`);
   };
 
   console.log('GroupsPreview: Component render state:', { 
@@ -176,7 +176,7 @@ const GroupsPreview = () => {
               <h3 className="text-xl font-semibold text-gray-600 mb-2">No groups yet</h3>
               <p className="text-gray-500">Be the first to create a group and start building community!</p>
               <Button 
-                onClick={() => navigate('/groups')}
+                onClick={() => setLocation('/groups')}
                 className="mt-4 social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
               >
                 Create First Group
@@ -246,7 +246,7 @@ const GroupsPreview = () => {
           
           <div className="text-center mt-12">
             <Button 
-              onClick={() => navigate('/groups')}
+              onClick={() => setLocation('/groups')}
               className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
             >
               View All Groups

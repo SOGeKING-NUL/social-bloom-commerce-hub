@@ -3,14 +3,14 @@ import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, MessageCircle, Heart, Eye, User, X } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
 const SearchSidebar = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
 
   // Search posts
   const { data: posts = [], isLoading: postsLoading } = useQuery({
@@ -75,7 +75,7 @@ const SearchSidebar = () => {
   });
 
   const handleUserClick = (userId: string) => {
-    navigate(`/profile/${userId}`);
+    setLocation(`/profile/${userId}`);
     setIsOpen(false);
   };
 

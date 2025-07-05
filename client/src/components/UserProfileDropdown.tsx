@@ -18,7 +18,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 
 const UserProfileDropdown = () => {
   const { profile, signOut, user } = useAuth();
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
 
@@ -29,7 +29,7 @@ const UserProfileDropdown = () => {
         title: "Signed out successfully",
         description: "You have been logged out.",
       });
-      navigate("/");
+      setLocation("/");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -40,7 +40,7 @@ const UserProfileDropdown = () => {
   };
 
   const handleViewProfile = () => {
-    navigate(`/users/${user?.id}`);
+    setLocation(`/users/${user?.id}`);
   };
 
   return (
@@ -69,15 +69,15 @@ const UserProfileDropdown = () => {
           <User className="mr-2 h-4 w-4" />
           <span>View Profile</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate("/profile")} className="cursor-pointer dark:hover:bg-gray-700">
+        <DropdownMenuItem onClick={() => setLocation("/profile")} className="cursor-pointer dark:hover:bg-gray-700">
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate("/wishlist")} className="cursor-pointer dark:hover:bg-gray-700">
+        <DropdownMenuItem onClick={() => setLocation("/wishlist")} className="cursor-pointer dark:hover:bg-gray-700">
           <Heart className="mr-2 h-4 w-4" />
           <span>My Wishlist</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => navigate("/orders")} className="cursor-pointer dark:hover:bg-gray-700">
+        <DropdownMenuItem onClick={() => setLocation("/orders")} className="cursor-pointer dark:hover:bg-gray-700">
           <Package className="mr-2 h-4 w-4" />
           <span>My Orders</span>
         </DropdownMenuItem>

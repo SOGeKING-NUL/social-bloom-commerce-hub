@@ -12,7 +12,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
 const Wishlist = () => {
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -101,7 +101,7 @@ const Wishlist = () => {
         addToCartMutation.mutate(item.products.id);
       }
     });
-    navigate('/cart');
+    setLocation('/cart');
   };
 
   const getVendorName = (product: any) => {
@@ -132,7 +132,7 @@ const Wishlist = () => {
           <div className="flex items-center mb-6">
             <Button
               variant="ghost"
-              onClick={() => navigate(-1)}
+              onClick={() => window.history.back()}
               className="mr-4"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -146,7 +146,7 @@ const Wishlist = () => {
               <Heart className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-600 mb-2">Your wishlist is empty</h3>
               <p className="text-gray-500 mb-4">Start adding products you love!</p>
-              <Button onClick={() => navigate('/products')}>
+              <Button onClick={() => setLocation('/products')}>
                 Browse Products
               </Button>
             </div>
@@ -160,7 +160,7 @@ const Wishlist = () => {
                         src={item.products?.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=300&fit=crop"}
                         alt={item.products?.name}
                         className="w-full h-48 object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
-                        onClick={() => navigate(`/products/${item.products?.id}`)}
+                        onClick={() => setLocation(`/products/${item.products?.id}`)}
                       />
                       <Button
                         variant="ghost"
@@ -175,7 +175,7 @@ const Wishlist = () => {
                     <CardContent className="p-4">
                       <h3 
                         className="font-semibold mb-1 cursor-pointer hover:text-pink-600"
-                        onClick={() => navigate(`/products/${item.products?.id}`)}
+                        onClick={() => setLocation(`/products/${item.products?.id}`)}
                       >
                         {item.products?.name}
                       </h3>

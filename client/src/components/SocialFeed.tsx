@@ -13,7 +13,7 @@ const SocialFeed = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
 
   // Fetch posts from database with user avatar
   const { data: posts = [], isLoading } = useQuery({
@@ -141,7 +141,7 @@ const SocialFeed = () => {
   };
 
   const handleUserClick = (userId: string) => {
-    navigate(`/users/${userId}`);
+    setLocation(`/users/${userId}`);
   };
 
   if (isLoading) {
