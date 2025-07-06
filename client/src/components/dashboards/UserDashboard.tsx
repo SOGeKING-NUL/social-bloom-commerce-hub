@@ -1,269 +1,215 @@
 
-import { useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Heart, MessageCircle, Share2, ShoppingCart, User, Plus } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ShoppingBag, Heart, Users, Package } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const UserDashboard = () => {
-  const { profile, updateProfile } = useAuth();
-  const { toast } = useToast();
-  const [editingProfile, setEditingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState({
-    full_name: profile?.full_name || '',
-  });
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
-  // Fetch user's posts
-  const { data: posts } = useQuery({
-    queryKey: ['user-posts', profile?.id],
+  // Fetch user stats
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['user-stats', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('posts')
-        .select('*')
-        .eq('user_id', profile?.id)
-        .order('created_at', { ascending: false });
+      if (!user?.id) return null;
       
-      if (error) throw error;
-      return data;
+      const [cartResult, wishlistResult, ordersResult, groupsResult] = await Promise.all([
+        supabase.from('cart_items').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('wishlist').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('orders').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
+        supabase.from('group_members').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
+      ]);
+
+      return {
+        cartItems: cartResult.count || 0,
+        wishlistItems: wishlistResult.count || 0,
+        totalOrders: ordersResult.count || 0,
+        groupsJoined: groupsResult.count || 0
+      };
     },
-    enabled: !!profile?.id,
+    enabled: !!user?.id,
   });
 
-  // Fetch user's cart
-  const { data: cartItems } = useQuery({
-    queryKey: ['cart', profile?.id],
+  // Fetch recent orders
+  const { data: recentOrders = [] } = useQuery({
+    queryKey: ['user-recent-orders', user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('cart_items')
-        .select(`
-          *,
-          products (*)
-        `)
-        .eq('user_id', profile?.id);
+      if (!user?.id) return [];
       
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!profile?.id,
-  });
-
-  // Fetch user's orders
-  const { data: orders } = useQuery({
-    queryKey: ['orders', profile?.id],
-    queryFn: async () => {
       const { data, error } = await supabase
         .from('orders')
         .select('*')
-        .eq('user_id', profile?.id)
-        .order('created_at', { ascending: false });
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
       
       if (error) throw error;
       return data;
     },
-    enabled: !!profile?.id,
+    enabled: !!user?.id,
   });
 
-  const handleProfileUpdate = async () => {
-    const { error } = await updateProfile(profileForm);
-    if (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to update profile',
-        variant: 'destructive',
-      });
-    } else {
-      toast({
-        title: 'Success',
-        description: 'Profile updated successfully',
-      });
-      setEditingProfile(false);
-    }
-  };
+  // Fetch recent groups
+  const { data: recentGroups = [] } = useQuery({
+    queryKey: ['user-recent-groups', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('group_members')
+        .select(`
+          *,
+          groups (
+            id,
+            name,
+            description
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('joined_at', { ascending: false })
+        .limit(5);
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
 
-  const handleBecomeVendor = async () => {
-    const { error } = await updateProfile({ role: 'vendor' });
-    if (error) {
-      toast({
-        title: 'Error',
-        description: 'Failed to become vendor',
-        variant: 'destructive',
-      });
-    } else {
-      toast({
-        title: 'Success',
-        description: 'You are now a vendor! Please complete KYC verification.',
-      });
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[1, 2, 3, 4].map((i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-8 bg-gray-200 rounded mb-2"></div>
+                <div className="h-4 bg-gray-200 rounded"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">My Dashboard</h1>
-        
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="posts">My Posts</TabsTrigger>
-            <TabsTrigger value="cart">Shopping Cart</TabsTrigger>
-            <TabsTrigger value="orders">Order History</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="profile">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="w-5 h-5" />
-                  Profile Information
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {editingProfile ? (
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="full_name">Full Name</Label>
-                      <Input
-                        id="full_name"
-                        value={profileForm.full_name}
-                        onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
-                      />
-                    </div>
-                    <div className="flex gap-2">
-                      <Button onClick={handleProfileUpdate}>Save Changes</Button>
-                      <Button variant="outline" onClick={() => setEditingProfile(false)}>
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Email</Label>
-                      <p className="text-sm text-gray-600">{profile?.email}</p>
-                    </div>
-                    <div>
-                      <Label>Full Name</Label>
-                      <p className="text-sm text-gray-600">{profile?.full_name || 'Not set'}</p>
-                    </div>
-                    <div>
-                      <Label>Role</Label>
-                      <p className="text-sm text-gray-600 capitalize">{profile?.role}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button onClick={() => setEditingProfile(true)}>Edit Profile</Button>
-                      {profile?.role === 'user' && (
-                        <Button variant="outline" onClick={handleBecomeVendor}>
-                          Become a Vendor
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="posts">
-            <Card>
-              <CardHeader>
-                <CardTitle>My Posts ({posts?.length || 0})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {posts?.map((post) => (
-                    <div key={post.id} className="border rounded-lg p-4">
-                      <p className="mb-3">{post.content}</p>
-                      <div className="flex items-center gap-4 text-sm text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <Heart className="w-4 h-4" />
-                          {post.likes_count}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <MessageCircle className="w-4 h-4" />
-                          {post.comments_count}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Share2 className="w-4 h-4" />
-                          {post.shares_count}
-                        </span>
-                        <span className="ml-auto">
-                          {new Date(post.created_at!).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                  {!posts || posts.length === 0 && (
-                    <p className="text-center text-gray-500 py-8">No posts yet. Start sharing!</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="cart">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ShoppingCart className="w-5 h-5" />
-                  Shopping Cart ({cartItems?.length || 0} items)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {cartItems?.map((item) => (
-                    <div key={item.id} className="flex items-center gap-4 p-4 border rounded-lg">
-                      <div className="flex-1">
-                        <h4 className="font-medium">{item.products?.name}</h4>
-                        <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
-                        <p className="text-lg font-semibold">${item.products?.price}</p>
-                      </div>
-                    </div>
-                  ))}
-                  {!cartItems || cartItems.length === 0 && (
-                    <p className="text-center text-gray-500 py-8">Your cart is empty</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="orders">
-            <Card>
-              <CardHeader>
-                <CardTitle>Order History ({orders?.length || 0})</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {orders?.map((order) => (
-                    <div key={order.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-medium">Order #{order.id.slice(0, 8)}</h4>
-                          <p className="text-sm text-gray-600">Status: {order.status}</p>
-                          <p className="text-sm text-gray-600">
-                            Date: {new Date(order.created_at!).toLocaleDateString()}
-                          </p>
-                        </div>
-                        <p className="text-lg font-semibold">${order.total_amount}</p>
-                      </div>
-                    </div>
-                  ))}
-                  {!orders || orders.length === 0 && (
-                    <p className="text-center text-gray-500 py-8">No orders yet</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-3xl font-bold">My Dashboard</h2>
+        <p className="text-gray-600">Welcome back! Here's your shopping activity overview</p>
       </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate("/cart")}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Cart Items</CardTitle>
+            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.cartItems || 0}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate("/wishlist")}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Wishlist</CardTitle>
+            <Heart className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.wishlistItems || 0}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Orders</CardTitle>
+            <Package className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.totalOrders || 0}</div>
+          </CardContent>
+        </Card>
+
+        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate("/groups")}>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Groups Joined</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats?.groupsJoined || 0}</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Orders */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Recent Orders</CardTitle>
+          <Button variant="outline" size="sm" onClick={() => navigate("/orders")}>
+            View All
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {recentOrders.map((order) => (
+              <div key={order.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <p className="font-medium">Order #{order.id.slice(0, 8)}</p>
+                  <p className="text-sm text-gray-500">
+                    {new Date(order.created_at).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold">${Number(order.total_amount).toFixed(2)}</p>
+                  <p className="text-sm text-gray-500 capitalize">{order.status}</p>
+                </div>
+              </div>
+            ))}
+            
+            {recentOrders.length === 0 && (
+              <p className="text-center text-gray-500 py-8">No orders yet</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Groups */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>My Groups</CardTitle>
+          <Button variant="outline" size="sm" onClick={() => navigate("/groups")}>
+            View All
+          </Button>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {recentGroups.map((membership) => (
+              <div key={membership.id} className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <p className="font-medium">{membership.groups?.name}</p>
+                  <p className="text-sm text-gray-500">
+                    {membership.groups?.description || 'No description'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-500">
+                    Joined {new Date(membership.joined_at).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+            ))}
+            
+            {recentGroups.length === 0 && (
+              <p className="text-center text-gray-500 py-8">No groups joined yet</p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };
