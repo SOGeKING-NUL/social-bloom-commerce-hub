@@ -1,7 +1,8 @@
 
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { Loader2 } from 'lucide-react';
+import { useEffect } from 'react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -17,6 +18,21 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   redirectTo = '/auth',
 }) => {
   const { user, profile, loading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  useEffect(() => {
+    if (!loading) {
+      if (requireAuth && !user) {
+        setLocation(redirectTo);
+        return;
+      }
+
+      if (requiredRole && profile?.role !== requiredRole) {
+        setLocation('/');
+        return;
+      }
+    }
+  }, [user, profile, loading, requireAuth, requiredRole, setLocation, redirectTo]);
 
   if (loading) {
     return (
@@ -27,11 +43,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (requireAuth && !user) {
-    return <Navigate to={redirectTo} replace />;
+    return null;
   }
 
   if (requiredRole && profile?.role !== requiredRole) {
-    return <Navigate to="/" replace />;
+    return null;
   }
 
   return <>{children}</>;

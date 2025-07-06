@@ -1,63 +1,72 @@
 
 import { useState } from "react";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Heart, MessageCircle, Share, Eye } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Share2, ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import CommentsDialog from "./CommentsDialog";
+import { useLocation } from "wouter";
 
 const SocialFeed = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedPostForComments, setSelectedPostForComments] = useState<string | null>(null);
+  const [location, setLocation] = useLocation();
 
-  // Fetch posts
+  // Fetch posts from database with user avatar
   const { data: posts = [], isLoading } = useQuery({
-    queryKey: ['posts'],
+    queryKey: ['social-feed-posts'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('posts')
         .select(`
           *,
-          user_profile:profiles!user_id (
+          profiles:user_id (
             full_name,
+            email,
             avatar_url
           ),
-          product:products (
-            id,
-            name,
-            price,
-            image_url
-          ),
-          post_likes (
+          post_likes!left (
             user_id
           )
         `)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(10);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching posts:', error);
+        return [];
+      }
       
-      return data?.map(post => ({
-        ...post,
-        isLiked: post.post_likes?.some((like: any) => like.user_id === user?.id) || false,
-        created_at: post.created_at || new Date().toISOString()
-      })) || [];
+      return (data || []).map(post => ({
+        id: post.id,
+        user_id: post.user_id,
+        content: post.content,
+        image: post.image_url,
+        likes: post.likes_count || 0,
+        comments: post.comments_count || 0,
+        shares: post.shares_count || 0,
+        views: post.views_count || 0,
+        timestamp: new Date(post.created_at).toLocaleDateString(),
+        isLiked: user ? post.post_likes.some((like: any) => like.user_id === user.id) : false,
+        user: {
+          id: post.user_id,
+          name: post.profiles?.full_name || post.profiles?.email?.split('@')[0] || 'Unknown User',
+          avatar: post.profiles?.avatar_url || null, // Don't use fallback here
+          username: `@${post.profiles?.email?.split('@')[0] || 'user'}`
+        }
+      }));
     },
   });
 
-  // Like/Unlike mutation
-  const toggleLikeMutation = useMutation({
+  // Like/unlike post mutation
+  const likeMutation = useMutation({
     mutationFn: async ({ postId, isLiked }: { postId: string; isLiked: boolean }) => {
-      if (!user) throw new Error('Not authenticated');
-      
+      if (!user) throw new Error('Please login to like posts');
+
       if (isLiked) {
-        // Unlike
         const { error } = await supabase
           .from('post_likes')
           .delete()
@@ -66,7 +75,6 @@ const SocialFeed = () => {
         
         if (error) throw error;
       } else {
-        // Like
         const { error } = await supabase
           .from('post_likes')
           .insert({
@@ -78,186 +86,225 @@ const SocialFeed = () => {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['posts'] });
+      queryClient.invalidateQueries({ queryKey: ['social-feed-posts'] });
+    },
+    onError: (error: any) => {
+      console.error('Like mutation error:', error);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
 
-  // Add to cart mutation
-  const addToCartMutation = useMutation({
-    mutationFn: async (productId: string) => {
-      if (!user) throw new Error('Not authenticated');
-      
+  const trackView = async (postId: string) => {
+    try {
       const { error } = await supabase
-        .from('cart_items')
-        .upsert({
-          user_id: user.id,
-          product_id: productId,
-          quantity: 1
-        }, {
-          onConflict: 'user_id,product_id'
+        .from('post_views')
+        .insert({
+          post_id: postId,
+          user_id: user?.id || null,
         });
       
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast({
-        title: "Added to Cart!",
-        description: "Product has been added to your cart.",
-      });
-    },
-  });
+      if (!error) {
+        queryClient.invalidateQueries({ queryKey: ['social-feed-posts'] });
+      }
+    } catch (error) {
+      console.log('View tracking failed:', error);
+    }
+  };
 
   const handleLike = (postId: string, isLiked: boolean) => {
     if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to like posts.",
-        variant: "destructive",
-      });
+      toast({ title: "Please login to like posts" });
       return;
     }
     
-    toggleLikeMutation.mutate({ postId, isLiked });
+    likeMutation.mutate({ postId, isLiked });
   };
 
-  const handleAddToCart = (productId: string) => {
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to add items to cart.",
-        variant: "destructive",
+  const handleShare = async (postId: string) => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Check out this post',
+          text: 'Check out this amazing post!',
+          url: `${window.location.origin}/posts/${postId}`,
+        });
+      } catch (error) {
+        console.log('Share failed:', error);
+      }
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(`${window.location.origin}/posts/${postId}`).then(() => {
+        toast({ title: "Link copied to clipboard!" });
       });
-      return;
+    } else {
+      toast({ title: "Share feature coming soon!" });
     }
-    
-    addToCartMutation.mutate(productId);
+  };
+
+  const handleUserClick = (userId: string) => {
+    setLocation(`/users/${userId}`);
   };
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        {[1, 2, 3].map((i) => (
-          <Card key={i} className="animate-pulse">
-            <CardHeader className="flex flex-row items-center space-y-0 space-x-4">
-              <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
-              <div className="flex-1 space-y-2">
-                <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/6"></div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="h-4 bg-gray-200 rounded mb-4"></div>
-              <div className="h-48 bg-gray-200 rounded"></div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <section className="py-20 bg-gradient-to-b from-white to-pink-50 dark:from-gray-900 dark:to-gray-800">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold mb-4 dark:text-white">Community Feed</h2>
+              <p className="text-xl text-gray-600 dark:text-gray-300">See what our community is sharing</p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="smooth-card animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (posts.length === 0) {
+    return (
+      <section className="py-20 bg-gradient-to-b from-white to-pink-50 dark:from-gray-900 dark:to-gray-800">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold mb-4 dark:text-white">Community Feed</h2>
+              <p className="text-xl text-gray-600 dark:text-gray-300">See what our community is sharing</p>
+            </div>
+            
+            <div className="text-center py-12">
+              <MessageCircle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-600 mb-2">No posts yet</h3>
+              <p className="text-gray-500">Be the first to share something with the community!</p>
+              <Button className="mt-4 social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500">
+                Join the Community
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {posts.map((post) => (
-        <Card key={post.id} className="overflow-hidden">
-          <CardHeader className="flex flex-row items-center space-y-0 space-x-4">
-            <Avatar className="w-10 h-10">
-              <AvatarImage src={post.user_profile?.avatar_url || undefined} />
-              <AvatarFallback>
-                {post.user_profile?.full_name?.charAt(0) || 'U'}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1">
-              <p className="font-medium">
-                {post.user_profile?.full_name || 'Anonymous'}
-              </p>
-              <p className="text-sm text-gray-500">
-                {post.created_at ? new Date(post.created_at).toLocaleDateString() : ''}
-              </p>
-            </div>
-          </CardHeader>
+    <section className="py-20 bg-gradient-to-b from-white to-pink-50 dark:from-gray-900 dark:to-gray-800">
+      <div className="container mx-auto px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4 dark:text-white">Community Feed</h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300">See what our community is sharing</p>
+          </div>
           
-          <CardContent className="space-y-4">
-            <p className="text-gray-800">{post.content}</p>
-            
-            {post.image_url && (
-              <img 
-                src={post.image_url} 
-                alt="Post content"
-                className="w-full h-64 object-cover rounded-lg"
-              />
-            )}
-            
-            {post.product && (
-              <div className="bg-gray-50 rounded-lg p-4 flex items-center space-x-4">
-                <img 
-                  src={post.product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=100&h=100&fit=crop"} 
-                  alt={post.product.name}
-                  className="w-16 h-16 object-cover rounded-lg"
-                />
-                <div className="flex-1">
-                  <h4 className="font-medium">{post.product.name}</h4>
-                  <p className="text-pink-600 font-bold">${post.product.price}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {posts.map((post) => (
+              <div 
+                key={post.id} 
+                className="smooth-card p-6 floating-card animate-fade-in cursor-pointer dark:bg-gray-800 dark:border-gray-700"
+                onClick={() => trackView(post.id)}
+              >
+                <div className="flex items-center mb-4">
+                  {post.user.avatar ? (
+                    <Avatar 
+                      className="w-10 h-10 mr-3 cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUserClick(post.user.id);
+                      }}
+                    >
+                      <AvatarImage src={post.user.avatar} alt={post.user.name} />
+                      <AvatarFallback>{post.user.name.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <div 
+                      className="w-10 h-10 mr-3 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-medium cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUserClick(post.user.id);
+                      }}
+                    >
+                      {post.user.name.charAt(0)}
+                    </div>
+                  )}
+                  <div>
+                    <h4 
+                      className="font-medium text-sm cursor-pointer hover:text-pink-500 transition-colors dark:text-white dark:hover:text-pink-400"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleUserClick(post.user.id);
+                      }}
+                    >
+                      {post.user.name}
+                    </h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{post.user.username}</p>
+                  </div>
                 </div>
-                <Button
-                  size="sm"
-                  onClick={() => handleAddToCart(post.product.id)}
-                  disabled={addToCartMutation.isPending}
-                >
-                  <ShoppingBag className="w-4 h-4 mr-2" />
-                  Add to Cart
-                </Button>
-              </div>
-            )}
-            
-            <div className="flex items-center justify-between pt-4 border-t">
-              <div className="flex items-center space-x-4">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleLike(post.id, post.isLiked)}
-                  className={post.isLiked ? "text-red-500" : "text-gray-500"}
-                >
-                  <Heart className={`w-4 h-4 mr-1 ${post.isLiked ? 'fill-current' : ''}`} />
-                  {post.likes_count || 0}
-                </Button>
                 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedPostForComments(post.id)}
-                >
-                  <MessageCircle className="w-4 h-4 mr-1" />
-                  {post.comments_count || 0}
-                </Button>
+                <p className="text-gray-700 dark:text-gray-300 mb-4 text-sm line-clamp-3">{post.content}</p>
                 
-                <Button variant="ghost" size="sm">
-                  <Share2 className="w-4 h-4 mr-1" />
-                  Share
-                </Button>
+                {post.image && (
+                  <div className="mb-4 rounded-lg overflow-hidden">
+                    <img 
+                      src={post.image} 
+                      alt="Post content"
+                      className="w-full h-32 object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
+                    />
+                  </div>
+                )}
+                
+                <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLike(post.id, post.isLiked);
+                    }}
+                    disabled={likeMutation.isPending}
+                    className={`flex items-center space-x-1 hover:text-red-500 transition-colors ${
+                      post.isLiked ? 'text-red-500' : ''
+                    }`}
+                  >
+                    <Heart className={`w-4 h-4 ${post.isLiked ? 'fill-current' : ''}`} />
+                    <span>{post.likes}</span>
+                  </button>
+                  <div className="flex items-center space-x-1">
+                    <MessageCircle className="w-4 h-4" />
+                    <span>{post.comments}</span>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleShare(post.id);
+                    }}
+                    className="flex items-center space-x-1 hover:text-blue-500 transition-colors"
+                  >
+                    <Share className="w-4 h-4" />
+                    <span>{post.shares}</span>
+                  </button>
+                  <div className="flex items-center space-x-1">
+                    <Eye className="w-4 h-4" />
+                    <span>{post.views}</span>
+                  </div>
+                </div>
               </div>
-              
-              <p className="text-xs text-gray-500">
-                {post.views_count || 0} views
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-      
-      {posts.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-500 text-lg">No posts yet. Start following some users to see their posts!</p>
+            ))}
+          </div>
+          
+          <div className="text-center mt-12">
+            <Button 
+              onClick={() => window.location.href = '/feed'}
+              className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 dark:from-pink-600 dark:to-rose-500"
+            >
+              View All Posts
+            </Button>
+          </div>
         </div>
-      )}
-      
-      {selectedPostForComments && (
-        <CommentsDialog
-          postId={selectedPostForComments}
-          open={!!selectedPostForComments}
-          onOpenChange={(open) => !open && setSelectedPostForComments(null)}
-        />
-      )}
-    </div>
+      </div>
+    </section>
   );
 };
 

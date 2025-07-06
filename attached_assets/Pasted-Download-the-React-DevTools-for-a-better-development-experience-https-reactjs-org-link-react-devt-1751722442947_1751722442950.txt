@@ -1,0 +1,102 @@
+Download the React DevTools for a better development experience: https://reactjs.org/link/react-devtools
+react-router-dom.js?v=03cfb9dd:531 Uncaught Error: useNavigate() may be used only in the context of a <Router> component.
+    at invariant (react-router-dom.js?v=03cfb9dd:531:11)
+    at useNavigateUnstable (react-router-dom.js?v=03cfb9dd:5216:3)
+    at useNavigate (react-router-dom.js?v=03cfb9dd:5213:46)
+    at Feed (Feed.tsx:22:20)
+    at renderWithHooks (chunk-UPELNCPK.js?v=03cfb9dd:11548:26)
+    at mountIndeterminateComponent (chunk-UPELNCPK.js?v=03cfb9dd:14926:21)
+    at beginWork (chunk-UPELNCPK.js?v=03cfb9dd:15914:22)
+    at HTMLUnknownElement.callCallback2 (chunk-UPELNCPK.js?v=03cfb9dd:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-UPELNCPK.js?v=03cfb9dd:3699:24)
+    at invokeGuardedCallback (chunk-UPELNCPK.js?v=03cfb9dd:3733:39)
+invariant @ react-router-dom.js?v=03cfb9dd:531
+useNavigateUnstable @ react-router-dom.js?v=03cfb9dd:5216
+useNavigate @ react-router-dom.js?v=03cfb9dd:5213
+Feed @ Feed.tsx:22
+renderWithHooks @ chunk-UPELNCPK.js?v=03cfb9dd:11548
+mountIndeterminateComponent @ chunk-UPELNCPK.js?v=03cfb9dd:14926
+beginWork @ chunk-UPELNCPK.js?v=03cfb9dd:15914
+callCallback2 @ chunk-UPELNCPK.js?v=03cfb9dd:3674
+invokeGuardedCallbackDev @ chunk-UPELNCPK.js?v=03cfb9dd:3699
+invokeGuardedCallback @ chunk-UPELNCPK.js?v=03cfb9dd:3733
+beginWork$1 @ chunk-UPELNCPK.js?v=03cfb9dd:19765
+performUnitOfWork @ chunk-UPELNCPK.js?v=03cfb9dd:19198
+workLoopSync @ chunk-UPELNCPK.js?v=03cfb9dd:19137
+renderRootSync @ chunk-UPELNCPK.js?v=03cfb9dd:19116
+performConcurrentWorkOnRoot @ chunk-UPELNCPK.js?v=03cfb9dd:18678
+workLoop @ chunk-UPELNCPK.js?v=03cfb9dd:197
+flushWork @ chunk-UPELNCPK.js?v=03cfb9dd:176
+performWorkUntilDeadline @ chunk-UPELNCPK.js?v=03cfb9dd:384Understand this error
+react-router-dom.js?v=03cfb9dd:531 Uncaught Error: useNavigate() may be used only in the context of a <Router> component.
+    at invariant (react-router-dom.js?v=03cfb9dd:531:11)
+    at useNavigateUnstable (react-router-dom.js?v=03cfb9dd:5216:3)
+    at useNavigate (react-router-dom.js?v=03cfb9dd:5213:46)
+    at Feed (Feed.tsx:22:20)
+    at renderWithHooks (chunk-UPELNCPK.js?v=03cfb9dd:11548:26)
+    at mountIndeterminateComponent (chunk-UPELNCPK.js?v=03cfb9dd:14926:21)
+    at beginWork (chunk-UPELNCPK.js?v=03cfb9dd:15914:22)
+    at HTMLUnknownElement.callCallback2 (chunk-UPELNCPK.js?v=03cfb9dd:3674:22)
+    at Object.invokeGuardedCallbackDev (chunk-UPELNCPK.js?v=03cfb9dd:3699:24)
+    at invokeGuardedCallback (chunk-UPELNCPK.js?v=03cfb9dd:3733:39)
+invariant @ react-router-dom.js?v=03cfb9dd:531
+useNavigateUnstable @ react-router-dom.js?v=03cfb9dd:5216
+useNavigate @ react-router-dom.js?v=03cfb9dd:5213
+Feed @ Feed.tsx:22
+renderWithHooks @ chunk-UPELNCPK.js?v=03cfb9dd:11548
+mountIndeterminateComponent @ chunk-UPELNCPK.js?v=03cfb9dd:14926
+beginWork @ chunk-UPELNCPK.js?v=03cfb9dd:15914
+callCallback2 @ chunk-UPELNCPK.js?v=03cfb9dd:3674
+invokeGuardedCallbackDev @ chunk-UPELNCPK.js?v=03cfb9dd:3699
+invokeGuardedCallback @ chunk-UPELNCPK.js?v=03cfb9dd:3733
+beginWork$1 @ chunk-UPELNCPK.js?v=03cfb9dd:19765
+performUnitOfWork @ chunk-UPELNCPK.js?v=03cfb9dd:19198
+workLoopSync @ chunk-UPELNCPK.js?v=03cfb9dd:19137
+renderRootSync @ chunk-UPELNCPK.js?v=03cfb9dd:19116
+recoverFromConcurrentError @ chunk-UPELNCPK.js?v=03cfb9dd:18736
+performConcurrentWorkOnRoot @ chunk-UPELNCPK.js?v=03cfb9dd:18684
+workLoop @ chunk-UPELNCPK.js?v=03cfb9dd:197
+flushWork @ chunk-UPELNCPK.js?v=03cfb9dd:176
+performWorkUntilDeadline @ chunk-UPELNCPK.js?v=03cfb9dd:384Understand this error
+chunk-UPELNCPK.js?v=03cfb9dd:14032 The above error occurred in the <Feed> component:
+
+    at Feed (https://12f9adfa-5608-4f14-ad51-7618724ac7e7-00-eerqxu53eufh.spock.replit.dev/src/pages/Feed.tsx:33:21)
+    at ProtectedRoute (https://12f9adfa-5608-4f14-ad51-7618724ac7e7-00-eerqxu53eufh.spock.replit.dev/src/components/ProtectedRoute.tsx:23:3)
+    at Route (https://12f9adfa-5608-4f14-ad51-7618724ac7e7-00-eerqxu53eufh.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=03cfb9dd:323:16)
+    at Switch (https://12f9adfa-5608-4f14-ad51-7618724ac7e7-00-eerqxu53eufh.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=03cfb9dd:379:17)
+    at Router (https://12f9adfa-5608-4f14-ad51-7618724ac7e7-00-eerqxu53eufh.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=03cfb9dd:291:17)
+    at Provider (https://12f9adfa-5608-4f14-ad51-7618724ac7e7-00-eerqxu53eufh.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/chunk-W375JSCV.js?v=03cfb9dd:38:15)
+    at TooltipProvider (https://12f9adfa-5608-4f14-ad51-7618724ac7e7-00-eerqxu53eufh.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@radix-ui_react-tooltip.js?v=03cfb9dd:61:5)
+    at AuthProvider (https://12f9adfa-5608-4f14-ad51-7618724ac7e7-00-eerqxu53eufh.spock.replit.dev/src/contexts/AuthContext.tsx:30:32)
+    at ThemeProvider (https://12f9adfa-5608-4f14-ad51-7618724ac7e7-00-eerqxu53eufh.spock.replit.dev/src/contexts/ThemeContext.tsx:20:33)
+    at QueryClientProvider (https://12f9adfa-5608-4f14-ad51-7618724ac7e7-00-eerqxu53eufh.spock.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=03cfb9dd:2805:3)
+    at App
+
+Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://reactjs.org/link/error-boundaries to learn more about error boundaries.
+logCapturedError @ chunk-UPELNCPK.js?v=03cfb9dd:14032
+update.callback @ chunk-UPELNCPK.js?v=03cfb9dd:14052
+callCallback @ chunk-UPELNCPK.js?v=03cfb9dd:11248
+commitUpdateQueue @ chunk-UPELNCPK.js?v=03cfb9dd:11265
+commitLayoutEffectOnFiber @ chunk-UPELNCPK.js?v=03cfb9dd:17093
+commitLayoutMountEffects_complete @ chunk-UPELNCPK.js?v=03cfb9dd:17980
+commitLayoutEffects_begin @ chunk-UPELNCPK.js?v=03cfb9dd:17969
+commitLayoutEffects @ chunk-UPELNCPK.js?v=03cfb9dd:17920
+commitRootImpl @ chunk-UPELNCPK.js?v=03cfb9dd:19353
+commitRoot @ chunk-UPELNCPK.js?v=03cfb9dd:19277
+finishConcurrentRender @ chunk-UPELNCPK.js?v=03cfb9dd:18760
+performConcurrentWorkOnRoot @ chunk-UPELNCPK.js?v=03cfb9dd:18718
+workLoop @ chunk-UPELNCPK.js?v=03cfb9dd:197
+flushWork @ chunk-UPELNCPK.js?v=03cfb9dd:176
+performWorkUntilDeadline @ chunk-UPELNCPK.js?v=03cfb9dd:384Understand this error
+chunk-UPELNCPK.js?v=03cfb9dd:19413 Uncaught Error: useNavigate() may be used only in the context of a <Router> component.
+    at invariant (react-router-dom.js?v=03cfb9dd:531:11)
+    at useNavigateUnstable (react-router-dom.js?v=03cfb9dd:5216:3)
+    at useNavigate (react-router-dom.js?v=03cfb9dd:5213:46)
+    at Feed (Feed.tsx:22:20)
+    at renderWithHooks (chunk-UPELNCPK.js?v=03cfb9dd:11548:26)
+    at mountIndeterminateComponent (chunk-UPELNCPK.js?v=03cfb9dd:14926:21)
+    at beginWork (chunk-UPELNCPK.js?v=03cfb9dd:15914:22)
+    at beginWork$1 (chunk-UPELNCPK.js?v=03cfb9dd:19753:22)
+    at performUnitOfWork (chunk-UPELNCPK.js?v=03cfb9dd:19198:20)
+    at workLoopSync (chunk-UPELNCPK.js?v=03cfb9dd:19137:13)

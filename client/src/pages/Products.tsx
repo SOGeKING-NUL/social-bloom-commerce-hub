@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,94 +7,56 @@ import { Search, Filter, Grid, User } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ProductCard from "@/components/ProductCard";
+import { supabase } from "@/integrations/supabase/client";
 
 const Products = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
 
-  // Fetch products
+  // Fetch products from Supabase
   const { data: products = [], isLoading } = useQuery({
     queryKey: ['products', searchTerm, selectedCategory],
     queryFn: async () => {
-      console.log('Fetching products with searchTerm:', searchTerm, 'category:', selectedCategory);
       let query = supabase
         .from('products')
         .select(`
           *,
-          vendor_profile:profiles!vendor_id (
-            full_name,
-            email,
-            vendor_kyc_data:vendor_kyc!vendor_id ( 
-              display_business_name,
-              business_name
-            )
-          )
-        `)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
+          vendor_profile:profiles!inner(full_name, email),
+          vendor_kyc:vendor_kyc(business_name, display_business_name)
+        `);
+      
       if (searchTerm) {
         query = query.ilike('name', `%${searchTerm}%`);
       }
       
-      if (selectedCategory) {
+      if (selectedCategory && selectedCategory !== 'all') {
         query = query.eq('category', selectedCategory);
       }
-
+      
       const { data, error } = await query;
-      
-      if (error) {
-        console.error('Error fetching products:', error.message, error.details, error.hint);
-        throw error;
-      }
-      
-      console.log('Raw products data from Supabase:', data);
-      
-      const processedProducts = (data || []).map(product => {
-        const profileData = product.vendor_profile;
-        const kycDataFromProfile = profileData?.vendor_kyc_data || [];
-        
-        // Ensure kycDataForCard is always an array
-        const kycDataForCard = Array.isArray(kycDataFromProfile) 
-          ? kycDataFromProfile 
-          : (kycDataFromProfile ? [kycDataFromProfile] : []);
-
-        // Create a clean vendor_profile object for the card, without vendor_kyc_data nested inside
-        const cleanVendorProfile = profileData ? {
-          full_name: profileData.full_name,
-          email: profileData.email
-        } : null;
-
-        return {
-          ...product, // original product fields from 'products' table
-          vendor_profile: cleanVendorProfile, // Pass the cleaned profile
-          vendor_kyc: kycDataForCard // Pass the extracted and formatted KYC data
-        };
-      });
-      
-      console.log('Processed products for display:', processedProducts);
-      return processedProducts;
+      if (error) throw error;
+      return data || [];
     },
   });
 
-  // Fetch categories
+  // Fetch categories from Supabase
   const { data: categories = [] } = useQuery({
     queryKey: ['product-categories'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('products')
         .select('category')
-        .not('category', 'is', null)
-        .eq('is_active', true);
+        .not('category', 'is', null);
       
       if (error) throw error;
       
-      const uniqueCategories = Array.from(new Set(data.map(item => item.category)));
-      return uniqueCategories.filter(Boolean);
+      // Get unique categories
+      const uniqueCategories = [...new Set(data?.map(p => p.category))];
+      return uniqueCategories;
     },
   });
 
-  // Fetch users for search
+  // Fetch users for search from Supabase
   const { data: users = [] } = useQuery({
     queryKey: ['users', searchTerm],
     queryFn: async () => {
@@ -103,9 +64,8 @@ const Products = () => {
       
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, email, avatar_url')
-        .or(`full_name.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%`)
-        .limit(20);
+        .select('id, full_name, email')
+        .ilike('full_name', `%${searchTerm}%`);
       
       if (error) throw error;
       return data || [];

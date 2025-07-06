@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,7 +40,7 @@ interface ProductCardProps {
 }
 
 const ProductCard = ({ product }: ProductCardProps) => {
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -201,7 +201,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
       setIsGroupDialogOpen(false);
       setGroupForm({ name: '', description: '' });
       toast({ title: "Group created successfully!" });
-      navigate('/groups');
+      setLocation('/groups');
     },
     onError: (error: any) => {
       console.error('Create group error:', error);
@@ -235,96 +235,129 @@ const ProductCard = ({ product }: ProductCardProps) => {
   };
 
   return (
-    <Card className="overflow-hidden hover:shadow-lg transition-shadow">
-      <div className="relative">
+    <Card className="overflow-hidden hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-white border-gray-100">
+      <div className="relative group">
         <img 
           src={product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=300&fit=crop"}
           alt={product.name}
-          className="w-full h-48 object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
-          onClick={() => navigate(`/products/${product.id}`)}
+          className="w-full h-48 object-cover cursor-pointer group-hover:scale-105 transition-transform duration-300"
+          onClick={() => setLocation(`/products/${product.id}`)}
         />
+        
+        {/* Wishlist Button */}
         <Button
           variant="ghost"
           size="sm"
-          className="absolute top-2 right-2 bg-white/80 hover:bg-white"
+          className="absolute top-3 right-3 bg-white/90 hover:bg-white shadow-md backdrop-blur-sm border border-gray-100"
           onClick={handleWishlistToggle}
           disabled={addToWishlistMutation.isPending || removeFromWishlistMutation.isPending}
         >
           <Heart 
-            className={`w-4 h-4 ${isInWishlist ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} 
+            className={`w-4 h-4 transition-colors ${isInWishlist ? 'fill-red-500 text-red-500' : 'text-gray-600 hover:text-red-500'}`} 
           />
         </Button>
+
+        {/* Category Badge */}
+        {product.category && (
+          <div className="absolute top-3 left-3 bg-pink-500/90 text-white px-2 py-1 rounded-full text-xs font-medium backdrop-blur-sm">
+            {product.category}
+          </div>
+        )}
+
+        {/* Quick View Overlay */}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="bg-white/90 hover:bg-white shadow-lg backdrop-blur-sm"
+            onClick={() => setLocation(`/products/${product.id}`)}
+          >
+            Quick View
+          </Button>
+        </div>
       </div>
       
       <CardContent className="p-4">
-        <h3 
-          className="font-semibold mb-1 cursor-pointer hover:text-pink-600"
-          onClick={() => navigate(`/products/${product.id}`)}
-        >
-          {product.name}
-        </h3>
-        <p className="text-sm text-pink-600 mb-2">
-          by {getVendorName()}
-        </p>
-        
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-lg font-bold text-gray-800">${product.price}</span>
+        <div className="space-y-2">
+          <h3 
+            className="font-semibold text-gray-900 cursor-pointer hover:text-pink-600 transition-colors line-clamp-2"
+            onClick={() => setLocation(`/products/${product.id}`)}
+          >
+            {product.name}
+          </h3>
+          
+          <p className="text-sm text-gray-600">
+            by <span className="font-medium text-pink-600">{getVendorName()}</span>
+          </p>
+          
+          <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-bold text-gray-900">₹{product.price}</span>
+              {product.stock_quantity !== undefined && product.stock_quantity < 5 && (
+                <span className="text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full">
+                  Only {product.stock_quantity} left
+                </span>
+              )}
+            </div>
+          </div>
         </div>
         
-        <div className="space-y-2">
-          <Button
-            onClick={() => addToCartMutation.mutate()}
-            className="w-full bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
-            disabled={addToCartMutation.isPending}
-          >
-            <ShoppingCart className="w-4 h-4 mr-2" />
-            {addToCartMutation.isPending ? 'Adding...' : 'Add to Cart'}
-          </Button>
-          
-          <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
-            <DialogTrigger asChild>
-              <Button
-                variant="outline"
-                className="w-full border-pink-200 text-pink-600 hover:bg-pink-50"
-                size="sm"
-              >
-                <Users className="w-4 h-4 mr-2" />
-                Create Group
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create Group for {product.name}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="groupName">Group Name</Label>
-                  <Input
-                    id="groupName"
-                    value={groupForm.name}
-                    onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
-                    placeholder="Enter group name"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="groupDescription">Description</Label>
-                  <Textarea
-                    id="groupDescription"
-                    value={groupForm.description}
-                    onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })}
-                    placeholder="Describe your group"
-                  />
-                </div>
+        <div className="pt-3 space-y-2">
+          <div className="flex gap-2">
+            <Button
+              onClick={() => addToCartMutation.mutate()}
+              className="flex-1 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 shadow-md hover:shadow-lg transition-all"
+              disabled={addToCartMutation.isPending}
+              size="sm"
+            >
+              <ShoppingCart className="w-4 h-4 mr-1" />
+              {addToCartMutation.isPending ? 'Adding...' : 'Add to Cart'}
+            </Button>
+            
+            <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
+              <DialogTrigger asChild>
                 <Button
-                  onClick={() => createGroupMutation.mutate()}
-                  className="w-full"
-                  disabled={!groupForm.name || createGroupMutation.isPending}
+                  variant="outline"
+                  className="border-pink-200 text-pink-600 hover:bg-pink-50 shadow-sm hover:shadow-md transition-all"
+                  size="sm"
                 >
-                  {createGroupMutation.isPending ? 'Creating...' : 'Create Group'}
+                  <Users className="w-4 h-4" />
                 </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create Group for {product.name}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="groupName">Group Name</Label>
+                    <Input
+                      id="groupName"
+                      value={groupForm.name}
+                      onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
+                      placeholder="Enter group name"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="groupDescription">Description</Label>
+                    <Textarea
+                      id="groupDescription"
+                      value={groupForm.description}
+                      onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })}
+                      placeholder="Describe your group"
+                    />
+                  </div>
+                  <Button
+                    onClick={() => createGroupMutation.mutate()}
+                    className="w-full"
+                    disabled={!groupForm.name || createGroupMutation.isPending}
+                  >
+                    {createGroupMutation.isPending ? 'Creating...' : 'Create Group'}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </CardContent>
     </Card>

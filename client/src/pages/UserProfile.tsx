@@ -1,6 +1,7 @@
 
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "wouter";
+import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +19,7 @@ import SocialProfileTabs from "@/components/SocialProfileTabs";
 
 const UserProfile = () => {
   const { userId } = useParams();
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
   const { user, profile: currentUserProfile, updateProfile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -106,7 +107,7 @@ const UserProfile = () => {
         <Header />
         <div className="max-w-4xl mx-auto px-4 py-8 text-center">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">User not found</h1>
-          <Button onClick={() => navigate(-1)} variant="outline">
+          <Button onClick={() => window.history.back()} variant="outline">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Go Back
           </Button>

@@ -1,4 +1,5 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "wouter";
+import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -23,7 +24,7 @@ import { useState } from "react";
 
 const ProductDetail = () => {
   const { productId: id } = useParams(); // Changed: Use productId from params and alias as id
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -244,7 +245,7 @@ const ProductDetail = () => {
       setIsGroupDialogOpen(false);
       setGroupForm({ name: '', description: '', targetMembers: 2 });
       toast({ title: "Group created successfully!" });
-      navigate('/groups');
+      setLocation('/groups');
     },
     onError: (error: any) => {
       console.error('Create group error:', error);
@@ -312,7 +313,7 @@ const ProductDetail = () => {
               <p className="text-gray-600 mb-6">
                 {error ? error.message : "The product you're looking for doesn't exist or has been removed."}
               </p>
-              <Button onClick={() => navigate('/products')}>
+              <Button onClick={() => setLocation('/products')}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Products
               </Button>
@@ -331,7 +332,7 @@ const ProductDetail = () => {
         <div className="max-w-6xl mx-auto">
           <Button
             variant="ghost"
-            onClick={() => navigate('/products')}
+            onClick={() => setLocation('/products')}
             className="mb-6"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />

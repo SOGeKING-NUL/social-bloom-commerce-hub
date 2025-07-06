@@ -5,12 +5,12 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ShoppingCart, Star } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 import GroupsPreview from "@/components/GroupsPreview";
 import Footer from "@/components/Footer";
 
 const Index = () => {
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
 
   // Fetch featured products
   const { data: featuredProducts = [] } = useQuery({
@@ -55,14 +55,14 @@ const Index = () => {
                     src={product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=300&fit=crop"}
                     alt={product.name}
                     className="w-full h-48 object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
-                    onClick={() => navigate(`/products/${product.id}`)}
+                    onClick={() => setLocation(`/products/${product.id}`)}
                   />
                 </div>
                 
                 <div className="p-4">
                   <h3 
                     className="font-semibold mb-1 text-gray-800 cursor-pointer hover:text-pink-600"
-                    onClick={() => navigate(`/products/${product.id}`)}
+                    onClick={() => setLocation(`/products/${product.id}`)}
                   >
                     {product.name}
                   </h3>
@@ -82,7 +82,7 @@ const Index = () => {
                   </div>
                   
                   <Button
-                    onClick={() => navigate(`/products/${product.id}`)}
+                    onClick={() => setLocation(`/products/${product.id}`)}
                     className="w-full social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
                   >
                     View Product
@@ -94,7 +94,7 @@ const Index = () => {
 
           <div className="text-center">
             <Button 
-              onClick={() => navigate("/products")}
+              onClick={() => setLocation("/products")}
               size="lg"
               className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
             >

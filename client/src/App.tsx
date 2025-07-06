@@ -1,9 +1,8 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Router, Route, Switch } from "wouter";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
@@ -14,12 +13,17 @@ import Discovery from "./pages/Discovery";
 import ProductDetail from "./pages/ProductDetail";
 
 import GroupDetail from "./pages/GroupDetail";
+import GroupCheckout from "./pages/GroupCheckout";
 import Dashboard from "./pages/Dashboard";
-import Cart from "./pages/Cart";
+import Groups from "./pages/Groups";
 import Orders from "./pages/Orders";
 import Profile from "./pages/Profile";
 import UserProfile from "./pages/UserProfile";
 import Wishlist from "./pages/Wishlist";
+import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
+import StripeCheckout from "./pages/StripeCheckout";
+
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,56 +35,85 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={
+          <Router>
+            <Switch>
+              <Route path="/">
                 <ProtectedRoute>
                   <Feed />
                 </ProtectedRoute>
-              } />
-              <Route path="/welcome" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/discovery" element={<Discovery />} />
-              <Route path="/products/:productId" element={<ProductDetail />} />
-              <Route path="/groups/:groupId" element={
+              </Route>
+              <Route path="/welcome">
+                <Index />
+              </Route>
+              <Route path="/auth">
+                <Auth />
+              </Route>
+              <Route path="/discovery">
+                <Discovery />
+              </Route>
+              <Route path="/products/:productId">
+                <ProductDetail />
+              </Route>
+              <Route path="/groups/:groupId/checkout">
+                <ProtectedRoute>
+                  <GroupCheckout />
+                </ProtectedRoute>
+              </Route>
+              <Route path="/groups/:groupId">
                 <ProtectedRoute>
                   <GroupDetail />
                 </ProtectedRoute>
-              } />
-              <Route path="/cart" element={
+              </Route>
+              <Route path="/groups">
                 <ProtectedRoute>
-                  <Cart />
+                  <Groups />
                 </ProtectedRoute>
-              } />
-              <Route path="/wishlist" element={
+              </Route>
+              <Route path="/wishlist">
                 <ProtectedRoute>
                   <Wishlist />
                 </ProtectedRoute>
-              } />
-              <Route path="/orders" element={
+              </Route>
+              <Route path="/cart">
+                <ProtectedRoute>
+                  <Cart />
+                </ProtectedRoute>
+              </Route>
+              <Route path="/checkout">
+                <ProtectedRoute>
+                  <Checkout />
+                </ProtectedRoute>
+              </Route>
+              <Route path="/stripe-checkout">
+                <ProtectedRoute>
+                  <StripeCheckout />
+                </ProtectedRoute>
+              </Route>
+              <Route path="/orders">
                 <ProtectedRoute>
                   <Orders />
                 </ProtectedRoute>
-              } />
-              <Route path="/profile" element={
+              </Route>
+              <Route path="/profile">
                 <ProtectedRoute>
                   <Profile />
                 </ProtectedRoute>
-              } />
-              <Route path="/users/:userId" element={
+              </Route>
+              <Route path="/users/:userId">
                 <ProtectedRoute>
                   <UserProfile />
                 </ProtectedRoute>
-              } />
-              <Route path="/dashboard" element={
-                <ProtectedRoute requireAuth={true}>
+              </Route>
+              <Route path="/dashboard">
+                <ProtectedRoute>
                   <Dashboard />
                 </ProtectedRoute>
-              } />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
+              </Route>
+              <Route>
+                <NotFound />
+              </Route>
+            </Switch>
+          </Router>
         </TooltipProvider>
       </AuthProvider>
     </ThemeProvider>

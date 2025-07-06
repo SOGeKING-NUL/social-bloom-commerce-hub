@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -11,15 +11,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { User, Settings, LogOut, ShoppingBag, Heart, Users } from "lucide-react";
+import { User, Package, Settings, LogOut, Heart, Moon, Sun } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
+import ThemeToggle from "@/components/ThemeToggle";
 
 const UserProfileDropdown = () => {
-  const navigate = useNavigate();
-  const { user, profile, signOut } = useAuth();
+  const { profile, signOut, user } = useAuth();
+  const [location, setLocation] = useLocation();
   const { toast } = useToast();
-  const [isOpen, setIsOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
 
   const handleSignOut = async () => {
     try {
@@ -28,7 +29,7 @@ const UserProfileDropdown = () => {
         title: "Signed out successfully",
         description: "You have been logged out.",
       });
-      navigate("/");
+      setLocation("/");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -36,77 +37,63 @@ const UserProfileDropdown = () => {
         variant: "destructive",
       });
     }
-    setIsOpen(false);
   };
 
-  const handleNavigation = (path: string) => {
-    navigate(path);
-    setIsOpen(false);
+  const handleViewProfile = () => {
+    setLocation(`/users/${user?.id}`);
   };
-
-  if (!user) return null;
-
-  const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url || undefined;
 
   return (
-    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+    <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={avatarUrl} alt="Profile" />
-            <AvatarFallback>
-              {profile?.full_name?.charAt(0) || 
-               user.user_metadata?.full_name?.charAt(0) || 
-               user.email?.charAt(0)?.toUpperCase() || 'U'}
-            </AvatarFallback>
-          </Avatar>
-        </Button>
+        <Avatar className="cursor-pointer hover:ring-2 hover:ring-pink-200 transition-all">
+          <AvatarImage src={profile?.avatar_url} />
+          <AvatarFallback>
+            {profile?.full_name?.charAt(0) || profile?.email?.charAt(0) || 'U'}
+          </AvatarFallback>
+        </Avatar>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
+      <DropdownMenuContent className="w-56 bg-white dark:bg-gray-800 border-pink-100 dark:border-gray-700" align="end">
+        <DropdownMenuLabel>
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">
-              {profile?.full_name || user.user_metadata?.full_name || 'User'}
+            <p className="text-sm font-medium leading-none dark:text-white">
+              {profile?.full_name || 'User'}
             </p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {user.email}
+            <p className="text-xs leading-none text-muted-foreground dark:text-gray-400">
+              {profile?.email}
             </p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        
-        <DropdownMenuItem onClick={() => handleNavigation(`/profile/${user.id}`)}>
+        <DropdownMenuItem onClick={handleViewProfile} className="cursor-pointer dark:hover:bg-gray-700">
           <User className="mr-2 h-4 w-4" />
-          <span>Profile</span>
+          <span>View Profile</span>
         </DropdownMenuItem>
-        
-        <DropdownMenuItem onClick={() => handleNavigation("/dashboard")}>
+        <DropdownMenuItem onClick={() => setLocation("/profile")} className="cursor-pointer dark:hover:bg-gray-700">
           <Settings className="mr-2 h-4 w-4" />
-          <span>Dashboard</span>
+          <span>Settings</span>
         </DropdownMenuItem>
-        
-        <DropdownMenuSeparator />
-        
-        <DropdownMenuItem onClick={() => handleNavigation("/cart")}>
-          <ShoppingBag className="mr-2 h-4 w-4" />
-          <span>Cart</span>
-        </DropdownMenuItem>
-        
-        <DropdownMenuItem onClick={() => handleNavigation("/wishlist")}>
+        <DropdownMenuItem onClick={() => setLocation("/wishlist")} className="cursor-pointer dark:hover:bg-gray-700">
           <Heart className="mr-2 h-4 w-4" />
-          <span>Wishlist</span>
+          <span>My Wishlist</span>
         </DropdownMenuItem>
-        
-        <DropdownMenuItem onClick={() => handleNavigation("/groups")}>
-          <Users className="mr-2 h-4 w-4" />
-          <span>Groups</span>
+        <DropdownMenuItem onClick={() => setLocation("/orders")} className="cursor-pointer dark:hover:bg-gray-700">
+          <Package className="mr-2 h-4 w-4" />
+          <span>My Orders</span>
         </DropdownMenuItem>
-        
         <DropdownMenuSeparator />
-        
-        <DropdownMenuItem onClick={handleSignOut}>
+        <DropdownMenuItem onClick={toggleTheme} className="cursor-pointer dark:hover:bg-gray-700">
+          {theme === 'light' ? (
+            <Moon className="mr-2 h-4 w-4" />
+          ) : (
+            <Sun className="mr-2 h-4 w-4" />
+          )}
+          <span>Toggle theme</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleSignOut} className="cursor-pointer text-red-600 dark:text-red-400 dark:hover:bg-gray-700">
           <LogOut className="mr-2 h-4 w-4" />
-          <span>Log out</span>
+          <span>Sign out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

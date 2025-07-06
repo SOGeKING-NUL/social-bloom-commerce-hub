@@ -1,5 +1,5 @@
 
-import { useNavigate } from "react-router-dom";
+import { useLocation } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Minus, Plus, Trash2 } from "lucide-react";
@@ -22,7 +22,7 @@ interface CartProductCardProps {
 }
 
 const CartProductCard = ({ item, onUpdateQuantity, onRemoveItem }: CartProductCardProps) => {
-  const navigate = useNavigate();
+  const [location, setLocation] = useLocation();
 
   const handleQuantityChange = (newQuantity: number) => {
     if (newQuantity <= 0) {
@@ -41,14 +41,14 @@ const CartProductCard = ({ item, onUpdateQuantity, onRemoveItem }: CartProductCa
               src={item.product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop"}
               alt={item.product.name}
               className="w-20 h-20 object-cover rounded-lg cursor-pointer hover:scale-105 transition-transform duration-300"
-              onClick={() => navigate(`/products/${item.product.id}`)}
+              onClick={() => setLocation(`/products/${item.product.id}`)}
             />
           </div>
           
           <div className="flex-1 min-w-0">
             <h3 
               className="font-semibold text-lg cursor-pointer hover:text-pink-600 truncate"
-              onClick={() => navigate(`/products/${item.product.id}`)}
+              onClick={() => setLocation(`/products/${item.product.id}`)}
             >
               {item.product.name}
             </h3>
