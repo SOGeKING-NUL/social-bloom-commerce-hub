@@ -57,74 +57,76 @@ const Index = () => {
             </p>
           </motion.div>
 
-          {/* mock data used fere to showcase the layout  */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[...Array(4)].map((_, i) => (
-              <div
-                key={i}
-                className="animate-pulse bg-white rounded-2xl shadow-lg p-6"
-              >
-                <div className="h-48 bg-gray-200 rounded-xl mb-4"></div>
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
-                <div className="h-10 bg-gray-200 rounded"></div>
-              </div>
-            ))}
-          </div>
-
-          {/* working api call below */}
-          {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredProducts.map((product) => (
-              <div
-                key={product.id}
-                className="bg-white rounded-2xl shadow-lg p-6"
-              >
-                <div className="relative">
-                  <img
-                    src={
-                      product.image_url ||
-                      "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=300&fit=crop"
-                    }
-                    alt={product.name}
-                    className="w-full h-48 object-cover rounded-xl mb-4 cursor-pointer hover:scale-105 transition-transform duration-300"
-                    onClick={() => navigate(`/products/${product.id}`)}
-                  />
-                </div>
-
-                <div>
-                  <h3
-                    className="font-semibold text-gray-800 w-3/4 mb-2 cursor-pointer hover:text-pink-600"
-                    onClick={() => navigate(`/products/${product.id}`)}
-                  >
-                    {product.name}
-                  </h3>
-                  <p className="text-sm text-pink-600 w-1/2 mb-4">
-                    by{" "}
-                    {product.vendor_profile?.full_name ||
-                      product.vendor_profile?.email?.split("@")[0] ||
-                      "Unknown Vendor"}
-                  </p>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center mb-4">
-                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
-                      <span className="text-sm text-gray-600 ml-1">4.5</span>
-                    </div>
-                    <span className="text-lg font-bold text-gray-800">
-                      ${product.price}
-                    </span>
+          {featuredProducts.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredProducts.map((product) => (
+                <div
+                  key={product.id}
+                  className="bg-white rounded-2xl shadow-lg p-6"
+                >
+                  <div className="relative">
+                    <img
+                      src={
+                        product.image_url ||
+                        "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=300&fit=crop"
+                      }
+                      alt={product.name}
+                      className="w-full h-48 object-cover rounded-xl mb-4 cursor-pointer hover:scale-105 transition-transform duration-300"
+                      onClick={() => navigate(`/products/${product.id}`)}
+                    />
                   </div>
 
-                  <button
-                    onClick={() => navigate(`/products/${product.id}`)}
-                    className="w-full h-10 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white rounded font-semibold"
-                  >
-                    View Product
-                  </button>
+                  <div>
+                    <h3
+                      className="font-semibold text-gray-800 w-3/4 mb-2 cursor-pointer hover:text-pink-600"
+                      onClick={() => navigate(`/products/${product.id}`)}
+                    >
+                      {product.name}
+                    </h3>
+                    <p className="text-sm text-pink-600 w-1/2 mb-4">
+                      by{" "}
+                      {product.vendor_profile?.full_name ||
+                        product.vendor_profile?.email?.split("@")[0] ||
+                        "Unknown Vendor"}
+                    </p>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center mb-4">
+                        <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                        <span className="text-sm text-gray-600 ml-1">4.5</span>
+                      </div>
+                      <span className="text-lg font-bold text-gray-800">
+                        ${product.price}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => navigate(`/products/${product.id}`)}
+                      className="w-full h-10 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white rounded font-semibold"
+                    >
+                      View Product
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div> */}
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <div
+                  key={i}
+                  className="animate-pulse bg-white rounded-2xl shadow-lg p-6"
+                >
+                  <div className="h-48 bg-gray-200 rounded-xl mb-4"></div>
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
+                  <div className="h-10 bg-gray-200 rounded"></div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* working api call below */}
 
           <div className="text-center mt-10">
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
