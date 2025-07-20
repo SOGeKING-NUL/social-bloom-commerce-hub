@@ -7,7 +7,6 @@
 
 /* Social E-Commerce Design System - Pink Theme with Smooth Curves */
 
-
 body {
   /* font-family: 'Montserrat', sans-serif; */
   font-family: 'Poppins', sans-serif;
@@ -136,4 +135,26 @@ body {
 @keyframes pulse-soft {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.8; }
+}
+
+/* Hide scrollbar */
+
+
+html {
+  scrollbar-width: none;
+  scrollbar-color: #888 transparent; 
+}
+
+/* Chrome, Edge, Safari, Opera */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888; 
+  border-radius: 10px; 
 }
