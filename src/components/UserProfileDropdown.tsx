@@ -73,6 +73,10 @@ const UserProfileDropdown = () => {
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>
         </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => navigate("/dashboard")} className="cursor-pointer dark:hover:bg-gray-700">
+          <Settings className="mr-2 h-4 w-4" />
+          <span>Dashboard</span>
+        </DropdownMenuItem>
         <DropdownMenuItem onClick={() => navigate("/wishlist")} className="cursor-pointer dark:hover:bg-gray-700">
           <Heart className="mr-2 h-4 w-4" />
           <span>My Wishlist</span>
