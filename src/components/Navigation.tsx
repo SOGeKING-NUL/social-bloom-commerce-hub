@@ -22,7 +22,7 @@ const Navigation = () => {
   const filteredItems = navigationItems.filter(item => !item.auth || user);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-pink-100 md:static md:border-t-0 md:bg-transparent">
+    <div className="fixed bottom-0 left-0 mt-24 right-0 bg-white border-t border-pink-100 md:static md:border-t-0 md:bg-transparent">
       <div className="flex items-center justify-between p-4 max-w-7xl mx-auto">
         <div className="hidden md:flex items-center space-x-4">
           {canGoBack && (

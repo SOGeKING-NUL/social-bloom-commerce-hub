@@ -116,7 +116,7 @@ const Wishlist = () => {
     return (
       <div className="min-h-screen">
         <Header />
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto px-4 py-8 mt-20">
           <div className="text-center">Loading your wishlist...</div>
         </div>
         <Footer />
@@ -127,7 +127,7 @@ const Wishlist = () => {
   return (
     <div className="min-h-screen">
       <Header />
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-4 py-8 mt-20">
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center mb-6">
             <Button
