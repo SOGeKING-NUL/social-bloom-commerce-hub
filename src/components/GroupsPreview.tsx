@@ -1,25 +1,29 @@
 import { Button } from "@/components/ui/button";
-import { UsersThree, Package } from "@phosphor-icons/react";
+import { UsersThree, Package, ArrowRight } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
 
 const GroupsPreview = () => {
   const navigate = useNavigate();
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isPaused, setIsPaused] = useState(false);
 
-  // Fetch groups from database with simpler approach
+  // Fetch latest 10 active groups
   const { data: groups = [], isLoading, error } = useQuery({
     queryKey: ['groups-preview'],
     queryFn: async () => {
-      console.log('GroupsPreview: Starting fetch...');
+      console.log('GroupsPreview: Starting fetch for 10 latest groups...');
       
       try {
-        // Get basic group data with a simple query
+        // Get latest 10 groups ordered by created_at
         const { data: groupsData, error: groupsError } = await supabase
           .from('groups')
           .select('*')
-          .limit(3);
+          .order('created_at', { ascending: false })
+          .limit(10);
         
         console.log('GroupsPreview: Groups query result:', { groupsData, groupsError });
         
@@ -90,7 +94,8 @@ const GroupsPreview = () => {
             members: memberCount,
             image: product?.image_url || `https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop`,
             productName: product?.name || 'Product',
-            creatorName: creator?.full_name || creator?.email?.split('@')[0] || 'User'
+            creatorName: creator?.full_name || creator?.email?.split('@')[0] || 'User',
+            created_at: group.created_at
           };
         });
         
@@ -103,6 +108,42 @@ const GroupsPreview = () => {
       }
     },
   });
+
+  // Continuous scroll functionality
+  useEffect(() => {
+    if (!groups.length || groups.length <= 1) return;
+
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer) return;
+
+    let animationFrame: number;
+    let scrollPosition = 0;
+    const scrollSpeed = 0.5; // pixels per frame
+    const cardWidth = 310; // card width + gap
+    const totalWidth = cardWidth * groups.length;
+
+    const animate = () => {
+      if (!isPaused && scrollContainer) {
+        scrollPosition += scrollSpeed;
+        
+        // Reset position when we've scrolled through all original cards
+        if (scrollPosition >= totalWidth) {
+          scrollPosition = 0;
+        }
+        
+        scrollContainer.scrollLeft = scrollPosition;
+      }
+      animationFrame = requestAnimationFrame(animate);
+    };
+
+    animationFrame = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrame) {
+        cancelAnimationFrame(animationFrame);
+      }
+    };
+  }, [groups.length, isPaused]);
 
   const handleGroupClick = (groupId: string) => {
     console.log('GroupsPreview: Navigating to group:', groupId);
@@ -118,16 +159,17 @@ const GroupsPreview = () => {
   if (isLoading) {
     return (
       <section className="py-16 bg-gradient-to-b from-gray-50 to-white">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-4xl font-bold text-gray-900 mb-4">Active Groups</h2>
               <p className="text-xl text-gray-600">Join groups and share experiences</p>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="bg-white rounded-2xl shadow-lg p-4 animate-pulse">
+            {/* Loading horizontal scroll */}
+            <div className="flex gap-4 overflow-hidden">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex-shrink-0 w-72 bg-white rounded-2xl shadow-lg p-4 animate-pulse">
                   <div className="h-48 bg-gray-200 rounded-xl mb-4"></div>
                   <div className="h-5 bg-gray-200 rounded w-3/4 mb-3"></div>
                   <div className="h-4 bg-gray-200 rounded w-1/2 mb-4"></div>
@@ -144,7 +186,7 @@ const GroupsPreview = () => {
   if (error) {
     return (
       <section className="py-16 bg-gradient-to-b from-gray-50 to-white">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-4xl font-bold text-gray-900 mb-4">Active Groups</h2>
@@ -172,7 +214,7 @@ const GroupsPreview = () => {
   if (groups.length === 0) {
     return (
       <section className="py-16 bg-gradient-to-b from-gray-50 to-white">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-12">
               <h2 className="text-4xl font-bold text-gray-900 mb-4">Active Groups</h2>
@@ -202,72 +244,107 @@ const GroupsPreview = () => {
   }
 
   return (
-    <section className="py-16 bg-gradient-to-b from-gray-50 to-white">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="py-16 bg-gradient-to-b from-gray-50 to-white overflow-hidden">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
+          {/* Header */}
           <motion.div 
-            className="text-center mb-12"
+            className="flex items-center justify-between mb-12"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <h2 className="text-4xl font-bold text-gray-900 mb-4">Active Groups</h2>
-            <p className="text-xl text-gray-600">Join groups and share experiences</p>
+            <div>
+              <h2 className="text-4xl font-bold text-gray-900 mb-2">Active Groups</h2>
+              <p className="text-xl text-gray-600">Join groups and share experiences</p>
+            </div>
+            
+            <Button 
+              onClick={() => navigate('/groups')}
+              className="hidden md:flex items-center gap-2 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white font-semibold py-3 px-6 rounded-full transition-all duration-300"
+            >
+              View All
+              <ArrowRight className="w-4 h-4" />
+            </Button>
           </motion.div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            <AnimatePresence>
-              {groups.map((group) => (
-                <motion.div
-                  key={group.id}
-                  className="bg-white rounded-2xl shadow-lg overflow-hidden cursor-pointer transform transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
-                  onClick={() => handleGroupClick(group.id)}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: 20 }}
-                  transition={{ duration: 0.4 }}
-                >
-                  <div className="relative">
-                    <img 
-                      src={group.image} 
-                      alt={group.name}
-                      className="w-full h-48 object-cover"
-                    />
-                    <div className="absolute top-4 left-4">
-                      <span className="bg-white/80 backdrop-blur-sm text-pink-600 px-3 py-1 rounded-full text-sm font-medium flex items-center">
-                        <Package size={16} className="mr-1" />
-                        {group.productName}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="p-5">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2 line-clamp-1">{group.name}</h3>
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{group.description}</p>
-                    
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center text-pink-600">
-                        <UsersThree size={20} className="mr-2" />
-                        <span className="font-medium text-sm">{group.members} members</span>
+          {/* Continuous Infinite Horizontal Scroll */}
+          <div className="relative">
+            <motion.div 
+              ref={scrollRef}
+              className="flex gap-4 overflow-x-hidden scrollbar-hide"
+              style={{ scrollBehavior: 'auto' }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6 }}
+              onMouseEnter={() => setIsPaused(true)}
+              onMouseLeave={() => setIsPaused(false)}
+            >
+              <AnimatePresence>
+                {/* Triple the groups for seamless infinite scroll */}
+                {[...groups, ...groups, ...groups].map((group, index) => (
+                  <motion.div
+                    key={`${group.id}-${index}`}
+                    className="flex-shrink-0 w-72 bg-white rounded-2xl shadow-lg overflow-hidden cursor-pointer transform transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                    onClick={() => handleGroupClick(group.id)}
+                    initial={{ opacity: 0, x: 50 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.4, delay: (index % groups.length) * 0.1 }}
+                    whileHover={{ scale: 1.02 }}
+                  >
+                    <div className="relative">
+                      <img 
+                        src={group.image} 
+                        alt={group.name}
+                        className="w-full h-48 object-cover"
+                      />
+                      <div className="absolute top-4 left-4">
+                        <span className="bg-white/90 backdrop-blur-sm text-pink-600 px-3 py-2 rounded-full text-sm font-medium flex items-center shadow-md">
+                          <Package size={16} className="mr-1" />
+                          {group.productName}
+                        </span>
                       </div>
-                      <span className="text-sm text-gray-500">by {group.creatorName}</span>
+                      <div className="absolute top-4 right-4">
+                        <span className="bg-pink-500 text-white px-2 py-1 rounded-full text-xs font-medium">
+                          New
+                        </span>
+                      </div>
                     </div>
-                    <Button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleGroupClick(group.id);
-                      }}
-                      className="w-full bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white font-semibold py-2 rounded-full transition-all duration-300"
-                    >
-                      View Group
-                    </Button>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+                    
+                    <div className="p-5">
+                      <h3 className="text-xl font-semibold text-gray-900 mb-2 line-clamp-1">{group.name}</h3>
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">{group.description}</p>
+                      
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center text-pink-600">
+                          <UsersThree size={20} className="mr-2" />
+                          <span className="font-medium text-sm">{group.members} members</span>
+                        </div>
+                        <span className="text-sm text-gray-500">by {group.creatorName}</span>
+                      </div>
+                      
+                      <Button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleGroupClick(group.id);
+                        }}
+                        className="w-full bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white font-semibold py-2 rounded-full transition-all duration-300"
+                      >
+                        Join Group
+                      </Button>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
+
+            {/* Gradient overlays for seamless infinite scroll effect */}
+            <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-gray-50 to-transparent pointer-events-none z-10"></div>
+            <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none z-10"></div>
           </div>
           
-          <div className="text-center mt-12">
+          {/* Mobile View All Button */}
+          <div className="text-center mt-8 md:hidden">
             <Button 
               onClick={() => navigate('/groups')}
               className="bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white font-semibold py-3 px-8 rounded-full transition-all duration-300"
