@@ -4,15 +4,17 @@ import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
 import HighlightProductCard from "./HighlightProductCard";
 import { FlipWords } from "./ui/vendorHighlight-flip-words";
+import { ArrowRight } from "@phosphor-icons/react";
+import { Button } from "./ui/button";
+import { useNavigate } from "react-router-dom";
 
 const VendorHighlights = () => {
   const [currentProductIndex, setCurrentProductIndex] = useState(0);
+  const navigate = useNavigate();
 
-  // Fetch vendor count and sample data
   const { data: vendorStats } = useQuery({
     queryKey: ["vendor-stats"],
     queryFn: async () => {
-      // Get total vendor count
       const { count: vendorCount, error: countError } = await supabase
         .from("profiles")
         .select("*", { count: "exact", head: true })
@@ -20,21 +22,18 @@ const VendorHighlights = () => {
 
       if (countError) throw countError;
 
-      // Try to get the specific dev69 vendor
       const { data: specificVendors, error: specificError } = await supabase
         .from("profiles")
         .select("id, full_name, email")
         .eq("role", "vendor")
-        .or("email.ilike.%dev69%,email.ilike.%sogeking%")
-        .limit(1);
+        .limit(5);
 
       let sampleVendor = null;
       let sampleProduct = null;
 
       if (!specificError && specificVendors && specificVendors.length > 0) {
         sampleVendor = specificVendors[0];
-        
-        // Get a product from this specific vendor
+
         const { data: products, error: productError } = await supabase
           .from("products")
           .select("name, category")
@@ -47,7 +46,6 @@ const VendorHighlights = () => {
         }
       }
 
-      // If dev69 vendor not found or has no products, get any vendor
       if (!sampleVendor || !sampleProduct) {
         const { data: anyVendors, error: anyError } = await supabase
           .from("profiles")
@@ -79,46 +77,56 @@ const VendorHighlights = () => {
     },
   });
 
-  // Fetch ALL dev69 vendor products for carousel
+  // Fetch ALL vendor products for carousel
   const { data: vendorHighlights = [] } = useQuery({
-    queryKey: ["vendor-highlights-dev69"],
+    queryKey: ["all-vendor-highlights"], 
     queryFn: async () => {
-      // ONLY get the specific dev69 vendor
-      const { data: dev69Vendor, error: dev69Error } = await supabase
+      // Get all profiles with the role 'vendor'
+      const { data: allVendors, error: vendorsError } = await supabase
         .from("profiles")
         .select("id, full_name, email")
-        .eq("role", "vendor")
-        .or("email.ilike.%dev69%,email.ilike.%sogeking%")
-        .limit(1);
+        .eq("role", "vendor"); 
 
-      if (dev69Error || !dev69Vendor || dev69Vendor.length === 0) {
-        console.log("Dev69 vendor not found");
+      if (vendorsError || !allVendors || allVendors.length === 0) {
+        console.log("No vendors found.");
         return [];
       }
 
-      // Get all products from dev69 vendor only
-      const { data: dev69Products, error: productsError } = await supabase
-        .from("products")
-        .select("*")
-        .eq("vendor_id", dev69Vendor[0].id)
-        .eq("is_active", true);
+      let allHighlights = [];
 
-      if (productsError || !dev69Products || dev69Products.length === 0) {
-        console.log("No products found for dev69 vendor");
-        return [];
+      for (const vendor of allVendors) {
+        const { data: vendorProducts, error: productsError } = await supabase
+          .from("products")
+          .select("*")
+          .eq("vendor_id", vendor.id)
+          .eq("is_active", true); 
+
+        if (productsError) {
+          console.error(
+            `Error fetching products for vendor ${vendor.full_name}:`,
+            productsError
+          );
+          continue;
+        }
+
+        if (vendorProducts && vendorProducts.length > 0) {
+          const highlightsForVendor = vendorProducts.map((product) => ({
+            vendor: vendor, 
+            product: product, 
+          }));
+          allHighlights = allHighlights.concat(highlightsForVendor);
+        } else {
+          console.log(
+            `No active products found for vendor: ${vendor.full_name}`
+          );
+        }
       }
 
-      // Return all products from dev69 vendor for carousel
-      const highlights = dev69Products.map(product => ({
-        vendor: dev69Vendor[0],
-        product: product,
-      }));
-
-      return highlights;
+      return allHighlights;
     },
   });
 
-  // Auto-advance carousel every 2 seconds
+  // Auto-advance carousel every 4 seconds
   useEffect(() => {
     if (vendorHighlights.length <= 1) return;
 
@@ -129,107 +137,117 @@ const VendorHighlights = () => {
     return () => clearInterval(interval);
   }, [vendorHighlights.length]);
 
-  // Generate dynamic text using current product name
-  const generateDynamicText = () => {
-    const count = vendorStats?.vendorCount || 100;
-    const vendor = vendorStats?.sampleVendor;
-    
-    // Use actual vendor name if available
-    const vendorName = vendor?.full_name || 
-                     (vendor?.email ? vendor.email.split("@")[0].replace(/[^a-zA-Z0-9]/g, '') : null) || 
-                     "dev69";
-    
-    const vendorLocation = "Mumbai";
-
-    return {
-      count,
-      vendorName,
-      vendorLocation,
-    };
-  };
-
-  const textData = generateDynamicText();
-
   if (!vendorHighlights || vendorHighlights.length === 0) {
-    return null; // Don't render if no dev69 vendor highlights
+    return null; // Don't render if no vendor highlights
   }
 
+  // Get the current product and vendor from the carousel data
   const currentHighlight = vendorHighlights[currentProductIndex];
+  const currentVendor = currentHighlight?.vendor;
+
+  const vendorName =
+    currentVendor?.full_name ||
+    (currentVendor?.email
+      ? currentVendor.email.split("@")[0].replace(/[^a-zA-Z0-9]/g, "")
+      : "Our Vendors"); // Sensible fallback if name is unavailable
+
+  const vendorCount = vendorStats?.vendorCount || 100;
+  const vendorLocation = "Mumbai"; // Remains hardcoded as in original
 
   // Create words array for FlipWords from all product names
-  const productWords = vendorHighlights.map(highlight => highlight.product.name);
-  const currentProductName = vendorHighlights[currentProductIndex]?.product.name;
+  const productWords = vendorHighlights.map(
+    (highlight) => highlight.product.name
+  );
+  const currentProductName =
+    vendorHighlights[currentProductIndex]?.product.name;
 
   return (
     <section className="py-20 md:py-28 bg-gradient-to-br from-gray-50 via-white to-pink-50">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          {/* Left Side - Dynamic Text with FlipWords */}
           <div className="space-y-8">
+
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 1.2, delay: 0.2 }}
             >
-              <motion.h2 
-                className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 leading-tight"
+              <motion.h2
+                className="text-lg sm:text-3xl lg:text-6xl font-bold text-gray-900 leading-10"
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1, delay: 0.4 }}
               >
                 Meet{" "}
-                <motion.span 
-                  className="text-transparent bg-clip-text bg-gradient-to-r from-pink-600 to-rose-500"
+                <motion.span
+                  className="text-transparent font-cursive font-medium bg-clip-text bg-gradient-to-r from-pink-600 to-rose-500"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 1, delay: 0.8 }}
                 >
-                  {textData.count}+ vendors
+                  {vendorCount}+ vendors
                 </motion.span>{" "}
                 like{" "}
-                <motion.span 
-                  className="text-pink-600"
+                <motion.span
+                  key={vendorName} 
+                  className="font-cursive font-medium underline"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 1, delay: 1.0 }}
+                  transition={{ duration: 0.5 }}
                 >
-                  {textData.vendorName}
+                  <FlipWords words={[vendorName]} currentWord={vendorName} className="text-pink-600"/>
                 </motion.span>{" "}
                 from{" "}
-                <motion.span 
-                  className="text-pink-600"
+                <motion.span
+                  className="text-pink-600 font-cursive font-medium"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 1, delay: 1.2 }}
                 >
-                  {textData.vendorLocation}
+                  {vendorLocation}
                 </motion.span>{" "}
                 selling{" "}
-                <motion.span 
+                <motion.span
                   className="text-pink-600 inline-block"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 1, delay: 1.4 }}
                 >
-                  <FlipWords 
-                    words={productWords} 
+                  <FlipWords
+                    words={productWords}
                     currentWord={currentProductName}
-                    className="text-pink-600 font-bold"
+                    className="text-pink-600 font-cursive font-medium"
                   />
                 </motion.span>{" "}
                 on our platform
               </motion.h2>
             </motion.div>
-            
-            <motion.p 
+
+            <motion.p
               className="text-xl text-gray-600 leading-relaxed max-w-xl"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1, delay: 1.6 }}
             >
               Invite your friends, create a group order and avail{" "}
-              <span className="font-bold text-green-600">up to 30% discount!</span>
+              <span className="font-bold text-green-600">
+                up to 30% discount!
+              </span>
             </motion.p>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 1, delay: 1.8 }}
+            >
+              <Button
+                size="lg"
+                className="bg-gradient-to-r from-pink-600 to-rose-500 text-white font-bold py-3 px-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 ease-in-out group"
+                onClick={() => navigate("/products")}
+              >
+                Interested? Explore our products
+                <ArrowRight className="ml-2 h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
+              </Button>
+            </motion.div>
           </div>
 
           {/* Right Side - Single Product Card (Auto-only) */}
@@ -264,4 +282,4 @@ const VendorHighlights = () => {
   );
 };
 
-export default VendorHighlights; 
+export default VendorHighlights;

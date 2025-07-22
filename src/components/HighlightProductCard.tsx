@@ -20,7 +20,7 @@ interface HighlightProductCardProps {
   index?: number;
 }
 
-const HighlightProductCard = ({ product, vendor, index = 0 }: HighlightProductCardProps) => {
+const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardProps) => {
   const navigate = useNavigate();
   const vendorName = vendor.full_name || vendor.email?.split("@")[0] || "Unknown Vendor";
 
@@ -32,7 +32,7 @@ const HighlightProductCard = ({ product, vendor, index = 0 }: HighlightProductCa
       className="group relative w-full max-w-md mx-auto"
     >
       {/* Main Card Container */}
-      <div className="relative overflow-hidden rounded-2xl bg-white shadow-xl transition-all duration-500 hover:shadow-2xl hover:scale-[1.02]">
+      <div className="relative overflow-hidden rounded-2xl bg-white shadow-xl transition-all duration-500 hover:shadow-2xl hover:shadow-pink-300/50 hover:scale-[1.02]">
         {/* Larger Image Container */}
         <div className="relative h-96 w-full overflow-hidden">
           <img
@@ -41,27 +41,22 @@ const HighlightProductCard = ({ product, vendor, index = 0 }: HighlightProductCa
               "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=500&h=600&fit=crop"
             }
             alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 cursor-pointer"
+            className="w-full h-full object-cover transition-transform duration-700 cursor-pointer"
             onClick={() => navigate(`/products/${product.id}`)}
           />
-
-          {/* Subtle gradient at bottom for color bleeding */}
           <div className="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white/20 to-transparent" />
-
-          {/* Heart Icon */}
           <button className="absolute top-4 right-4 p-2 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 transition-all duration-300 hover:bg-white/30 hover:scale-110">
             <Heart className="w-5 h-5 text-white" />
           </button>
         </div>
 
-        {/* Color Bleeding Effect */}
         <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-b from-transparent via-black/5 to-white pointer-events-none" />
 
         {/* More Compact Text Content Area */}
         <div className="relative bg-white p-5 space-y-3">
           {/* Price */}
           <div className="flex items-center justify-between">
-            <h2 className="text-3xl font-bold text-slate-800 tracking-tight">${product.price}</h2>
+            <h2 className="text-3xl font-bold text-slate-800 tracking-tight">₹{product.price}</h2>
             {product.category && (
               <span className="text-sm text-slate-500 uppercase tracking-wide font-medium">
                 {product.category}

@@ -112,8 +112,8 @@ export default function Header() {
       >
         <div className="container mx-auto py-1 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <NavLink to="/" className="flex items-center space-x-2">
-              <span className="text-2xl font-bold text-pink-800">
+            <NavLink to="/" className="flex items-center justify-center pt-5">
+              <span className="text-2xl font-borel font-bold text-pink-800">
                 SocialBloom
               </span>
             </NavLink>
