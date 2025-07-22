@@ -1,5 +1,9 @@
 /* @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap'); */
 @import url('https://fonts.googleapis.com/css2?family=Poppins&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Edu+NSW+ACT+Cursive:wght@400..700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Pacifico&display=swap');
+
+@import url('https://fonts.googleapis.com/css2?family=Borel&family=Condiment&family=Great+Vibes&family=Oswald:wght@200..700&family=Tiny5&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -9,7 +13,14 @@
 
 body {
   /* font-family: 'Montserrat', sans-serif; */
-  font-family: 'Poppins', sans-serif;
+  font-family: 'Poppins', sans-serif,;
+}
+
+.edu-nsw-act-cursive-cursive {
+  font-family: "Edu NSW ACT Cursive", cursive;
+  font-optical-sizing: auto;
+  font-weight: 500;
+  font-style: normal;
 }
 
 @layer base {
