@@ -162,7 +162,7 @@ const GroupsPreview = () => {
         <div className="w-full px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold text-gray-900 mb-4">Active Groups</h2>
+              <h2 className="text-4xl font-bold  text-gray-900 mb-4">Active Groups</h2>
               <p className="text-xl text-gray-600">Join groups and share experiences</p>
             </div>
             
@@ -244,10 +244,9 @@ const GroupsPreview = () => {
   }
 
   return (
-    <section className="py-16 bg-gradient-to-b from-gray-50 to-white overflow-hidden">
-      <div className="w-full px-4 sm:px-6 lg:px-8">
+    <section className="py-16 overflow-hidden">
+      <div className="w-screen px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          {/* Header */}
           <motion.div 
             className="flex items-center justify-between mb-12"
             initial={{ opacity: 0, y: -20 }}
@@ -255,7 +254,7 @@ const GroupsPreview = () => {
             transition={{ duration: 0.5 }}
           >
             <div>
-              <h2 className="text-4xl font-bold text-gray-900 mb-2">Active Groups</h2>
+              <h2 className="text-5xl  font-extrabold text-rose-800 mb-2">Active Groups</h2>
               <p className="text-xl text-gray-600">Join groups and share experiences</p>
             </div>
             
@@ -268,11 +267,10 @@ const GroupsPreview = () => {
             </Button>
           </motion.div>
           
-          {/* Continuous Infinite Horizontal Scroll */}
           <div className="relative">
             <motion.div 
               ref={scrollRef}
-              className="flex gap-4 overflow-x-hidden scrollbar-hide"
+              className="flex gap-6 overflow-x-hidden scrollbar-hide p-4"
               style={{ scrollBehavior: 'auto' }}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -281,11 +279,10 @@ const GroupsPreview = () => {
               onMouseLeave={() => setIsPaused(false)}
             >
               <AnimatePresence>
-                {/* Triple the groups for seamless infinite scroll */}
                 {[...groups, ...groups, ...groups].map((group, index) => (
                   <motion.div
                     key={`${group.id}-${index}`}
-                    className="flex-shrink-0 w-72 bg-white rounded-2xl shadow-lg overflow-hidden cursor-pointer transform transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+                    className="flex-shrink-0 w-72 bg-white rounded-2xl overflow-hidden cursor-pointer transform transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border border-gray-200"
                     onClick={() => handleGroupClick(group.id)}
                     initial={{ opacity: 0, x: 50 }}
                     animate={{ opacity: 1, x: 0 }}
@@ -338,12 +335,10 @@ const GroupsPreview = () => {
               </AnimatePresence>
             </motion.div>
 
-            {/* Gradient overlays for seamless infinite scroll effect */}
             <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-gray-50 to-transparent pointer-events-none z-10"></div>
             <div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-gray-50 to-transparent pointer-events-none z-10"></div>
           </div>
           
-          {/* Mobile View All Button */}
           <div className="text-center mt-8 md:hidden">
             <Button 
               onClick={() => navigate('/groups')}

@@ -50,7 +50,9 @@ const ProductCarousel = () => {
   };
 
   const prevSlide = () => {
-    setCurrentIndex((prev) => (prev - 1 + latestProducts.length) % latestProducts.length);
+    setCurrentIndex(
+      (prev) => (prev - 1 + latestProducts.length) % latestProducts.length
+    );
   };
 
   if (!latestProducts || latestProducts.length === 0) {
@@ -58,13 +60,13 @@ const ProductCarousel = () => {
   }
 
   const currentProduct = latestProducts[currentIndex];
-  const vendorName = currentProduct.vendor_profile?.full_name || 
-                    currentProduct.vendor_profile?.email?.split("@")[0] || 
-                    "Unknown Vendor";
+  const vendorName =
+    currentProduct.vendor_profile?.full_name ||
+    currentProduct.vendor_profile?.email?.split("@")[0] ||
+    "Unknown Vendor";
 
   return (
-    <section className="pt-24 pb-12 bg-gradient-to-b from-white via-pink-50 to-white">
-      {/* Header - With added margin above and bloom branding */}
+    <section className="pt-24 pb-12 mt-20 bg-gradient-to-b from-white via-pink-50 to-white">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -73,16 +75,18 @@ const ProductCarousel = () => {
           className="text-center mb-10"
         >
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 tracking-tight">
-            Shop Like a Pro with{" "}
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-rose-400">
-              bloom
+            Shop like a pro, feel the{" "}
+            <span className="tracking-wider font-extralight font-pacifico text-pink-500">
+              room
             </span>{" "}
-            and Get the Best Deals!
+             score the best deals with{" "}
+             <span className="tracking-wider font-light font-pacifico text-pink-500">
+              bloom
+            </span>
           </h2>
         </motion.div>
       </div>
 
-      {/* Carousel Container - Compact Height */}
       <div className="relative w-full">
         <div className="overflow-hidden">
           <div className="relative h-[350px] md:h-[380px]">
@@ -93,7 +97,7 @@ const ProductCarousel = () => {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -100 }}
                 transition={{ duration: 0.5 }}
-                className="absolute inset-0 flex items-center"
+                className="absolute inset-0 mb-5 flex items-center"
               >
                 <div className="flex w-full h-full container mx-auto px-4 sm:px-6 lg:px-8">
                   {/* Left Side - Product Image */}
@@ -106,7 +110,9 @@ const ProductCarousel = () => {
                         }
                         alt={currentProduct.name}
                         className="w-full h-full object-contain cursor-pointer hover:scale-105 transition-transform duration-500 rounded-2xl shadow-lg"
-                        onClick={() => navigate(`/products/${currentProduct.id}`)}
+                        onClick={() =>
+                          navigate(`/products/${currentProduct.id}`)
+                        }
                       />
                     </div>
                   </div>
@@ -123,15 +129,18 @@ const ProductCarousel = () => {
 
                       {/* Product Name */}
                       <h3
-                        className="text-2xl md:text-3xl font-bold leading-tight text-gray-900 cursor-pointer hover:text-pink-600 transition-colors duration-300"
-                        onClick={() => navigate(`/products/${currentProduct.id}`)}
+                        className="text-2xl md:text-3xl font-bold  text-gray-900 cursor-pointer hover:text-pink-600 transition-colors duration-300 tracking-wider uppercase"
+                        onClick={() =>
+                          navigate(`/products/${currentProduct.id}`)
+                        }
                       >
                         {currentProduct.name}
                       </h3>
 
                       {/* Description */}
-                      <p className="text-gray-600 text-base leading-relaxed line-clamp-2">
-                        {currentProduct.description || "Quality product with amazing features and great value for money"}
+                      <p className="text-gray-600 text-base lowercase leading-relaxed line-clamp-2">
+                        {currentProduct.description ||
+                          "Quality product with amazing features and great value for money"}
                       </p>
 
                       {/* Price and Vendor */}
@@ -146,17 +155,22 @@ const ProductCarousel = () => {
                           <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
                             23% OFF
                           </span>
-                        </div>
+                        </div> 
                         <p className="text-gray-600 text-sm">
-                          Sold by <span className="font-medium text-pink-600">{vendorName}</span>
+                          Sold by{" "}
+                          <span className="font-medium text-pink-600">
+                            {vendorName}
+                          </span>
                         </p>
                       </div>
 
                       {/* Single Action Button */}
                       <div className="pt-4">
                         <button
-                          onClick={() => navigate(`/products/${currentProduct.id}`)}
-                          className="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-3 px-6 text-base rounded-full transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-pink-500/40"
+                          onClick={() =>
+                            navigate(`/products/${currentProduct.id}`)
+                          }
+                          className="bg-pink-500 hover:bg-pink-600 text-white font-semibold py-3 px-6 text-base rounded-full transition-all duration-300 hover:scale-105 shadow-lg hover:shadow-pink-500/40 font-cu"
                         >
                           View Details
                         </button>
@@ -183,7 +197,7 @@ const ProductCarousel = () => {
             </button>
 
             {/* Dots Indicator */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-3">
+            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex space-x-3">
               {latestProducts.map((_, index) => (
                 <button
                   key={index}
@@ -203,4 +217,4 @@ const ProductCarousel = () => {
   );
 };
 
-export default ProductCarousel; 
+export default ProductCarousel;
