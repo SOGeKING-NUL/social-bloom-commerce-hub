@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import UserProfileDropdown from "@/components/UserProfileDropdown";
 import { cn } from "@/lib/utils";
+import { Search } from "lucide-react";
 
 // Define navigation links with TypeScript interface
 interface NavLinkItem {
@@ -164,6 +165,17 @@ export default function Header() {
                       </span>
                     )}
                     <span className="sr-only">Cart</span>
+                  </NavLink>
+
+                  <NavLink
+                    to="/search"
+                    className="relative text-pink-600 hover:text-pink-800 group"
+                  >
+                    <Search
+                      size={20}
+                      className="hover:scale-110 duration-200 transition-transform"
+                    />
+                    <span className="sr-only">Search</span>
                   </NavLink>
                 </>
               )}
