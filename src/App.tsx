@@ -21,6 +21,7 @@ import Profile from "./pages/Profile";
 import UserProfile from "./pages/UserProfile";
 import Wishlist from "./pages/Wishlist";
 import NotFound from "./pages/NotFound";
+import SearchUs from "./pages/Searchus";
 
 const queryClient = new QueryClient();
 
@@ -35,6 +36,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/search" element={<SearchUs />} />
               <Route path="/feed" element={
                 <ProtectedRoute>
                   <Feed />
