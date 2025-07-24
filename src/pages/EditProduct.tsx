@@ -10,11 +10,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Save, Upload, AlertCircle, Package } from "lucide-react";
+import { ArrowLeft, Save, Upload, AlertCircle, Package, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ProductFormData {
   name: string;
@@ -53,6 +53,7 @@ const EditProduct = () => {
   
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isUploading, setIsUploading] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Fetch product data
   const { data: product, isLoading, error } = useQuery({
@@ -155,6 +156,34 @@ const EditProduct = () => {
     },
   });
 
+  // Delete product mutation
+  const deleteProductMutation = useMutation({
+    mutationFn: async () => {
+      if (!productId) throw new Error('Product ID is required');
+      
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productId)
+        .eq('vendor_id', user?.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: "Product deleted successfully!" });
+      queryClient.invalidateQueries({ queryKey: ['vendor-products'] });
+      queryClient.invalidateQueries({ queryKey: ['vendor-stats'] });
+      navigate(`/users/${user?.id}`);
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Error deleting product", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
   // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -168,6 +197,12 @@ const EditProduct = () => {
     }
 
     updateProductMutation.mutate(formData);
+  };
+
+  // Handle delete confirmation
+  const handleDelete = () => {
+    setShowDeleteDialog(false);
+    deleteProductMutation.mutate();
   };
 
   // Handle input changes
@@ -460,29 +495,102 @@ const EditProduct = () => {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-4 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => navigate(`/users/${user.id}`)}
-                    className="flex-1"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={updateProductMutation.isPending}
-                    className="flex-1 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
-                  >
-                    <Save className="w-4 h-4 mr-2" />
-                    {updateProductMutation.isPending ? 'Saving...' : 'Save Changes'}
-                  </Button>
+                <div className="flex flex-col gap-4 pt-4">
+                  <div className="flex gap-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => navigate(`/users/${user.id}`)}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      disabled={updateProductMutation.isPending}
+                      className="flex-1 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      {updateProductMutation.isPending ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                  </div>
+                  
+                  {/* Delete Button */}
+                  <div className="border-t pt-4">
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={() => setShowDeleteDialog(true)}
+                      disabled={deleteProductMutation.isPending}
+                      className="w-full"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      {deleteProductMutation.isPending ? 'Deleting...' : 'Delete Product'}
+                    </Button>
+                  </div>
                 </div>
               </form>
             </CardContent>
           </Card>
         </motion.div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AnimatePresence>
+        {showDeleteDialog && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              className="w-full max-w-md"
+            >
+            <Card className="bg-white shadow-2xl">
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
+                    <Trash2 className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg">Delete Product</CardTitle>
+                    <p className="text-sm text-gray-600 mt-1">This action cannot be undone</p>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-red-800 text-sm">
+                    Are you sure you want to delete "<strong>{formData.name}</strong>"? 
+                    This will permanently remove the product from your store and cannot be undone.
+                  </p>
+                </div>
+                
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowDeleteDialog(false)}
+                    className="flex-1"
+                    disabled={deleteProductMutation.isPending}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleDelete}
+                    disabled={deleteProductMutation.isPending}
+                    className="flex-1"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    {deleteProductMutation.isPending ? 'Deleting...' : 'Delete Product'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        </div>
+        )}
+      </AnimatePresence>
 
       <Footer />
     </div>

@@ -21,6 +21,7 @@ import Footer from "@/components/Footer";
 import KYCForm from "@/components/KYCForm";
 import ProductForm from "@/components/ProductForm";
 import VendorProductCard from "@/components/VendorProductCard";
+import ImportProductsModal from "@/components/ImportProductsModal";
 import { cn } from "@/lib/utils";
 
 const UserProfile = () => {
@@ -33,6 +34,7 @@ const UserProfile = () => {
   const [editingProfile, setEditingProfile] = useState(false);
   const [showKYCForm, setShowKYCForm] = useState(false);
   const [showProductForm, setShowProductForm] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileForm, setProfileForm] = useState({
     full_name: '',
@@ -343,7 +345,7 @@ const UserProfile = () => {
     if (!isVendor || !isOwnProfile) return null;
 
     if (!kycData) {
-      return (
+    return (
         <Alert className="mb-6 border-orange-200 bg-orange-50">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -471,10 +473,20 @@ const UserProfile = () => {
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Products</h3>
         {isOwnProfile && (
-          <Button onClick={() => setShowProductForm(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Product
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setShowImportModal(true)}
+              className="flex items-center gap-2"
+            >
+              <FileText className="w-4 h-4" />
+              Import
+            </Button>
+            <Button onClick={() => setShowProductForm(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Product
+            </Button>
+          </div>
         )}
       </div>
       {products.length === 0 ? (
@@ -718,7 +730,7 @@ const UserProfile = () => {
           </CardContent>
         </Card>
       )}
-    </div>
+          </div>
   );
 
   const renderContent = () => {
@@ -977,6 +989,16 @@ const UserProfile = () => {
           onSuccess={() => {
             setShowProductForm(false);
             queryClient.invalidateQueries({ queryKey: ['vendor-products'] });
+          }}
+        />
+      )}
+
+      {showImportModal && (
+        <ImportProductsModal
+          onClose={() => setShowImportModal(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['vendor-products'] });
+            queryClient.invalidateQueries({ queryKey: ['vendor-stats'] });
           }}
         />
       )}
