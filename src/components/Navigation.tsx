@@ -17,7 +17,7 @@ const Navigation = () => {
     { path: "/profile", icon: Users, label: "Profile", auth: true },
     // { path: "/products", icon: ShoppingBag, label: "Products" },
     // { path: "/groups", icon: Users, label: "Groups", auth: true },
-    { path: "/dashboard", icon: User, label: "Dashboard", auth: true },
+    { path: "/profile", icon: User, label: "Profile", auth: true },
   ];
 
   const filteredItems = navigationItems.filter(item => !item.auth || user);

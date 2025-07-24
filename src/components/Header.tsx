@@ -29,9 +29,12 @@ interface User {
 export default function Header() {
   const location = useLocation();
   const { toast } = useToast();
-  const { user, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();
   const [scrolled, setScrolled] = useState<boolean>(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+
+  // Check if user is vendor
+  const isVendor = profile?.role === 'vendor';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -52,11 +55,11 @@ export default function Header() {
     };
   }, [mobileMenuOpen]);
 
-  // Fetch cart count
+  // Fetch cart count (only for non-vendors)
   const { data: cartCount } = useQuery<number>({
     queryKey: ["cart-count", user?.id],
     queryFn: async () => {
-      if (!user) return 0;
+      if (!user || isVendor) return 0;
       const { data, error } = await supabase
         .from("cart_items")
         .select("quantity", { count: "exact" })
@@ -67,14 +70,14 @@ export default function Header() {
         0
       );
     },
-    enabled: !!user,
+    enabled: !!user && !isVendor,
   });
 
-  // Fetch wishlist count
+  // Fetch wishlist count (only for non-vendors)
   const { data: wishlistCount } = useQuery<number>({
     queryKey: ["wishlist-count", user?.id],
     queryFn: async () => {
-      if (!user) return 0;
+      if (!user || isVendor) return 0;
       const { count, error } = await supabase
         .from("wishlist")
         .select("*", { count: "exact", head: true })
@@ -82,7 +85,7 @@ export default function Header() {
       if (error) return 0;
       return count ?? 0;
     },
-    enabled: !!user,
+    enabled: !!user && !isVendor,
   });
 
   const handleSignOut = async () => {
@@ -139,33 +142,38 @@ export default function Header() {
             <div className="flex items-center space-x-4 md:space-x-6">
               {user && (
                 <>
-                  <NavLink
-                    to="/wishlist"
-                    className="relative text-pink-600 hover:text-pink-800 group"
-                  >
-                    <Heart
-                      size={22}
-                      className="group-hover:fill-fuchsia-600 transition-colors"
-                    />
-                    {wishlistCount != null && wishlistCount > 0 && (
-                      <span className="absolute -top-2 -right-2 bg-pink-500 text-pink-600 text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                        {wishlistCount}
-                      </span>
-                    )}
-                    <span className="sr-only">Wishlist</span>
-                  </NavLink>
-                  <NavLink
-                    to="/cart"
-                    className="relative text-pink-600 hover:text-pink-800"
-                  >
-                    <ShoppingCart size={22} />
-                    {cartCount != null && cartCount > 0 && (
-                      <span className="absolute -top-2 -right-2 bg-pink-500 text-pink-600 text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                        {cartCount}
-                      </span>
-                    )}
-                    <span className="sr-only">Cart</span>
-                  </NavLink>
+                  {/* Only show wishlist and cart for non-vendors */}
+                  {!isVendor && (
+                    <>
+                      <NavLink
+                        to="/wishlist"
+                        className="relative text-pink-600 hover:text-pink-800 group"
+                      >
+                        <Heart
+                          size={22}
+                          className="group-hover:fill-fuchsia-600 transition-colors"
+                        />
+                        {wishlistCount != null && wishlistCount > 0 && (
+                          <span className="absolute -top-2 -right-2 bg-pink-500 text-pink-600 text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                            {wishlistCount}
+                          </span>
+                        )}
+                        <span className="sr-only">Wishlist</span>
+                      </NavLink>
+                      <NavLink
+                        to="/cart"
+                        className="relative text-pink-600 hover:text-pink-800"
+                      >
+                        <ShoppingCart size={22} />
+                        {cartCount != null && cartCount > 0 && (
+                          <span className="absolute -top-2 -right-2 bg-pink-500 text-pink-600 text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                            {cartCount}
+                          </span>
+                        )}
+                        <span className="sr-only">Cart</span>
+                      </NavLink>
+                    </>
+                  )}
 
                   <NavLink
                     to="/search"
@@ -202,73 +210,102 @@ export default function Header() {
                 )}
               </div>
 
-              <div className="md:hidden">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="text-pink-600 hover:text-pink-800 hover:bg-transparent"
-                >
-                  {mobileMenuOpen ? <X size={28} /> : <List size={28} />}
-                  <span className="sr-only">Toggle menu</span>
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="md:hidden text-pink-600 hover:text-pink-800"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              >
+                {mobileMenuOpen ? <X size={24} /> : <List size={24} />}
+              </Button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 top-16 bg-white/50 backdrop-blur-xl z-40 p-4">
-          <nav className="flex flex-col space-y-4">
+        <div className="md:hidden fixed inset-0 top-20 bg-white/95 backdrop-blur-md z-40">
+          <div className="px-4 pt-2 pb-6 space-y-4">
             {navLinks.map((link) => (
               <NavLink
                 key={link.to}
                 to={link.to}
-                onClick={() => setMobileMenuOpen(false)}
                 className={({ isActive }) =>
                   cn(
-                    "text-lg font-medium text-gray-900 transition-colors hover:text-pink-800 text-center py-2 rounded-md",
-                    isActive && "text-pink-600 bg-white/10"
+                    "block py-2 text-lg text-pink-600 transition-colors hover:text-pink-800",
+                    isActive && "text-pink-800 font-semibold"
                   )
                 }
+                onClick={() => setMobileMenuOpen(false)}
               >
                 {link.label}
               </NavLink>
             ))}
-            <div className="border-t border-gray-700 pt-4 flex flex-col space-y-4 items-center">
-              {user ? (
-                <UserProfileDropdown />
-              ) : (
-                <>
-                  <Button
-                    variant="ghost"
-                    asChild
-                    className="w-full text-lg text-gray-300 hover:text-pink-800 hover:bg-transparent"
-                  >
+
+            {user && (
+              <div className="border-t pt-4 space-y-4">
+                {/* Only show cart and wishlist for non-vendors in mobile menu */}
+                {!isVendor && (
+                  <>
                     <NavLink
-                      to="/auth"
+                      to="/wishlist"
+                      className="flex items-center py-2 text-lg text-pink-600 hover:text-pink-800"
                       onClick={() => setMobileMenuOpen(false)}
                     >
-                      Login
+                      <Heart size={20} className="mr-2" />
+                      Wishlist
+                      {wishlistCount != null && wishlistCount > 0 && (
+                        <span className="ml-2 bg-pink-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                          {wishlistCount}
+                        </span>
+                      )}
                     </NavLink>
-                  </Button>
-                  <Button
-                    asChild
-                    className="w-full rounded-full border border-gray-400 bg-transparent text-pink-600 hover:bg-white hover:text-pink-800 transition-colors"
-                  >
                     <NavLink
-                      to="/auth"
+                      to="/cart"
+                      className="flex items-center py-2 text-lg text-pink-600 hover:text-pink-800"
                       onClick={() => setMobileMenuOpen(false)}
                     >
-                      Join Now
+                      <ShoppingCart size={20} className="mr-2" />
+                      Cart
+                      {cartCount != null && cartCount > 0 && (
+                        <span className="ml-2 bg-pink-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                          {cartCount}
+                        </span>
+                      )}
                     </NavLink>
-                  </Button>
-                </>
-              )}
-            </div>
-          </nav>
+                  </>
+                )}
+                <NavLink
+                  to="/search"
+                  className="flex items-center py-2 text-lg text-pink-600 hover:text-pink-800"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  <Search size={20} className="mr-2" />
+                  Search
+                </NavLink>
+              </div>
+            )}
+
+            {!user && (
+              <div className="border-t pt-4 space-y-4">
+                <NavLink
+                  to="/auth"
+                  className="block py-2 text-lg text-pink-600 hover:text-pink-800"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Login
+                </NavLink>
+                <NavLink
+                  to="/auth"
+                  className="block py-2 text-lg text-pink-600 hover:text-pink-800"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Join Now
+                </NavLink>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </header>

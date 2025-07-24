@@ -39,7 +39,7 @@ const Auth = () => {
           title: "Welcome back!",
           description: "You have successfully logged in.",
         });
-        navigate("/dashboard");
+        navigate(`/users/${data.user.id}`);
       } else {
         const { error } = await signUp(email, password, fullName, userType);
         if (error) throw error;
