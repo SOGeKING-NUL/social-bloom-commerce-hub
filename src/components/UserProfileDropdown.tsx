@@ -45,9 +45,7 @@ const UserProfileDropdown = () => {
   };
 
   const handleSettings = () => {
-    if (user?.id) {
-      navigate(`/users/${user.id}`);
-    }
+    navigate('/settings');
   };
 
   if (!user) return null;

@@ -18,6 +18,7 @@ import GroupDetail from "./pages/GroupDetail";
 import Cart from "./pages/Cart";
 import Orders from "./pages/Orders";
 import UserProfile from "./pages/UserProfile";
+import Settings from "./pages/Settings";
 import Wishlist from "./pages/Wishlist";
 import NotFound from "./pages/NotFound";
 import SearchUs from "./pages/SearchUs";
@@ -82,6 +83,11 @@ const App = () => (
               <Route path="/users/:userId" element={
                 <ProtectedRoute>
                   <UserProfile />
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute>
+                  <Settings />
                 </ProtectedRoute>
               } />
               {/* Redirect old routes to user profile */}
