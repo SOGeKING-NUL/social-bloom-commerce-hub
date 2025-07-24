@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button";
 import { ShoppingCart, Users, Heart } from "@phosphor-icons/react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client"; // Adjust import path as needed
 
 interface HighlightProductCardProps {
   product: {
@@ -23,6 +25,28 @@ interface HighlightProductCardProps {
 const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardProps) => {
   const navigate = useNavigate();
   const vendorName = vendor.full_name || vendor.email?.split("@")[0] || "Unknown Vendor";
+
+  // Fetch discount tiers for this product
+  const { data: tiers, isLoading } = useQuery({
+    queryKey: ["product-tiers", product.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_discount_tiers")
+        .select("discount_percentage")
+        .eq("product_id", product.id)
+        .order("tier_number");
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!product.id,
+  });
+
+  // Determine if tiers exist and calculate max discount
+  const hasTiers = tiers && tiers.length > 0;
+  const maxDiscount = hasTiers
+    ? Math.max(...tiers.map((tier) => tier.discount_percentage))
+    : 0;
 
   return (
     <motion.div
@@ -76,15 +100,21 @@ const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardPr
             </p>
           </div>
 
-          {/* Group Benefits Row */}
-          <div className="flex items-center gap-6 py-2">
+          {/* Group Benefits Row - Fixed height, always shown */}
+          <div className="flex items-center gap-6 py-2 min-h-[40px]"> {/* Fixed min-height for consistency */}
             <div className="text-center">
-              <div className="text-sm font-bold text-slate-800">30%</div>
+              <div className="text-sm font-bold text-slate-800">
+                {isLoading ? "Loading..." : (hasTiers ? `${maxDiscount}%` : "N/A")}
+              </div>
               <div className="text-xs text-slate-500 uppercase tracking-wide font-medium">Discount</div>
             </div>
             <div className="text-center">
-              <div className="text-sm font-bold text-slate-800">Groups</div>
-              <div className="text-xs text-slate-500 uppercase tracking-wide font-medium">Available</div>
+              <div className="text-sm font-bold text-slate-800">
+                {isLoading ? "Loading..." : (hasTiers ? "Groups" : "N/A")}
+              </div>
+              <div className="text-xs text-slate-500 uppercase tracking-wide font-medium">
+                {hasTiers ? "Available" : ""}
+              </div>
             </div>
           </div>
 
@@ -102,23 +132,25 @@ const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardPr
               </span>
             </div>
 
-            {/* Action Buttons - Side by Side */}
+            {/* Action Buttons - Conditional based on tiers */}
             <div className="flex gap-2">
               <Button
                 onClick={() => navigate(`/products/${product.id}`)}
                 variant="outline"
-                className="flex-1 h-9 border-slate-300 hover:border-slate-400 text-sm"
+                className={`h-9 border-slate-300 hover:border-slate-400 text-sm ${hasTiers ? "flex-1" : "w-full"}`}
               >
                 <ShoppingCart className="w-4 h-4 mr-1" />
                 Add to Cart
               </Button>
-              <Button
-                onClick={() => navigate(`/products/${product.id}`)}
-                className="flex-1 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white font-medium h-9 text-sm"
-              >
-                <Users className="w-4 h-4 mr-1" />
-                Start Group Order
-              </Button>
+              {hasTiers && (
+                <Button
+                  onClick={() => navigate(`/products/${product.id}`)}
+                  className="flex-1 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white font-medium h-9 text-sm"
+                >
+                  <Users className="w-4 h-4 mr-1" />
+                  Start Group Order
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -130,4 +162,4 @@ const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardPr
   );
 };
 
-export default HighlightProductCard; 
+export default HighlightProductCard;
