@@ -1,6 +1,8 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useDropzone } from "react-dropzone";
 import * as XLSX from "xlsx";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -35,8 +37,9 @@ interface ImportError {
 }
 
 const ImportProductsModal = ({ onClose, onSuccess }: ImportProductsModalProps) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [importResults, setImportResults] = useState<{
@@ -44,6 +47,41 @@ const ImportProductsModal = ({ onClose, onSuccess }: ImportProductsModalProps) =
     failed: ImportError[];
     total: number;
   } | null>(null);
+
+  // Fetch KYC data to verify vendor can import products
+  const { data: kycData, isLoading: isKYCLoading } = useQuery({
+    queryKey: ['kyc', user?.id],
+    queryFn: async () => {
+      if (!user?.id || profile?.role !== 'vendor') return null;
+      
+      const { data, error } = await supabase
+        .from('vendor_kyc')
+        .select('*')
+        .eq('vendor_id', user.id)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    },
+    enabled: !!user?.id && profile?.role === 'vendor',
+  });
+
+  // Check if vendor is approved to import products
+  const isKYCApproved = kycData?.status === 'approved';
+  const isVendor = profile?.role === 'vendor';
+
+  // Redirect if vendor is not approved
+  useEffect(() => {
+    if (!isKYCLoading && isVendor && !isKYCApproved) {
+      toast({
+        title: "KYC Verification Required",
+        description: "Please complete your KYC verification to import products.",
+        variant: "destructive"
+      });
+      onClose();
+      navigate('/products');
+    }
+  }, [isKYCLoading, isVendor, isKYCApproved, onClose, navigate, toast]);
 
   // Generate demo Excel file
   const generateDemoFile = () => {

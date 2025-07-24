@@ -468,48 +468,100 @@ const UserProfile = () => {
     </div>
   );
 
-  const renderProducts = () => (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">Products</h3>
-        {isOwnProfile && (
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => setShowImportModal(true)}
-              className="flex items-center gap-2"
-            >
-              <FileText className="w-4 h-4" />
-              Import
-            </Button>
-            <Button onClick={() => setShowProductForm(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Product
-            </Button>
-          </div>
+  const renderProducts = () => {
+    const isKYCApproved = kycData?.status === 'approved';
+    const isKYCPending = kycData?.status === 'pending';
+    const isKYCRejected = kycData?.status === 'rejected';
+    const hasNoKYC = !kycData;
+
+    // Helper function to render KYC status banner
+    const renderKYCBanner = () => {
+      if (hasNoKYC || isKYCRejected) {
+        return (
+          <Alert className="mb-6 border-orange-200 bg-orange-50">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span>Complete your KYC verification to start selling products on the marketplace.</span>
+                <Button 
+                  onClick={() => setShowKYCForm(true)}
+                  size="sm"
+                  className="self-start sm:self-auto"
+                >
+                  {hasNoKYC ? 'Initiate KYC' : 'Resubmit KYC'}
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        );
+      }
+
+      if (isKYCPending) {
+        return (
+          <Alert className="mb-6 border-blue-200 bg-blue-50">
+            <Clock className="h-4 w-4" />
+            <AlertDescription>
+              Your KYC verification is pending approval. You'll be able to add products once approved.
+            </AlertDescription>
+          </Alert>
+        );
+      }
+
+      return null;
+    };
+
+    return (
+      <div className="space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-semibold">Products</h3>
+          {isOwnProfile && isKYCApproved && (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowImportModal(true)}
+                className="flex items-center gap-2"
+              >
+                <FileText className="w-4 h-4" />
+                Import
+              </Button>
+              <Button onClick={() => setShowProductForm(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Product
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Show KYC banner for own profile if KYC not approved */}
+        {isOwnProfile && !isKYCApproved && renderKYCBanner()}
+
+        {/* Only show product content if KYC is approved or viewing someone else's profile */}
+        {(isKYCApproved || !isOwnProfile) && (
+          <>
+            {products.length === 0 ? (
+              <Card>
+                <CardContent className="text-center py-8">
+                  <Package className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                  <p className="text-gray-500">No products yet.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {products.map((product, index) => (
+                  <VendorProductCard
+                    key={product.id}
+                    product={product}
+                    isOwner={isOwnProfile}
+                    index={index}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
-      {products.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-8">
-            <Package className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500">No products yet.</p>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.map((product, index) => (
-            <VendorProductCard
-              key={product.id}
-              product={product}
-              isOwner={isOwnProfile}
-              index={index}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   const renderGroups = () => (
     <div className="space-y-4">

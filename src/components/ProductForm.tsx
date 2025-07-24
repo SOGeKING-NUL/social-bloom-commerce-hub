@@ -1,8 +1,9 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,9 +17,10 @@ interface ProductFormProps {
 }
 
 const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   
   const [form, setForm] = useState({
     name: existingData?.name || '',
@@ -33,6 +35,41 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(existingData?.image_url || null);
+
+  // Fetch KYC data to verify vendor can add products
+  const { data: kycData, isLoading: isKYCLoading } = useQuery({
+    queryKey: ['kyc', user?.id],
+    queryFn: async () => {
+      if (!user?.id || profile?.role !== 'vendor') return null;
+      
+      const { data, error } = await supabase
+        .from('vendor_kyc')
+        .select('*')
+        .eq('vendor_id', user.id)
+        .single();
+      
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    },
+    enabled: !!user?.id && profile?.role === 'vendor',
+  });
+
+  // Check if vendor is approved to add products
+  const isKYCApproved = kycData?.status === 'approved';
+  const isVendor = profile?.role === 'vendor';
+
+  // Redirect if vendor is not approved
+  useEffect(() => {
+    if (!isKYCLoading && isVendor && !isKYCApproved) {
+      toast({
+        title: "KYC Verification Required",
+        description: "Please complete your KYC verification to add products.",
+        variant: "destructive"
+      });
+      onClose();
+      navigate('/products');
+    }
+  }, [isKYCLoading, isVendor, isKYCApproved, onClose, navigate, toast]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
