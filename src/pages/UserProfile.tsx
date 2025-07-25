@@ -13,7 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   User, Package, FileText, BarChart3, Settings, AlertCircle, CheckCircle, 
   Clock, Heart, MessageCircle, Share2, Plus, Edit, Camera, Shield, 
-  Users, ShoppingCart, Calendar, Building, Mail, Phone, MapPin, Menu, X
+  Users, ShoppingCart, Calendar, Building, Mail, Phone, MapPin, Menu, X, TrendingUp
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
@@ -22,6 +22,8 @@ import KYCForm from "@/components/KYCForm";
 import ProductForm from "@/components/ProductForm";
 import VendorProductCard from "@/components/VendorProductCard";
 import ImportProductsModal from "@/components/ImportProductsModal";
+import BulkDiscountModal from "@/components/BulkDiscountModal";
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 const UserProfile = () => {
@@ -43,6 +45,12 @@ const UserProfile = () => {
     location: '',
     avatar_url: '',
   });
+
+  // Bulk selection state
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [showBulkDiscountModal, setShowBulkDiscountModal] = useState(false);
+  const [productFilter, setProductFilter] = useState<'all' | 'with-tiers' | 'without-tiers'>('all');
+  const [isBulkSelectionMode, setIsBulkSelectionMode] = useState(false);
 
   const isOwnProfile = userId === user?.id || !userId;
   const profileUserId = userId || user?.id || '';
@@ -205,6 +213,24 @@ const UserProfile = () => {
     enabled: !!profile?.id && isVendor,
   });
 
+  // Fetch tier information for products
+  const { data: productTiers = [] } = useQuery({
+    queryKey: ['product-tiers-bulk', profile?.id],
+    queryFn: async () => {
+      if (!isVendor || products.length === 0) return [];
+      
+      const productIds = products.map(p => p.id);
+      const { data, error } = await supabase
+        .from('product_discount_tiers')
+        .select('product_id, discount_percentage')
+        .in('product_id', productIds);
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!profile?.id && isVendor && products.length > 0,
+  });
+
   // Fetch user's groups
   const { data: userGroups = [] } = useQuery({
     queryKey: ['user-groups', profile?.id],
@@ -338,6 +364,54 @@ const UserProfile = () => {
 
   const handleProfileUpdate = () => {
     updateProfileMutation.mutate(profileForm);
+  };
+
+  // Bulk selection handlers
+  const handleProductSelection = (productId: string, isSelected: boolean) => {
+    setSelectedProducts(prev => {
+      const newSet = new Set(prev);
+      if (isSelected) {
+        newSet.add(productId);
+      } else {
+        newSet.delete(productId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    const filteredProducts = getFilteredProducts();
+    const allProductIds = filteredProducts.map(p => p.id);
+    setSelectedProducts(new Set(allProductIds));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedProducts(new Set());
+  };
+
+  const toggleBulkSelectionMode = () => {
+    setIsBulkSelectionMode(!isBulkSelectionMode);
+    setSelectedProducts(new Set());
+  };
+
+  // Get tier info for a product
+  const getProductTierInfo = (productId: string) => {
+    const tiers = productTiers.filter(t => t.product_id === productId);
+    const hasTiers = tiers.length > 0;
+    const maxDiscount = tiers.length > 0 ? Math.max(...tiers.map(t => t.discount_percentage)) : 0;
+    return { hasTieredDiscount: hasTiers, maxDiscount };
+  };
+
+  // Filter products based on current filter
+  const getFilteredProducts = () => {
+    if (productFilter === 'all') return products;
+    
+    return products.filter(product => {
+      const { hasTieredDiscount } = getProductTierInfo(product.id);
+      if (productFilter === 'with-tiers') return hasTieredDiscount;
+      if (productFilter === 'without-tiers') return !hasTieredDiscount;
+      return true;
+    });
   };
 
   // KYC status banner (only for own vendor profile when not approved)
@@ -510,10 +584,14 @@ const UserProfile = () => {
       return null;
     };
 
+    const filteredProducts = getFilteredProducts();
+
     return (
       <div className="space-y-4">
-        <div className="flex justify-between items-center">
+        {/* Header with actions */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h3 className="text-lg font-semibold">Products</h3>
+          
           {isOwnProfile && isKYCApproved && (
             <div className="flex gap-2">
               <Button
@@ -524,6 +602,16 @@ const UserProfile = () => {
                 <FileText className="w-4 h-4" />
                 Import
               </Button>
+              {products.length > 0 && (
+                <Button
+                  variant="outline"
+                  onClick={toggleBulkSelectionMode}
+                  className={`flex items-center gap-2 ${isBulkSelectionMode ? "bg-pink-50 border-pink-300 text-pink-700" : ""}`}
+                >
+                  <TrendingUp className="w-4 h-4" />
+                  {isBulkSelectionMode ? "Exit Selection" : "Add Bulk Tiered Discount"}
+                </Button>
+              )}
               <Button onClick={() => setShowProductForm(true)}>
                 <Plus className="w-4 h-4 mr-2" />
                 Add Product
@@ -532,29 +620,77 @@ const UserProfile = () => {
           )}
         </div>
 
+        {/* Filters and bulk actions */}
+        {isOwnProfile && isKYCApproved && products.length > 0 && (
+          <div className="flex flex-col sm:flex-row gap-3 p-4 bg-gray-50 rounded-lg">
+            {/* Filters */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Filter:</span>
+              <div className="flex gap-1">
+                {['all', 'with-tiers', 'without-tiers'].map((filter) => (
+                  <Button
+                    key={filter}
+                    variant={productFilter === filter ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setProductFilter(filter as any)}
+                    className="text-xs"
+                  >
+                    {filter === 'all' ? 'All' : filter === 'with-tiers' ? 'With Tiers' : 'Without Tiers'}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Bulk selection actions */}
+            {isBulkSelectionMode && (
+              <div className="flex items-center gap-2 ml-auto">
+                <span className="text-sm text-gray-600">
+                  {selectedProducts.size} of {filteredProducts.length} selected
+                </span>
+                <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                  Select All
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleDeselectAll}>
+                  Deselect All
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Show KYC banner for own profile if KYC not approved */}
         {isOwnProfile && !isKYCApproved && renderKYCBanner()}
 
         {/* Only show product content if KYC is approved or viewing someone else's profile */}
         {(isKYCApproved || !isOwnProfile) && (
           <>
-            {products.length === 0 ? (
+            {filteredProducts.length === 0 ? (
               <Card>
                 <CardContent className="text-center py-8">
                   <Package className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                  <p className="text-gray-500">No products yet.</p>
+                  <p className="text-gray-500">
+                    {products.length === 0 ? "No products yet." : "No products match the current filter."}
+                  </p>
                 </CardContent>
               </Card>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {products.map((product, index) => (
-                  <VendorProductCard
-                    key={product.id}
-                    product={product}
-                    isOwner={isOwnProfile}
-                    index={index}
-                  />
-                ))}
+                {filteredProducts.map((product, index) => {
+                  const tierInfo = getProductTierInfo(product.id);
+                  return (
+                    <VendorProductCard
+                      key={product.id}
+                      product={product}
+                      isOwner={isOwnProfile}
+                      index={index}
+                      isSelectable={isBulkSelectionMode}
+                      isSelected={selectedProducts.has(product.id)}
+                      onSelectionChange={handleProductSelection}
+                      hasTieredDiscount={tierInfo.hasTieredDiscount}
+                      maxDiscount={tierInfo.maxDiscount}
+                    />
+                  );
+                })}
               </div>
             )}
           </>
@@ -1051,6 +1187,43 @@ const UserProfile = () => {
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['vendor-products'] });
             queryClient.invalidateQueries({ queryKey: ['vendor-stats'] });
+          }}
+        />
+      )}
+
+            {/* Floating Action Button for Bulk Discount - Centered and Bigger */}
+      {selectedProducts.size > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 100, scale: 0.8 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 100, scale: 0.8 }}
+          className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-40"
+        >
+          <Button
+            onClick={() => setShowBulkDiscountModal(true)}
+            disabled={selectedProducts.size > 100}
+            className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-full px-8 py-4 text-lg font-semibold min-w-[280px] h-14"
+          >
+            <TrendingUp className="w-6 h-6 mr-3" />
+            Add Tiers to {selectedProducts.size} Product{selectedProducts.size > 1 ? 's' : ''}
+            {selectedProducts.size > 100 && (
+              <span className="ml-2 text-sm opacity-75">Max 100</span>
+            )}
+          </Button>
+        </motion.div>
+      )}
+
+      {/* Bulk Discount Modal */}
+      {showBulkDiscountModal && (
+        <BulkDiscountModal
+          selectedProductIds={Array.from(selectedProducts)}
+          onClose={() => setShowBulkDiscountModal(false)}
+          onSuccess={() => {
+            setShowBulkDiscountModal(false);
+            setSelectedProducts(new Set());
+            setIsBulkSelectionMode(false);
+            queryClient.invalidateQueries({ queryKey: ['vendor-products'] });
+            queryClient.invalidateQueries({ queryKey: ['product-tiers-bulk'] });
           }}
         />
       )}
