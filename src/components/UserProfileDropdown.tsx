@@ -28,7 +28,7 @@ const UserProfileDropdown = () => {
       navigate('/auth');
       toast({ title: "Signed out successfully" });
     } catch (error: any) {
-      toast({ 
+      toast({
         title: "Error signing out", 
         description: error.message,
         variant: "destructive" 
@@ -62,10 +62,10 @@ const UserProfileDropdown = () => {
         <Button variant="ghost" className="relative h-10 w-10 rounded-full">
           <Avatar className="h-10 w-10">
             <AvatarImage src={profile?.avatar_url} alt={profile?.full_name} />
-            <AvatarFallback>
+          <AvatarFallback>
               {profile?.full_name?.[0] || user.email[0].toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          </AvatarFallback>
+        </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>

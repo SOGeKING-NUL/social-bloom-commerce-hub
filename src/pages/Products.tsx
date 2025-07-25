@@ -233,12 +233,12 @@ const Products = () => {
             </motion.div>
           ) : (
             <>
-              <motion.div
+            <motion.div
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-5"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.6 }}
-              >
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6 }}
+            >
                 {allProducts.map((product, index) => (
                   <HighlightProductCard 
                     key={`${product.id}-${index}`}
@@ -246,8 +246,8 @@ const Products = () => {
                     vendor={product.vendor}
                     index={index}
                   />
-                ))}
-              </motion.div>
+              ))}
+            </motion.div>
 
               {/* Loading indicator for infinite scroll */}
               {isFetchingNextPage && (
