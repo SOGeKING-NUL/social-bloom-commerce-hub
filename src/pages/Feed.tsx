@@ -7,8 +7,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import CommentsDialog from "@/components/CommentsDialog";
 import InstagramStylePostCreator from "@/components/InstagramStylePostCreator";
 import { useNavigate } from "react-router-dom";
@@ -282,7 +280,7 @@ const Feed = () => {
     <Layout>
       <div className="min-h-screen bg-gradient-to-b from-white to-pink-50 dark:from-gray-900 dark:to-gray-800">
         <div className="container mx-auto px-4 py-8">
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-2xl mt-20 mx-auto">
             {/* Instagram-style Post Creator */}
             <div className="mb-8">
               <InstagramStylePostCreator />
