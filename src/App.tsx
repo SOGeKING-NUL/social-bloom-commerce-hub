@@ -22,6 +22,7 @@ import Settings from "./pages/Settings";
 import Wishlist from "./pages/Wishlist";
 import NotFound from "./pages/NotFound";
 import SearchUs from "./pages/SearchUs";
+import Dashboard from "./pages/DashBoard";
 
 const queryClient = new QueryClient();
 
@@ -47,7 +48,7 @@ const App = () => (
                 <ProtectedRoute>
                   <Feed />
                 </ProtectedRoute>
-              } />
+            } />
               <Route path="/products" element={<Products />} />
               <Route path="/products/:productId" element={<ProductDetail />} />
               <Route path="/products/:productId/edit" element={
@@ -97,8 +98,8 @@ const App = () => (
                 </ProtectedRoute>
               } />
               <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <ProfileRedirect />
+                <ProtectedRoute requireAuth={true}>
+                  <Dashboard />
                 </ProtectedRoute>
               } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
