@@ -105,7 +105,7 @@ const UserDashboard = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto mt-24">
         <h1 className="text-3xl font-bold mb-8">My Dashboard</h1>
         
         <Tabs defaultValue="profile" className="space-y-6">

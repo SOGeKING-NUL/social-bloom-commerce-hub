@@ -75,7 +75,7 @@ const VendorDashboard = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <Header />
-      <div className="max-w-6xl mx-auto mt-20">
+      <div className="max-w-6xl mx-auto mt-24">
         <h1 className="text-3xl font-bold mb-8">Vendor Dashboard</h1>
         
         <Tabs defaultValue="overview" className="space-y-6">
