@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ArrowLeft, Save, Upload, AlertCircle, Package, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Upload, AlertCircle, Package, Trash2, Plus, Users, TrendingUp, Calendar, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -24,6 +24,14 @@ interface ProductFormData {
   stock_quantity: number;
   is_active: boolean;
   image_url: string;
+  group_order_enabled: boolean;
+}
+
+interface DiscountTier {
+  id?: string;
+  tier_number?: number;
+  members_required: number;
+  discount_percentage: number;
 }
 
 interface ValidationErrors {
@@ -49,11 +57,20 @@ const EditProduct = () => {
     stock_quantity: 0,
     is_active: true,
     image_url: '',
+    group_order_enabled: false,
   });
   
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isUploading, setIsUploading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  
+  // Tiered Discount State
+  const [tiers, setTiers] = useState<DiscountTier[]>([]);
+  const [groupOrderStats, setGroupOrderStats] = useState<{
+    activeOrders: number;
+    totalOrders: number;
+    lastModified: string | null;
+  }>({ activeOrders: 0, totalOrders: 0, lastModified: null });
 
   // Fetch product data
   const { data: product, isLoading, error } = useQuery({
@@ -74,6 +91,26 @@ const EditProduct = () => {
     enabled: !!productId && !!user?.id,
   });
 
+  // Fetch existing discount tiers
+  const { data: discountTiers } = useQuery({
+    queryKey: ['product-tiers', productId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_discount_tiers')
+        .select('*')
+        .eq('product_id', productId)
+        .order('tier_number');
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!productId,
+  });
+
+  // TODO: Implement group order statistics query
+  // For now, we'll use placeholder data
+  const groupStats = { activeOrders: 0, totalOrders: 0 };
+
   // Initialize form when product loads
   useEffect(() => {
     if (product) {
@@ -85,9 +122,53 @@ const EditProduct = () => {
         stock_quantity: product.stock_quantity || 0,
         is_active: product.is_active ?? true,
         image_url: product.image_url || '',
+        group_order_enabled: (product as any).group_order_enabled ?? false,
       });
     }
   }, [product]);
+
+  // Initialize tiers from fetched data
+  useEffect(() => {
+    if (discountTiers) {
+      setTiers(
+        discountTiers.map((tier: any) => ({
+          id: tier.id,
+          tier_number: tier.tier_number,
+          members_required: tier.members_required,
+          discount_percentage: tier.discount_percentage,
+        }))
+      );
+    }
+  }, [discountTiers]);
+
+  // Auto-toggle group_order_enabled based on tiers
+  useEffect(() => {
+    const hasValidTiers = tiers.length > 0 && tiers.every(tier => 
+      tier.members_required > 0 && tier.discount_percentage > 0
+    );
+    
+    setFormData(prev => ({
+      ...prev,
+      group_order_enabled: hasValidTiers
+    }));
+  }, [tiers]);
+
+  // Tier management functions
+  const addTier = () => {
+    setTiers(prev => [...prev, { members_required: 0, discount_percentage: 0 }]);
+  };
+
+  const removeTier = (index: number) => {
+    setTiers(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateTier = (index: number, field: keyof DiscountTier, value: number) => {
+    setTiers(prev => 
+      prev.map((tier, i) => 
+        i === index ? { ...tier, [field]: value } : tier
+      )
+    );
+  };
 
   // Validation function
   const validateForm = (): boolean => {
@@ -130,7 +211,8 @@ const EditProduct = () => {
     mutationFn: async (updatedData: ProductFormData) => {
       if (!productId) throw new Error('Product ID is required');
       
-      const { error } = await supabase
+      // Update product data
+      const { error: productError } = await supabase
         .from('products')
         .update({
           ...updatedData,
@@ -139,11 +221,43 @@ const EditProduct = () => {
         .eq('id', productId)
         .eq('vendor_id', user?.id);
       
-      if (error) throw error;
+      if (productError) throw productError;
+
+      // Handle tier updates
+      // First, delete all existing tiers for this product
+      const { error: deleteError } = await supabase
+        .from('product_discount_tiers')
+        .delete()
+        .eq('product_id', productId);
+
+      if (deleteError) throw deleteError;
+
+      // Insert new tiers if any exist and are valid
+      if (tiers.length > 0) {
+        const validTiers = tiers.filter(tier => 
+          tier.members_required > 0 && tier.discount_percentage > 0
+        );
+
+        if (validTiers.length > 0) {
+          const tiersData = validTiers.map((tier, index) => ({
+            product_id: productId,
+            tier_number: index + 1,
+            members_required: tier.members_required,
+            discount_percentage: tier.discount_percentage,
+          }));
+
+          const { error: insertError } = await supabase
+            .from('product_discount_tiers')
+            .insert(tiersData);
+
+          if (insertError) throw insertError;
+        }
+      }
     },
     onSuccess: () => {
       toast({ title: "Product updated successfully!" });
       queryClient.invalidateQueries({ queryKey: ['product', productId] });
+      queryClient.invalidateQueries({ queryKey: ['product-tiers', productId] });
       queryClient.invalidateQueries({ queryKey: ['vendor-products'] });
       navigate(`/users/${user?.id}`);
     },
@@ -343,7 +457,21 @@ const EditProduct = () => {
         >
           <Card>
             <CardHeader>
-              <CardTitle>Product Details</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Product Details</CardTitle>
+                {/* Delete Button - Moved to header for better UX */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowDeleteDialog(true)}
+                  disabled={deleteProductMutation.isPending}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50 h-8 px-3"
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  <span className="hidden sm:inline">Delete</span>
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
@@ -479,6 +607,159 @@ const EditProduct = () => {
                   )}
                 </div>
 
+                {/* Tiered Discount Section */}
+                <div className="space-y-4">
+                  <div className="border-t pt-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <Label className="text-lg font-semibold">Group Order Discount Tiers</Label>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Set up tiered discounts to enable group ordering for this product
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          formData.group_order_enabled 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {formData.group_order_enabled ? 'Group Orders Enabled' : 'Group Orders Disabled'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Group Order Stats & Warnings */}
+                    {(groupStats.activeOrders > 0 || groupStats.totalOrders > 0) && (
+                      <Alert className="mb-4 border-amber-200 bg-amber-50">
+                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+                        <AlertDescription className="text-amber-800">
+                          <div className="space-y-2">
+                            <p className="font-medium">Impact on Active Orders:</p>
+                            <div className="flex gap-4 text-sm">
+                              <span className="flex items-center gap-1">
+                                <Users className="w-3 h-3" />
+                                {groupStats.activeOrders} active group orders
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <TrendingUp className="w-3 h-3" />
+                                {groupStats.totalOrders} total orders
+                              </span>
+                            </div>
+                            <p className="text-xs">
+                              Changes to discount tiers will not affect existing group orders.
+                            </p>
+                          </div>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {/* Existing Context Info */}
+                    {discountTiers && discountTiers.length > 0 && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                        <div className="flex items-center gap-2 text-blue-800 text-sm">
+                          <Calendar className="w-4 h-4" />
+                          <span className="font-medium">Current Configuration:</span>
+                          <span>{discountTiers.length} tier(s) active</span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Tier List */}
+                    <div className="space-y-3">
+                      {tiers.map((tier, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-3 bg-gray-50 p-4 rounded-lg border"
+                        >
+                          <div className="flex items-center gap-2 text-sm text-gray-600 min-w-[80px]">
+                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                              Tier {index + 1}
+                            </span>
+                          </div>
+                          
+                          <div className="w-full sm:w-auto flex-1">
+                            <Label htmlFor={`members-${index}`} className="text-sm">Members Required</Label>
+                            <Input
+                              id={`members-${index}`}
+                              type="number"
+                              min="3"
+                              max="1000"
+                              value={tier.members_required || ''}
+                              onChange={(e) => updateTier(index, 'members_required', parseInt(e.target.value) || 0)}
+                              placeholder="e.g. 10"
+                              className="mt-1"
+                            />
+                          </div>
+                          
+                          <div className="w-full sm:w-auto flex-1">
+                            <Label htmlFor={`discount-${index}`} className="text-sm">Discount %</Label>
+                            <Input
+                              id={`discount-${index}`}
+                              type="number"
+                              min="0.01"
+                              max="100"
+                              step="0.01"
+                              value={tier.discount_percentage || ''}
+                              onChange={(e) => updateTier(index, 'discount_percentage', parseFloat(e.target.value) || 0)}
+                              placeholder="e.g. 15.5"
+                              className="mt-1"
+                            />
+                          </div>
+                          
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="mt-6 sm:mt-0 flex-shrink-0"
+                            onClick={() => removeTier(index)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </motion.div>
+                      ))}
+                    </div>
+
+                    {/* Add Tier Button */}
+                    <div className="flex items-center justify-between pt-3">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        onClick={addTier} 
+                        className="flex items-center gap-2"
+                        disabled={tiers.length >= 3} // Limit to 3 tiers as specified
+                      >
+                        <Plus className="w-4 h-4" />
+                        Add Tier {tiers.length < 3 ? `(${3 - tiers.length} remaining)` : '(Max reached)'}
+                      </Button>
+                      
+                      {tiers.length > 0 && (
+                        <div className="text-sm text-gray-600">
+                          <span className="flex items-center gap-1">
+                            <TrendingUp className="w-3 h-3" />
+                            Max discount: {Math.max(...tiers.map(t => t.discount_percentage))}%
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Helper Text */}
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-4">
+                      <div className="text-sm text-gray-700 space-y-1">
+                        <p className="font-medium">How it works:</p>
+                        <ul className="list-disc list-inside space-y-1 text-xs text-gray-600">
+                          <li>Customers can create group orders when tiers are configured</li>
+                          <li>Higher member counts unlock better discounts automatically</li>
+                          <li>Group orders use the highest applicable discount tier</li>
+                          <li>Removing all tiers disables group ordering for this product</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Active Status */}
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                   <div>
@@ -494,40 +775,41 @@ const EditProduct = () => {
                   />
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex flex-col gap-4 pt-4">
-                  <div className="flex gap-4">
+                {/* Action Buttons - Improved UX Layout */}
+                <div className="pt-6 border-t">
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                    {/* Cancel Button - Secondary Action */}
                     <Button
                       type="button"
                       variant="outline"
                       onClick={() => navigate(`/users/${user.id}`)}
-                      className="flex-1"
+                      className="order-2 sm:order-1 sm:w-auto min-w-[120px]"
                     >
                       Cancel
                     </Button>
+                    
+                    {/* Save Button - Primary Action */}
                     <Button
                       type="submit"
                       disabled={updateProductMutation.isPending}
-                      className="flex-1 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
+                      className="order-1 sm:order-2 flex-1 bg-gradient-to-r from-green-500 to-emerald-400 hover:from-green-600 hover:to-emerald-500 min-h-[44px] font-medium"
                     >
                       <Save className="w-4 h-4 mr-2" />
-                      {updateProductMutation.isPending ? 'Saving...' : 'Save Changes'}
+                      {updateProductMutation.isPending ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                          Saving...
+                        </>
+                      ) : (
+                        'Save Changes'
+                      )}
                     </Button>
                   </div>
                   
-                  {/* Delete Button */}
-                  <div className="border-t pt-4">
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      onClick={() => setShowDeleteDialog(true)}
-                      disabled={deleteProductMutation.isPending}
-                      className="w-full"
-                    >
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      {deleteProductMutation.isPending ? 'Deleting...' : 'Delete Product'}
-                    </Button>
-                  </div>
+                  {/* Helper Text */}
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    Changes will be saved to your product listing
+                  </p>
                 </div>
               </form>
             </CardContent>
