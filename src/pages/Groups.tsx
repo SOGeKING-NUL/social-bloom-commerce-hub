@@ -486,7 +486,7 @@ const Groups = () => {
                       <SelectContent>
                         {products.map((product) => (
                           <SelectItem key={product.id} value={product.id}>
-                            {product.name} - ${product.price}
+                            {product.name} - ₹{product.price}
                           </SelectItem>
                         ))}
                       </SelectContent>

@@ -222,7 +222,7 @@ const UserDashboard = () => {
                       <div className="flex-1">
                         <h4 className="font-medium">{item.products?.name}</h4>
                         <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
-                        <p className="text-lg font-semibold">${item.products?.price}</p>
+                        <p className="text-lg font-semibold">₹{item.products?.price}</p>
                       </div>
                     </div>
                   ))}
@@ -251,7 +251,7 @@ const UserDashboard = () => {
                             Date: {new Date(order.created_at!).toLocaleDateString()}
                           </p>
                         </div>
-                        <p className="text-lg font-semibold">${order.total_amount}</p>
+                        <p className="text-lg font-semibold">₹{order.total_amount}</p>
                       </div>
                     </div>
                   ))}

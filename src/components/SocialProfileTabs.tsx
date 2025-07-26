@@ -189,7 +189,7 @@ const SocialProfileTabs = ({ profileUserId, isOwnProfile }: SocialProfileTabsPro
                           {new Date(order.created_at!).toLocaleDateString()}
                         </p>
                       </div>
-                      <p className="text-lg font-semibold">${order.total_amount}</p>
+                      <p className="text-lg font-semibold">₹{order.total_amount}</p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {order.order_items?.map((item: any) => (

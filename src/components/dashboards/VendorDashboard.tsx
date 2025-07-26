@@ -158,7 +158,7 @@ const VendorDashboard = () => {
                       <h4 className="font-medium mb-2">{product.name}</h4>
                       <p className="text-sm text-gray-600 mb-2">{product.description}</p>
                       <div className="flex justify-between items-center">
-                        <span className="text-lg font-semibold">${product.price}</span>
+                        <span className="text-lg font-semibold">₹{product.price}</span>
                         <Badge variant={product.is_active ? "default" : "secondary"}>
                           {product.is_active ? "Active" : "Inactive"}
                         </Badge>
