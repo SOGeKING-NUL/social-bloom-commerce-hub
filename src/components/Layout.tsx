@@ -1,6 +1,6 @@
 
 import Header from "@/components/Header";
-import Navigation from "@/components/Navigation";
+// import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 
 interface LayoutProps {
@@ -12,11 +12,11 @@ const Layout = ({ children, showNavigation = true }: LayoutProps) => {
   return (
     <div className="min-h-screen flex flex-col">
       <Header />
-      {showNavigation && <Navigation />}
+      {/* {showNavigation && <Navigation />} */}
       <main className="flex-1 pb-20 md:pb-0">
         {children}
       </main>
-      <Footer />
+      {/* <Footer /> */}
     </div>
   );
 };

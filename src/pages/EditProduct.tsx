@@ -732,7 +732,7 @@ const EditProduct = () => {
                         disabled={tiers.length >= 3} // Limit to 3 tiers as specified
                       >
                         <Plus className="w-4 h-4" />
-                        Add Tier {tiers.length < 3 ? `(${3 - tiers.length} remaining)` : '(Max reached)'}
+                        Add Tier {tiers.length < 3 ? `(₹{3 - tiers.length} remaining)` : '(Max reached)'}
                       </Button>
                       
                       {tiers.length > 0 && (

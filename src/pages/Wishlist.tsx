@@ -342,7 +342,7 @@ const Wishlist = () => {
                             {item.products?.name || "Unnamed Product"}
                           </h3>
                           <span className="text-lg font-bold text-gray-900 block mt-1">
-                            ${item.products?.price?.toFixed(2) || "0.00"}
+                            ₹{item.products?.price?.toFixed(2) || "0.00"}
                           </span>
                           <p className="text-sm text-green-600 mt-1">
                             In stock
@@ -394,7 +394,7 @@ const Wishlist = () => {
                     </div>
                     <div className="flex justify-between font-bold text-gray-900">
                       <span>Subtotal</span>
-                      <span>${calculateTotal().toFixed(2)}</span>
+                      <span>₹{calculateTotal().toFixed(2)}</span>
                     </div>
                   </div>
                   <Button

@@ -75,7 +75,7 @@ const VendorDashboard = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <Header />
-      <div className="max-w-6xl mx-auto mt-20">
+      <div className="max-w-6xl mx-auto mt-24">
         <h1 className="text-3xl font-bold mb-8">Vendor Dashboard</h1>
         
         <Tabs defaultValue="overview" className="space-y-6">
@@ -158,7 +158,7 @@ const VendorDashboard = () => {
                       <h4 className="font-medium mb-2">{product.name}</h4>
                       <p className="text-sm text-gray-600 mb-2">{product.description}</p>
                       <div className="flex justify-between items-center">
-                        <span className="text-lg font-semibold">${product.price}</span>
+                        <span className="text-lg font-semibold">₹{product.price}</span>
                         <Badge variant={product.is_active ? "default" : "secondary"}>
                           {product.is_active ? "Active" : "Inactive"}
                         </Badge>

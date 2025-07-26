@@ -44,6 +44,12 @@ const UserProfileDropdown = () => {
     }
   };
 
+  const handleDashboard = () => {
+    if (user?.id) {
+      navigate(`/dashboard`);
+    }
+  };
+
   const handleSettings = () => {
     navigate('/settings');
   };
@@ -78,6 +84,10 @@ const UserProfileDropdown = () => {
           <UserCircle className="mr-2 h-4 w-4" />
           <span>View Profile</span>
         </DropdownMenuItem>
+        {/* <DropdownMenuItem onClick={handleDashboard}>
+          <UserCircle className="mr-2 h-4 w-4" />
+          <span>Dashboard</span>
+        </DropdownMenuItem> */}
         <DropdownMenuItem onClick={handleSettings}>
           <Settings className="mr-2 h-4 w-4" />
           <span>Settings</span>

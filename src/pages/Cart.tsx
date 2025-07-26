@@ -340,7 +340,7 @@ const Cart = () => {
                               {item.product?.name || 'Unnamed Product'}
                             </h3>
                             <span className="text-lg font-bold text-gray-900 block mt-1">
-                              ${item.product?.price?.toFixed(2) || '0.00'}
+                              ₹{item.product?.price?.toFixed(2) || '0.00'}
                             </span>
                             <p className="text-sm text-green-600 mt-1">In stock</p>
                           </div>
@@ -397,13 +397,13 @@ const Cart = () => {
                           <span className="text-xs text-gray-500">Qty: {item.quantity}</span>
                         </div>
                         <span className="font-bold text-gray-900">
-                          ${(item.product?.price * item.quantity).toFixed(2)}
+                          ₹{(item.product?.price * item.quantity).toFixed(2)}
                         </span>
                       </div>
                     ))}
                     <div className="flex justify-between pt-2 font-bold text-gray-900">
                       <span>Total</span>
-                      <span>${calculateTotal().toFixed(2)}</span>
+                      <span>₹{calculateTotal().toFixed(2)}</span>
                     </div>
                   </div>
                   {!isCheckingOut ? (

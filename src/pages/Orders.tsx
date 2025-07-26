@@ -109,7 +109,7 @@ const Orders = () => {
                         <Badge className={getStatusColor(order.status || 'pending')}>
                           {order.status || 'pending'}
                         </Badge>
-                        <p className="text-lg font-bold mt-1">${order.total_amount}</p>
+                        <p className="text-lg font-bold mt-1">₹{order.total_amount}</p>
                       </div>
                     </CardTitle>
                   </CardHeader>
@@ -130,7 +130,7 @@ const Orders = () => {
                               <div className="flex-1">
                                 <p className="font-medium">{item.product?.name}</p>
                                 <p className="text-sm text-gray-600">
-                                  Quantity: {item.quantity} × ${item.price}
+                                  Quantity: {item.quantity} × ₹{item.price}
                                 </p>
                               </div>
                             </div>

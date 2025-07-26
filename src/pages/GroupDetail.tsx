@@ -616,7 +616,7 @@ const GroupDetail = () => {
                   <div className="md:w-2/3">
                     <h3 className="text-xl font-semibold mb-2">{group.product.name}</h3>
                     <p className="text-gray-600 mb-4">{group.product.description}</p>
-                    <p className="text-2xl font-bold text-pink-600 mb-4">${group.product.price}</p>
+                    <p className="text-2xl font-bold text-pink-600 mb-4">₹{group.product.price}</p>
                     <p className="text-sm text-gray-500 mb-4">
                       By {group.product.vendor_profile?.full_name || group.product.vendor_profile?.email || 'Unknown Vendor'}
                     </p>

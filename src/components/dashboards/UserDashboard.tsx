@@ -105,7 +105,7 @@ const UserDashboard = () => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto mt-24">
         <h1 className="text-3xl font-bold mb-8">My Dashboard</h1>
         
         <Tabs defaultValue="profile" className="space-y-6">
@@ -222,7 +222,7 @@ const UserDashboard = () => {
                       <div className="flex-1">
                         <h4 className="font-medium">{item.products?.name}</h4>
                         <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
-                        <p className="text-lg font-semibold">${item.products?.price}</p>
+                        <p className="text-lg font-semibold">₹{item.products?.price}</p>
                       </div>
                     </div>
                   ))}
@@ -251,7 +251,7 @@ const UserDashboard = () => {
                             Date: {new Date(order.created_at!).toLocaleDateString()}
                           </p>
                         </div>
-                        <p className="text-lg font-semibold">${order.total_amount}</p>
+                        <p className="text-lg font-semibold">₹{order.total_amount}</p>
                       </div>
                     </div>
                   ))}

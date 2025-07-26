@@ -415,7 +415,7 @@ const Groups = () => {
   if (isLoading) {
     return (
       <Layout>
-        <div className="min-h-screen bg-gradient-to-b from-white to-pink-50">
+        <div className="min-h-screen mt-24 bg-gradient-to-b from-white to-pink-50">
           <div className="container mx-auto px-4 py-8">
             <div className="max-w-6xl mx-auto">
               <div className="animate-pulse space-y-6">
@@ -435,7 +435,7 @@ const Groups = () => {
 
   return (
     <Layout>
-      <div className="min-h-screen bg-gradient-to-b from-white to-pink-50">
+      <div className="min-h-screen mt-24 bg-gradient-to-b from-white to-pink-50">
         <div className="container mx-auto px-4 py-8">
           <div className="max-w-6xl mx-auto">
             <div className="text-center mb-12">
@@ -486,7 +486,7 @@ const Groups = () => {
                       <SelectContent>
                         {products.map((product) => (
                           <SelectItem key={product.id} value={product.id}>
-                            {product.name} - ${product.price}
+                            {product.name} - ₹{product.price}
                           </SelectItem>
                         ))}
                       </SelectContent>

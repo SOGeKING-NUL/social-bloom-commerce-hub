@@ -390,7 +390,7 @@ const ProductDetail = () => {
               </div>
 
               <div className="text-4xl font-bold text-gray-800">
-                ${product.price}
+                ₹{product.price}
               </div>
 
               {product.description && (
