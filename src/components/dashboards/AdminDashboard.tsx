@@ -85,6 +85,9 @@ const AdminDashboard = () => {
     null
   );
   const [imageUrls, setImageUrls] = useState<{[key: string]: string}>({});
+  const [showRejectionHistoryModal, setShowRejectionHistoryModal] = useState(false);
+  const [selectedKYCHistory, setSelectedKYCHistory] = useState<any>(null);
+  const [rejectionHistory, setRejectionHistory] = useState<any[]>([]);
 
   // Close mobile menu when section changes
   useEffect(() => {
@@ -824,8 +827,25 @@ const AdminDashboard = () => {
                       Submitted:{" "}
                       {new Date(kyc.submitted_at!).toLocaleDateString()}
                     </p>
+                    {kyc.version > 1 && (
+                      <p className="text-xs text-blue-600 font-medium">
+                        Resubmission #{kyc.version} (Total: {kyc.submission_count})
+                      </p>
+                    )}
                   </div>
                   <div className="flex gap-2">
+                    {/* Show rejection history button only if there's a previous KYC */}
+                    {kyc.previous_kyc_id && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleViewRejectionHistory(kyc)}
+                        className="text-red-600 border-red-200 hover:bg-red-50"
+                      >
+                        <AlertCircle className="w-4 h-4 mr-1" />
+                        History
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"
@@ -1113,6 +1133,53 @@ const AdminDashboard = () => {
       default:
         return renderOverview();
     }
+  };
+
+  // Fetch rejection history for a specific KYC
+  const fetchRejectionHistory = async (kycId: string) => {
+    try {
+      const history = [];
+      let currentKycId = kycId;
+      
+      // Traverse the chain of previous KYCs
+      while (currentKycId) {
+        const { data: kycData, error } = await supabase
+          .from('vendor_kyc')
+          .select(`
+            *,
+            vendor_profile:profiles!vendor_id (
+              email, 
+              full_name
+            )
+          `)
+          .eq('id', currentKycId)
+          .single();
+        
+        if (error || !kycData) break;
+        
+        // Only add rejected KYCs to history (excluding the current pending one)
+        if (kycData.status === 'rejected') {
+          history.push(kycData);
+        }
+        
+        currentKycId = kycData.previous_kyc_id;
+      }
+      
+      setRejectionHistory(history);
+      setShowRejectionHistoryModal(true);
+    } catch (error) {
+      console.error('Error fetching rejection history:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch rejection history",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleViewRejectionHistory = (kyc: any) => {
+    setSelectedKYCHistory(kyc);
+    fetchRejectionHistory(kyc.id);
   };
 
   return (
@@ -1547,6 +1614,119 @@ const AdminDashboard = () => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Rejection History Modal */}
+      <Dialog open={showRejectionHistoryModal} onOpenChange={setShowRejectionHistoryModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-500" />
+              KYC Rejection History
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedKYCHistory && (
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h4 className="font-medium text-blue-800">Current Application</h4>
+                <p className="text-sm text-blue-700">
+                  Vendor: {selectedKYCHistory.vendor_profile?.full_name || selectedKYCHistory.vendor_profile?.email}
+                </p>
+                <p className="text-sm text-blue-700">
+                  Business: {selectedKYCHistory.business_name}
+                </p>
+                <p className="text-sm text-blue-700">
+                  Submitted: {new Date(selectedKYCHistory.submitted_at!).toLocaleString()}
+                </p>
+                <p className="text-sm text-blue-700">
+                  Version: {selectedKYCHistory.version} | Total Submissions: {selectedKYCHistory.submission_count}
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="font-medium text-gray-800">Previous Rejections ({rejectionHistory.length})</h4>
+                
+                {rejectionHistory.length === 0 ? (
+                  <Card>
+                    <CardContent className="text-center py-8">
+                      <AlertCircle className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                      <p className="text-gray-500">No rejection history found</p>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {rejectionHistory.map((rejection, index) => (
+                      <Card key={rejection.id} className="border-red-200">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Badge variant="destructive">
+                                  Rejection #{rejectionHistory.length - index}
+                                </Badge>
+                                <span className="text-sm text-gray-600">
+                                  Version {rejection.version}
+                                </span>
+                              </div>
+                              
+                              <div className="space-y-2">
+                                <div>
+                                  <Label className="text-sm font-medium text-gray-600">
+                                    Rejected On
+                                  </Label>
+                                  <p className="text-sm">
+                                    {new Date(rejection.reviewed_at!).toLocaleString()}
+                                  </p>
+                                </div>
+                                
+                                <div>
+                                  <Label className="text-sm font-medium text-gray-600">
+                                    Rejection Reason
+                                  </Label>
+                                  <p className="text-sm text-red-700 bg-red-50 p-2 rounded border border-red-200">
+                                    {rejection.rejection_reason || 'No reason provided'}
+                                  </p>
+                                </div>
+                                
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                  <div>
+                                    <Label className="text-sm font-medium text-gray-600">
+                                      Business Name
+                                    </Label>
+                                    <p>{rejection.business_name}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-sm font-medium text-gray-600">
+                                      GST Number
+                                    </Label>
+                                    <p>{rejection.gst_number || 'N/A'}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-sm font-medium text-gray-600">
+                                      PAN Number
+                                    </Label>
+                                    <p>{rejection.pan_number || 'N/A'}</p>
+                                  </div>
+                                  <div>
+                                    <Label className="text-sm font-medium text-gray-600">
+                                      Phone Number
+                                    </Label>
+                                    <p>{rejection.phone_number || 'N/A'}</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
