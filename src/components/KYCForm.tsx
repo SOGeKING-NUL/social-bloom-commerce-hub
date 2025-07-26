@@ -82,63 +82,67 @@ const KYCForm: React.FC<KYCFormProps> = ({ onClose, existingData, isInline = fal
     return publicUrl;
   };
 
-  // Check for duplicate values
+  // Check for duplicate values (only against active records)
   const checkDuplicates = async () => {
     const errors: {[key: string]: string} = {};
     
-    // Check GST number
+    // Check GST number (only against active records)
     if (form.gst_number && form.gst_number !== existingData?.gst_number) {
       const { data: gstExists } = await supabase
         .from('vendor_kyc')
         .select('id')
         .eq('gst_number', form.gst_number)
+        .eq('is_active', true)
         .neq('vendor_id', profile?.id)
         .single();
       
       if (gstExists) {
-        errors.gst_number = 'GST number already exists';
+        errors.gst_number = 'GST number already exists with another vendor';
       }
     }
     
-    // Check PAN number
+    // Check PAN number (only against active records)
     if (form.pan_number && form.pan_number !== existingData?.pan_number) {
       const { data: panExists } = await supabase
         .from('vendor_kyc')
         .select('id')
         .eq('pan_number', form.pan_number)
+        .eq('is_active', true)
         .neq('vendor_id', profile?.id)
         .single();
       
       if (panExists) {
-        errors.pan_number = 'PAN number already exists';
+        errors.pan_number = 'PAN number already exists with another vendor';
       }
     }
     
-    // Check TAN number
+    // Check TAN number (only against active records)
     if (form.tan_number && form.tan_number !== existingData?.tan_number) {
       const { data: tanExists } = await supabase
         .from('vendor_kyc')
         .select('id')
         .eq('tan_number', form.tan_number)
+        .eq('is_active', true)
         .neq('vendor_id', profile?.id)
         .single();
       
       if (tanExists) {
-        errors.tan_number = 'TAN number already exists';
+        errors.tan_number = 'TAN number already exists with another vendor';
       }
     }
     
-    // Check phone number
+    // Check phone number (only against active records)
     if (form.phone_number && form.phone_number !== existingData?.phone_number) {
       const { data: phoneExists } = await supabase
         .from('vendor_kyc')
         .select('id')
         .eq('phone_number', form.phone_number)
+        .eq('is_active', true)
         .neq('vendor_id', profile?.id)
         .single();
       
       if (phoneExists) {
-        errors.phone_number = 'Phone number already exists';
+        errors.phone_number = 'Phone number already exists with another vendor';
       }
     }
     
@@ -226,22 +230,24 @@ const KYCForm: React.FC<KYCFormProps> = ({ onClose, existingData, isInline = fal
       }
       
       if (existingData) {
-        // Update existing KYC data
-        const { error } = await supabase
-          .from('vendor_kyc')
-          .update({
-            ...formData,
-            gst_url: gstUrl,
-            pan_url: panUrl,
-            status: 'pending',
-            rejection_reason: null,
-            submitted_at: new Date().toISOString(),
-          })
-          .eq('id', existingData.id);
+        // Resubmission: Create new version using the database function
+        const { data: newKycId, error } = await supabase.rpc('create_kyc_version', {
+          vendor_uuid: profile.id,
+          business_name_val: formData.business_name,
+          ho_address_val: formData.ho_address,
+          warehouse_address_val: formData.warehouse_address,
+          phone_number_val: formData.phone_number,
+          gst_number_val: formData.gst_number,
+          gst_url_val: gstUrl,
+          pan_number_val: formData.pan_number,
+          pan_url_val: panUrl,
+          tan_number_val: formData.tan_number,
+          turnover_over_5cr_val: formData.turnover_over_5cr
+        });
         
         if (error) throw error;
       } else {
-        // Insert new KYC data
+        // First submission: Insert new KYC data
         const { error } = await supabase
           .from('vendor_kyc')
           .insert({
@@ -249,6 +255,10 @@ const KYCForm: React.FC<KYCFormProps> = ({ onClose, existingData, isInline = fal
             ...formData,
             gst_url: gstUrl,
             pan_url: panUrl,
+            version: 1,
+            is_active: true,
+            submission_count: 1,
+            status: 'pending'
           });
         
         if (error) throw error;
@@ -257,8 +267,10 @@ const KYCForm: React.FC<KYCFormProps> = ({ onClose, existingData, isInline = fal
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kyc', profile?.id] });
       toast({
-        title: 'KYC Submitted',
-        description: 'Your KYC verification request has been submitted for review.',
+        title: existingData ? 'KYC Resubmitted' : 'KYC Submitted',
+        description: existingData 
+          ? 'Your KYC has been resubmitted for review. This is version ' + (existingData.version + 1) + ' of your submission.'
+          : 'Your KYC verification request has been submitted for review.',
       });
       if (onClose) onClose();
       if (isInline) {
@@ -377,9 +389,12 @@ const KYCForm: React.FC<KYCFormProps> = ({ onClose, existingData, isInline = fal
     );
   }
 
+  // If KYC is rejected and form is visible (inline or modal), show rejection reason above the form
+  const showRejectionReason = existingData?.status === 'rejected' && showForm;
+
   // If form is hidden and we're in inline mode, show button to show form
   if (!showForm && isInline) {
-    return (
+  return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">KYC Verification Status</h3>
@@ -402,23 +417,36 @@ const KYCForm: React.FC<KYCFormProps> = ({ onClose, existingData, isInline = fal
 
   const formContent = (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Show rejection reason if applicable */}
+      {showRejectionReason && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-5 w-5 text-red-500" />
+          <AlertDescription>
+            <span className="font-semibold">Your KYC was rejected.</span>
+            <br />
+            <span className="text-sm text-gray-700">Reason: {existingData.rejection_reason || "No reason provided."}</span>
+            <br />
+            <span className="text-sm text-gray-700">Please review and resubmit your KYC details.</span>
+          </AlertDescription>
+        </Alert>
+      )}
       {/* Business Information */}
       <div className="space-y-4">
         <h3 className="text-lg font-semibold text-gray-900">Business Information</h3>
         
-        <div>
-          <Label htmlFor="business_name">Business Name *</Label>
-          <Input 
-            id="business_name"
-            name="business_name"
-            value={form.business_name}
-            onChange={handleChange}
-            placeholder="Your Business Name"
-            required
-          />
-        </div>
-        
-        <div>
+          <div>
+            <Label htmlFor="business_name">Business Name *</Label>
+            <Input 
+              id="business_name"
+              name="business_name"
+              value={form.business_name}
+              onChange={handleChange}
+              placeholder="Your Business Name"
+              required
+            />
+          </div>
+          
+          <div>
           <Label htmlFor="ho_address">Head Office Address *</Label>
           <Textarea 
             id="ho_address"
@@ -432,17 +460,17 @@ const KYCForm: React.FC<KYCFormProps> = ({ onClose, existingData, isInline = fal
         
         <div>
           <Label htmlFor="warehouse_address">Warehouse Address *</Label>
-          <Textarea 
+            <Textarea 
             id="warehouse_address"
             name="warehouse_address"
             value={form.warehouse_address}
-            onChange={handleChange}
+              onChange={handleChange}
             placeholder="Complete Warehouse Address"
-            required
-          />
-        </div>
-        
-        <div>
+              required
+            />
+          </div>
+          
+          <div>
           <Label htmlFor="phone_number">Business Phone Number *</Label>
           <Input 
             id="phone_number"
@@ -468,11 +496,11 @@ const KYCForm: React.FC<KYCFormProps> = ({ onClose, existingData, isInline = fal
         
         <div>
           <Label htmlFor="gst_number">GST Number *</Label>
-          <Input 
-            id="gst_number"
-            name="gst_number"
-            value={form.gst_number}
-            onChange={handleChange}
+            <Input 
+              id="gst_number"
+              name="gst_number"
+              value={form.gst_number}
+              onChange={handleChange}
             placeholder="22AAAAA0000A1Z5"
             pattern="[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}"
             required
@@ -495,22 +523,22 @@ const KYCForm: React.FC<KYCFormProps> = ({ onClose, existingData, isInline = fal
             placeholder="ABCDE1234F"
             pattern="[A-Z]{5}[0-9]{4}[A-Z]{1}"
             required
-          />
-          <p className="text-sm text-gray-500 mt-1">
+            />
+            <p className="text-sm text-gray-500 mt-1">
             Format: ABCDE1234F (10 characters)
-          </p>
+            </p>
           {validationErrors.pan_number && (
             <p className="text-sm text-red-500 mt-1">{validationErrors.pan_number}</p>
           )}
-        </div>
-        
-        <div>
+          </div>
+          
+          <div>
           <Label htmlFor="tan_number">TAN Number *</Label>
-          <Input 
+            <Input 
             id="tan_number"
             name="tan_number"
             value={form.tan_number}
-            onChange={handleChange}
+              onChange={handleChange}
             placeholder="ABCD12345E"
             pattern="[A-Z]{4}[0-9]{5}[A-Z]{1}"
             required
@@ -660,8 +688,8 @@ const KYCForm: React.FC<KYCFormProps> = ({ onClose, existingData, isInline = fal
             </div>
           )}
         </div>
-      </div>
-      
+          </div>
+          
       <div className="flex gap-2">
         {isInline && (
           <Button 
@@ -673,12 +701,12 @@ const KYCForm: React.FC<KYCFormProps> = ({ onClose, existingData, isInline = fal
           </Button>
         )}
         {onClose && (
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cancel
+            </Button>
         )}
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Submitting...' : existingData ? 'Resubmit' : 'Submit'}
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? 'Submitting...' : existingData ? 'Resubmit' : 'Submit'}
         </Button>
       </div>
     </form>
@@ -688,6 +716,19 @@ const KYCForm: React.FC<KYCFormProps> = ({ onClose, existingData, isInline = fal
   if (isInline) {
     return (
       <div className="space-y-4">
+        {/* Show rejection reason if applicable (for inline mode and form hidden) */}
+        {existingData?.status === 'rejected' && !showForm && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-5 w-5 text-red-500" />
+            <AlertDescription>
+              <span className="font-semibold">Your KYC was rejected.</span>
+              <br />
+              <span className="text-sm text-gray-700">Reason: {existingData.rejection_reason || "No reason provided."}</span>
+              <br />
+              <span className="text-sm text-gray-700">Please review and resubmit your KYC details.</span>
+            </AlertDescription>
+          </Alert>
+        )}
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold">KYC Verification</h3>
           {existingData && existingData.status !== 'rejected' && (
@@ -709,6 +750,19 @@ const KYCForm: React.FC<KYCFormProps> = ({ onClose, existingData, isInline = fal
   return (
     <div className="w-full md:max-w-md max-h-screen overflow-y-auto">
       <div className="space-y-6 py-6">
+        {/* Show rejection reason if applicable (for modal mode and form hidden) */}
+        {existingData?.status === 'rejected' && !showForm && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-5 w-5 text-red-500" />
+            <AlertDescription>
+              <span className="font-semibold">Your KYC was rejected.</span>
+              <br />
+              <span className="text-sm text-gray-700">Reason: {existingData.rejection_reason || "No reason provided."}</span>
+              <br />
+              <span className="text-sm text-gray-700">Please review and resubmit your KYC details.</span>
+            </AlertDescription>
+          </Alert>
+        )}
         <div>
           <h3 className="text-lg font-semibold">KYC Verification</h3>
           <p className="text-sm text-gray-600">
