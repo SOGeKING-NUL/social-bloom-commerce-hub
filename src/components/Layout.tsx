@@ -16,7 +16,7 @@ const Layout = ({ children, showNavigation = true }: LayoutProps) => {
       <main className="flex-1 pb-20 md:pb-0">
         {children}
       </main>
-      <Footer />
+      {/* <Footer /> */}
     </div>
   );
 };

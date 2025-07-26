@@ -97,11 +97,11 @@ const App = () => (
                   <ProfileRedirect />
                 </ProtectedRoute>
               } />
-              <Route path="/dashboard" element={
+              {/* <Route path="/dashboard" element={
                 <ProtectedRoute requireAuth={true}>
                   <Dashboard />
                 </ProtectedRoute>
-              } />
+              } /> */}
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

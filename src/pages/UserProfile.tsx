@@ -10,10 +10,32 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { 
-  User, Package, FileText, BarChart3, Settings, AlertCircle, CheckCircle, 
-  Clock, Heart, MessageCircle, Share2, Plus, Edit, Camera, Shield, 
-  Users, ShoppingCart, Calendar, Building, Mail, Phone, MapPin, Menu, X, TrendingUp
+import {
+  User,
+  Package,
+  FileText,
+  BarChart3,
+  Settings,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Heart,
+  MessageCircle,
+  Share2,
+  Plus,
+  Edit,
+  Camera,
+  Shield,
+  Users,
+  ShoppingCart,
+  Calendar,
+  Building,
+  Mail,
+  Phone,
+  MapPin,
+  Menu,
+  X,
+  TrendingUp,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
@@ -25,6 +47,7 @@ import ImportProductsModal from "@/components/ImportProductsModal";
 import BulkDiscountModal from "@/components/BulkDiscountModal";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
+import AdminDashboard from "@/components/dashboards/AdminDashboard";
 
 const UserProfile = () => {
   const { userId } = useParams();
@@ -32,59 +55,63 @@ const UserProfile = () => {
   const { user, profile: currentUserProfile } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [activeSection, setActiveSection] = useState('posts');
+  const [activeSection, setActiveSection] = useState("posts");
   const [editingProfile, setEditingProfile] = useState(false);
   const [showKYCForm, setShowKYCForm] = useState(false);
   const [showProductForm, setShowProductForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileForm, setProfileForm] = useState({
-    full_name: '',
-    bio: '',
-    website: '',
-    location: '',
-    avatar_url: '',
+    full_name: "",
+    bio: "",
+    website: "",
+    location: "",
+    avatar_url: "",
   });
 
   // Bulk selection state
-  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(
+    new Set()
+  );
   const [showBulkDiscountModal, setShowBulkDiscountModal] = useState(false);
-  const [productFilter, setProductFilter] = useState<'all' | 'with-tiers' | 'without-tiers'>('all');
+  const [productFilter, setProductFilter] = useState<
+    "all" | "with-tiers" | "without-tiers"
+  >("all");
   const [isBulkSelectionMode, setIsBulkSelectionMode] = useState(false);
 
   const isOwnProfile = userId === user?.id || !userId;
-  const profileUserId = userId || user?.id || '';
+  const profileUserId = userId || user?.id || "";
 
   // Fetch user profile
   const { data: profile, isLoading } = useQuery({
-    queryKey: ['user-profile', profileUserId],
+    queryKey: ["user-profile", profileUserId],
     queryFn: async () => {
       if (!profileUserId) return null;
-      
+
       const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', profileUserId)
+        .from("profiles")
+        .select("*")
+        .eq("id", profileUserId)
         .single();
-      
+
       if (error) throw error;
       return data;
     },
     enabled: !!profileUserId,
   });
 
-  const isVendor = profile?.role === 'vendor';
-  const isCurrentUserVendor = currentUserProfile?.role === 'vendor';
+  const isVendor = profile?.role === "vendor";
+  const isCurrentUserVendor = currentUserProfile?.role === "vendor";
 
   // Initialize form when profile loads
   useEffect(() => {
     if (profile) {
       setProfileForm({
-        full_name: profile.full_name || '',
-        bio: profile.bio || '',
-        website: profile.website || '',
-        location: profile.location || '',
-        avatar_url: profile.avatar_url || '',
+        full_name: profile.full_name || "",
+        bio: profile.bio || "",
+        website: profile.website || "",
+        location: profile.location || "",
+        avatar_url: profile.avatar_url || "",
       });
     }
   }, [profile]);
@@ -94,10 +121,10 @@ const UserProfile = () => {
     if (isCurrentUserVendor && isOwnProfile) {
       const clearVendorData = async () => {
         try {
-          await supabase.from('cart_items').delete().eq('user_id', user?.id);
-          await supabase.from('wishlist').delete().eq('user_id', user?.id);
+          await supabase.from("cart_items").delete().eq("user_id", user?.id);
+          await supabase.from("wishlist").delete().eq("user_id", user?.id);
         } catch (error) {
-          console.error('Error clearing vendor data:', error);
+          console.error("Error clearing vendor data:", error);
         }
       };
       clearVendorData();
@@ -111,15 +138,15 @@ const UserProfile = () => {
 
   // Fetch KYC data for vendors
   const { data: kycData } = useQuery({
-    queryKey: ['kyc', profile?.id],
+    queryKey: ["kyc", profile?.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('vendor_kyc')
-        .select('*')
-        .eq('vendor_id', profile?.id)
+        .from("vendor_kyc")
+        .select("*")
+        .eq("vendor_id", profile?.id)
         .single();
-      
-      if (error && error.code !== 'PGRST116') throw error;
+
+      if (error && error.code !== "PGRST116") throw error;
       return data;
     },
     enabled: !!profile?.id && isVendor,
@@ -127,51 +154,59 @@ const UserProfile = () => {
 
   // Fetch vendor stats
   const { data: vendorStats } = useQuery({
-    queryKey: ['vendor-stats', profile?.id],
+    queryKey: ["vendor-stats", profile?.id],
     queryFn: async () => {
       if (!isVendor) return null;
 
       // Total products
       const { count: totalProducts } = await supabase
-        .from('products')
-        .select('*', { count: 'exact', head: true })
-        .eq('vendor_id', profile?.id);
+        .from("products")
+        .select("*", { count: "exact", head: true })
+        .eq("vendor_id", profile?.id);
 
       // Active products
       const { count: activeProducts } = await supabase
-        .from('products')
-        .select('*', { count: 'exact', head: true })
-        .eq('vendor_id', profile?.id)
-        .eq('is_active', true);
+        .from("products")
+        .select("*", { count: "exact", head: true })
+        .eq("vendor_id", profile?.id)
+        .eq("is_active", true);
 
       // Products sold (from order_items via products)
       const { data: soldProductsData } = await supabase
-        .from('order_items')
-        .select(`
+        .from("order_items")
+        .select(
+          `
           quantity,
           price,
           orders!inner(created_at),
           products!inner(vendor_id)
-        `)
-        .eq('products.vendor_id', profile?.id);
+        `
+        )
+        .eq("products.vendor_id", profile?.id);
 
-      const totalSold = soldProductsData?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-      const totalRevenue = soldProductsData?.reduce((sum, item) => sum + (item.quantity * item.price), 0) || 0;
+      const totalSold =
+        soldProductsData?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+      const totalRevenue =
+        soldProductsData?.reduce(
+          (sum, item) => sum + item.quantity * item.price,
+          0
+        ) || 0;
 
       // Sales last month
       const lastMonth = new Date();
       lastMonth.setMonth(lastMonth.getMonth() - 1);
-      
-      const lastMonthSales = soldProductsData?.filter(item => 
-        new Date(item.orders.created_at) >= lastMonth
-      ).reduce((sum, item) => sum + (item.quantity * item.price), 0) || 0;
+
+      const lastMonthSales =
+        soldProductsData
+          ?.filter((item) => new Date(item.orders.created_at) >= lastMonth)
+          .reduce((sum, item) => sum + item.quantity * item.price, 0) || 0;
 
       return {
         totalProducts: totalProducts || 0,
         activeProducts: activeProducts || 0,
         totalSold,
         totalRevenue,
-        lastMonthSales
+        lastMonthSales,
       };
     },
     enabled: !!profile?.id && isVendor,
@@ -179,16 +214,16 @@ const UserProfile = () => {
 
   // Fetch user's posts
   const { data: posts = [] } = useQuery({
-    queryKey: ['user-posts', profile?.id],
+    queryKey: ["user-posts", profile?.id],
     queryFn: async () => {
       if (!profile?.id) return [];
-      
+
       const { data, error } = await supabase
-        .from('posts')
-        .select('*')
-        .eq('user_id', profile.id)
-        .order('created_at', { ascending: false });
-      
+        .from("posts")
+        .select("*")
+        .eq("user_id", profile.id)
+        .order("created_at", { ascending: false });
+
       if (error) throw error;
       return data;
     },
@@ -197,16 +232,16 @@ const UserProfile = () => {
 
   // Fetch vendor's products
   const { data: products = [] } = useQuery({
-    queryKey: ['vendor-products', profile?.id],
+    queryKey: ["vendor-products", profile?.id],
     queryFn: async () => {
       if (!isVendor) return [];
-      
+
       const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('vendor_id', profile?.id)
-        .order('created_at', { ascending: false });
-      
+        .from("products")
+        .select("*")
+        .eq("vendor_id", profile?.id)
+        .order("created_at", { ascending: false });
+
       if (error) throw error;
       return data;
     },
@@ -215,16 +250,16 @@ const UserProfile = () => {
 
   // Fetch tier information for products
   const { data: productTiers = [] } = useQuery({
-    queryKey: ['product-tiers-bulk', profile?.id],
+    queryKey: ["product-tiers-bulk", profile?.id],
     queryFn: async () => {
       if (!isVendor || products.length === 0) return [];
-      
-      const productIds = products.map(p => p.id);
+
+      const productIds = products.map((p) => p.id);
       const { data, error } = await supabase
-        .from('product_discount_tiers')
-        .select('product_id, discount_percentage')
-        .in('product_id', productIds);
-      
+        .from("product_discount_tiers")
+        .select("product_id, discount_percentage")
+        .in("product_id", productIds);
+
       if (error) throw error;
       return data;
     },
@@ -233,13 +268,14 @@ const UserProfile = () => {
 
   // Fetch user's groups
   const { data: userGroups = [] } = useQuery({
-    queryKey: ['user-groups', profile?.id],
+    queryKey: ["user-groups", profile?.id],
     queryFn: async () => {
       if (!profile?.id) return [];
-      
+
       const { data, error } = await supabase
-        .from('group_members')
-        .select(`
+        .from("group_members")
+        .select(
+          `
           groups (
             id,
             name,
@@ -251,24 +287,26 @@ const UserProfile = () => {
               image_url
             )
           )
-        `)
-        .eq('user_id', profile.id);
-      
+        `
+        )
+        .eq("user_id", profile.id);
+
       if (error) throw error;
-      return data.map(item => item.groups).filter(Boolean);
+      return data.map((item) => item.groups).filter(Boolean);
     },
     enabled: !!profile?.id,
   });
 
   // Fetch user's orders (only for own profile and non-vendors)
   const { data: orders = [] } = useQuery({
-    queryKey: ['user-orders', profile?.id],
+    queryKey: ["user-orders", profile?.id],
     queryFn: async () => {
       if (!profile?.id || isVendor || !isOwnProfile) return [];
-      
+
       const { data, error } = await supabase
-        .from('orders')
-        .select(`
+        .from("orders")
+        .select(
+          `
           *,
           order_items (
             *,
@@ -277,10 +315,11 @@ const UserProfile = () => {
               image_url
             )
           )
-        `)
-        .eq('user_id', profile.id)
-        .order('created_at', { ascending: false });
-      
+        `
+        )
+        .eq("user_id", profile.id)
+        .order("created_at", { ascending: false });
+
       if (error) throw error;
       return data;
     },
@@ -289,22 +328,24 @@ const UserProfile = () => {
 
   // Fetch user's cart (only for own profile and non-vendors)
   const { data: cartItems = [] } = useQuery({
-    queryKey: ['user-cart', profile?.id],
+    queryKey: ["user-cart", profile?.id],
     queryFn: async () => {
       if (!profile?.id || isVendor || !isOwnProfile) return [];
-      
+
       const { data, error } = await supabase
-        .from('cart_items')
-        .select(`
+        .from("cart_items")
+        .select(
+          `
           *,
           products (
             name,
             image_url,
             price
           )
-        `)
-        .eq('user_id', profile.id);
-      
+        `
+        )
+        .eq("user_id", profile.id);
+
       if (error) throw error;
       return data;
     },
@@ -317,23 +358,27 @@ const UserProfile = () => {
 
   // Sidebar navigation items
   const getUserNavItems = () => [
-    { id: 'posts', label: 'Posts', icon: FileText },
-    { id: 'groups', label: 'Groups', icon: Users },
-    ...(isOwnProfile ? [
-      { id: 'orders', label: 'Orders', icon: ShoppingCart },
-      { id: 'cart', label: 'Cart', icon: ShoppingCart },
-    ] : [])
+    { id: "posts", label: "Posts", icon: FileText },
+    { id: "groups", label: "Groups", icon: Users },
+    ...(isOwnProfile
+      ? [
+          { id: "orders", label: "Orders", icon: ShoppingCart },
+          { id: "cart", label: "Cart", icon: ShoppingCart },
+        ]
+      : []),
   ];
 
   const getVendorNavItems = () => [
-    { id: 'overview', label: 'Overview', icon: BarChart3 },
-    { id: 'products', label: 'Products', icon: Package },
-    { id: 'posts', label: 'Posts', icon: FileText },
-    { id: 'groups', label: 'Groups', icon: Users },
-    ...(isOwnProfile ? [
-      { id: 'kyc', label: 'KYC Status', icon: Shield },
-      { id: 'company', label: 'Company Info', icon: Building },
-    ] : [])
+    { id: "overview", label: "Overview", icon: BarChart3 },
+    { id: "products", label: "Products", icon: Package },
+    { id: "posts", label: "Posts", icon: FileText },
+    { id: "groups", label: "Groups", icon: Users },
+    ...(isOwnProfile
+      ? [
+          { id: "kyc", label: "KYC Status", icon: Shield },
+          { id: "company", label: "Company Info", icon: Building },
+        ]
+      : []),
   ];
 
   const navItems = isVendor ? getVendorNavItems() : getUserNavItems();
@@ -342,22 +387,22 @@ const UserProfile = () => {
   const updateProfileMutation = useMutation({
     mutationFn: async (updatedData: any) => {
       const { error } = await supabase
-        .from('profiles')
+        .from("profiles")
         .update(updatedData)
-        .eq('id', profile?.id);
-      
+        .eq("id", profile?.id);
+
       if (error) throw error;
     },
     onSuccess: () => {
       toast({ title: "Profile updated successfully!" });
       setEditingProfile(false);
-      queryClient.invalidateQueries({ queryKey: ['user-profile'] });
+      queryClient.invalidateQueries({ queryKey: ["user-profile"] });
     },
     onError: (error: any) => {
-      toast({ 
-        title: "Error updating profile", 
+      toast({
+        title: "Error updating profile",
         description: error.message,
-        variant: "destructive" 
+        variant: "destructive",
       });
     },
   });
@@ -368,7 +413,7 @@ const UserProfile = () => {
 
   // Bulk selection handlers
   const handleProductSelection = (productId: string, isSelected: boolean) => {
-    setSelectedProducts(prev => {
+    setSelectedProducts((prev) => {
       const newSet = new Set(prev);
       if (isSelected) {
         newSet.add(productId);
@@ -381,7 +426,7 @@ const UserProfile = () => {
 
   const handleSelectAll = () => {
     const filteredProducts = getFilteredProducts();
-    const allProductIds = filteredProducts.map(p => p.id);
+    const allProductIds = filteredProducts.map((p) => p.id);
     setSelectedProducts(new Set(allProductIds));
   };
 
@@ -396,20 +441,23 @@ const UserProfile = () => {
 
   // Get tier info for a product
   const getProductTierInfo = (productId: string) => {
-    const tiers = productTiers.filter(t => t.product_id === productId);
+    const tiers = productTiers.filter((t) => t.product_id === productId);
     const hasTiers = tiers.length > 0;
-    const maxDiscount = tiers.length > 0 ? Math.max(...tiers.map(t => t.discount_percentage)) : 0;
+    const maxDiscount =
+      tiers.length > 0
+        ? Math.max(...tiers.map((t) => t.discount_percentage))
+        : 0;
     return { hasTieredDiscount: hasTiers, maxDiscount };
   };
 
   // Filter products based on current filter
   const getFilteredProducts = () => {
-    if (productFilter === 'all') return products;
-    
-    return products.filter(product => {
+    if (productFilter === "all") return products;
+
+    return products.filter((product) => {
       const { hasTieredDiscount } = getProductTierInfo(product.id);
-      if (productFilter === 'with-tiers') return hasTieredDiscount;
-      if (productFilter === 'without-tiers') return !hasTieredDiscount;
+      if (productFilter === "with-tiers") return hasTieredDiscount;
+      if (productFilter === "without-tiers") return !hasTieredDiscount;
       return true;
     });
   };
@@ -419,13 +467,15 @@ const UserProfile = () => {
     if (!isVendor || !isOwnProfile) return null;
 
     if (!kycData) {
-    return (
+      return (
         <Alert className="mb-6 border-orange-200 bg-orange-50">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <span>Please complete your KYC verification to start selling products.</span>
-              <Button 
+              <span>
+                Please complete your KYC verification to start selling products.
+              </span>
+              <Button
                 onClick={() => setShowKYCForm(true)}
                 size="sm"
                 className="self-start sm:self-auto"
@@ -438,12 +488,13 @@ const UserProfile = () => {
       );
     }
 
-    if (kycData.status === 'pending') {
+    if (kycData.status === "pending") {
       return (
         <Alert className="mb-6 border-blue-200 bg-blue-50">
           <Clock className="h-4 w-4" />
           <AlertDescription>
-            Your KYC verification is pending approval. We'll notify you once it's processed.
+            Your KYC verification is pending approval. We'll notify you once
+            it's processed.
           </AlertDescription>
         </Alert>
       );
@@ -458,34 +509,50 @@ const UserProfile = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Products</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Total Products
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{vendorStats?.totalProducts || 0}</div>
+            <div className="text-2xl font-bold">
+              {vendorStats?.totalProducts || 0}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Active Products</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Active Products
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{vendorStats?.activeProducts || 0}</div>
+            <div className="text-2xl font-bold text-green-600">
+              {vendorStats?.activeProducts || 0}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Total Sold</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Total Sold
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{vendorStats?.totalSold || 0}</div>
+            <div className="text-2xl font-bold">
+              {vendorStats?.totalSold || 0}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-gray-600">Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium text-gray-600">
+              Revenue
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{vendorStats?.totalRevenue || 0}</div>
+            <div className="text-2xl font-bold">
+              ₹{vendorStats?.totalRevenue || 0}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -494,7 +561,9 @@ const UserProfile = () => {
           <CardTitle>Last Month Sales</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-3xl font-bold text-pink-600">₹{vendorStats?.lastMonthSales || 0}</div>
+          <div className="text-3xl font-bold text-pink-600">
+            ₹{vendorStats?.lastMonthSales || 0}
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -505,7 +574,7 @@ const UserProfile = () => {
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Posts</h3>
         {isOwnProfile && (
-          <Button onClick={() => navigate('/feed')}>
+          <Button onClick={() => navigate("/feed")}>
             <Plus className="w-4 h-4 mr-2" />
             Create Post
           </Button>
@@ -525,12 +594,10 @@ const UserProfile = () => {
                 <p>{post.content}</p>
                 <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
                   <span className="flex items-center gap-1">
-                    <Heart className="w-4 h-4" />
-                    0
+                    <Heart className="w-4 h-4" />0
                   </span>
                   <span className="flex items-center gap-1">
-                    <MessageCircle className="w-4 h-4" />
-                    0
+                    <MessageCircle className="w-4 h-4" />0
                   </span>
                   <span>{new Date(post.created_at).toLocaleDateString()}</span>
                 </div>
@@ -543,9 +610,9 @@ const UserProfile = () => {
   );
 
   const renderProducts = () => {
-    const isKYCApproved = kycData?.status === 'approved';
-    const isKYCPending = kycData?.status === 'pending';
-    const isKYCRejected = kycData?.status === 'rejected';
+    const isKYCApproved = kycData?.status === "approved";
+    const isKYCPending = kycData?.status === "pending";
+    const isKYCRejected = kycData?.status === "rejected";
     const hasNoKYC = !kycData;
 
     // Helper function to render KYC status banner
@@ -556,13 +623,16 @@ const UserProfile = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <span>Complete your KYC verification to start selling products on the marketplace.</span>
-                <Button 
+                <span>
+                  Complete your KYC verification to start selling products on
+                  the marketplace.
+                </span>
+                <Button
                   onClick={() => setShowKYCForm(true)}
                   size="sm"
                   className="self-start sm:self-auto"
                 >
-                  {hasNoKYC ? 'Initiate KYC' : 'Resubmit KYC'}
+                  {hasNoKYC ? "Initiate KYC" : "Resubmit KYC"}
                 </Button>
               </div>
             </AlertDescription>
@@ -575,7 +645,8 @@ const UserProfile = () => {
           <Alert className="mb-6 border-blue-200 bg-blue-50">
             <Clock className="h-4 w-4" />
             <AlertDescription>
-              Your KYC verification is pending approval. You'll be able to add products once approved.
+              Your KYC verification is pending approval. You'll be able to add
+              products once approved.
             </AlertDescription>
           </Alert>
         );
@@ -591,7 +662,7 @@ const UserProfile = () => {
         {/* Header with actions */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <h3 className="text-lg font-semibold">Products</h3>
-          
+
           {isOwnProfile && isKYCApproved && (
             <div className="flex gap-2">
               <Button
@@ -606,10 +677,16 @@ const UserProfile = () => {
                 <Button
                   variant="outline"
                   onClick={toggleBulkSelectionMode}
-                  className={`flex items-center gap-2 ${isBulkSelectionMode ? "bg-pink-50 border-pink-300 text-pink-700" : ""}`}
+                  className={`flex items-center gap-2 ${
+                    isBulkSelectionMode
+                      ? "bg-pink-50 border-pink-300 text-pink-700"
+                      : ""
+                  }`}
                 >
                   <TrendingUp className="w-4 h-4" />
-                  {isBulkSelectionMode ? "Exit Selection" : "Add Bulk Tiered Discount"}
+                  {isBulkSelectionMode
+                    ? "Exit Selection"
+                    : "Add Bulk Tiered Discount"}
                 </Button>
               )}
               <Button onClick={() => setShowProductForm(true)}>
@@ -627,7 +704,7 @@ const UserProfile = () => {
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600">Filter:</span>
               <div className="flex gap-1">
-                {['all', 'with-tiers', 'without-tiers'].map((filter) => (
+                {["all", "with-tiers", "without-tiers"].map((filter) => (
                   <Button
                     key={filter}
                     variant={productFilter === filter ? "default" : "outline"}
@@ -635,7 +712,11 @@ const UserProfile = () => {
                     onClick={() => setProductFilter(filter as any)}
                     className="text-xs"
                   >
-                    {filter === 'all' ? 'All' : filter === 'with-tiers' ? 'With Tiers' : 'Without Tiers'}
+                    {filter === "all"
+                      ? "All"
+                      : filter === "with-tiers"
+                      ? "With Tiers"
+                      : "Without Tiers"}
                   </Button>
                 ))}
               </div>
@@ -669,7 +750,9 @@ const UserProfile = () => {
                 <CardContent className="text-center py-8">
                   <Package className="w-12 h-12 mx-auto text-gray-400 mb-4" />
                   <p className="text-gray-500">
-                    {products.length === 0 ? "No products yet." : "No products match the current filter."}
+                    {products.length === 0
+                      ? "No products yet."
+                      : "No products match the current filter."}
                   </p>
                 </CardContent>
               </Card>
@@ -712,24 +795,31 @@ const UserProfile = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {userGroups.map((group) => (
-            <Card key={group.id} className="cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => navigate(`/groups/${group.id}`)}>
+            <Card
+              key={group.id}
+              className="cursor-pointer hover:shadow-md transition-shadow"
+              onClick={() => navigate(`/groups/${group.id}`)}
+            >
               <CardContent className="p-4">
                 <div className="flex items-center gap-3 mb-2">
-                  <img 
-                    src={group.products?.image_url || '/placeholder.svg'} 
+                  <img
+                    src={group.products?.image_url || "/placeholder.svg"}
                     alt={group.products?.name}
                     className="w-10 h-10 rounded object-cover"
                   />
                   <div>
                     <h4 className="font-semibold">{group.name}</h4>
-                    <p className="text-sm text-gray-600">{group.products?.name}</p>
+                    <p className="text-sm text-gray-600">
+                      {group.products?.name}
+                    </p>
                   </div>
                 </div>
-                <p className="text-sm text-gray-600 line-clamp-2">{group.description}</p>
+                <p className="text-sm text-gray-600 line-clamp-2">
+                  {group.description}
+                </p>
                 <div className="flex items-center justify-between mt-3 text-sm">
                   <Badge variant={group.is_private ? "secondary" : "default"}>
-                    {group.is_private ? 'Private' : 'Public'}
+                    {group.is_private ? "Private" : "Public"}
                   </Badge>
                   <span className="text-gray-500">
                     {new Date(group.created_at).toLocaleDateString()}
@@ -760,8 +850,12 @@ const UserProfile = () => {
               <CardContent className="p-4">
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-3 gap-2">
                   <div>
-                    <h4 className="font-medium">Order #{order.id.slice(0, 8)}</h4>
-                    <p className="text-sm text-gray-600">Status: {order.status}</p>
+                    <h4 className="font-medium">
+                      Order #{order.id.slice(0, 8)}
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      Status: {order.status}
+                    </p>
                     <p className="text-sm text-gray-600">
                       Date: {new Date(order.created_at).toLocaleDateString()}
                     </p>
@@ -770,13 +864,18 @@ const UserProfile = () => {
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {order.order_items?.map((item: any) => (
-                    <div key={item.id} className="flex items-center gap-2 bg-gray-50 rounded p-2">
-                      <img 
-                        src={item.products?.image_url || '/placeholder.svg'}
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-2 bg-gray-50 rounded p-2"
+                    >
+                      <img
+                        src={item.products?.image_url || "/placeholder.svg"}
                         alt={item.products?.name}
                         className="w-8 h-8 rounded object-cover"
                       />
-                      <span className="text-sm">{item.products?.name} x{item.quantity}</span>
+                      <span className="text-sm">
+                        {item.products?.name} x{item.quantity}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -804,14 +903,16 @@ const UserProfile = () => {
             <Card key={item.id}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-4">
-                  <img 
-                    src={item.products?.image_url || '/placeholder.svg'}
+                  <img
+                    src={item.products?.image_url || "/placeholder.svg"}
                     alt={item.products?.name}
                     className="w-16 h-16 rounded object-cover"
                   />
                   <div className="flex-1">
                     <h4 className="font-semibold">{item.products?.name}</h4>
-                    <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
+                    <p className="text-sm text-gray-600">
+                      Quantity: {item.quantity}
+                    </p>
                     <p className="text-lg font-bold">₹{item.products?.price}</p>
                   </div>
                 </div>
@@ -831,7 +932,9 @@ const UserProfile = () => {
           <CardContent className="text-center py-8">
             <AlertCircle className="w-12 h-12 mx-auto text-orange-400 mb-4" />
             <h4 className="font-semibold mb-2">KYC Not Completed</h4>
-            <p className="text-gray-600 mb-4">Complete your KYC verification to start selling</p>
+            <p className="text-gray-600 mb-4">
+              Complete your KYC verification to start selling
+            </p>
             <Button onClick={() => setShowKYCForm(true)}>Complete KYC</Button>
           </CardContent>
         </Card>
@@ -839,27 +942,31 @@ const UserProfile = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-3 mb-4">
-              {kycData.status === 'approved' ? (
+              {kycData.status === "approved" ? (
                 <CheckCircle className="w-8 h-8 text-green-500" />
-              ) : kycData.status === 'pending' ? (
+              ) : kycData.status === "pending" ? (
                 <Clock className="w-8 h-8 text-blue-500" />
               ) : (
                 <AlertCircle className="w-8 h-8 text-red-500" />
               )}
               <div>
                 <h4 className="font-semibold">
-                  {kycData.status === 'approved' ? 'Verified' : 
-                   kycData.status === 'pending' ? 'Pending' : 'Rejected'}
+                  {kycData.status === "approved"
+                    ? "Verified"
+                    : kycData.status === "pending"
+                    ? "Pending"
+                    : "Rejected"}
                 </h4>
                 <p className="text-sm text-gray-600">
                   Business Name: {kycData.business_name}
                 </p>
               </div>
             </div>
-            {kycData.status === 'rejected' && (
+            {kycData.status === "rejected" && (
               <div className="mt-4">
                 <p className="text-sm text-red-600 mb-4">
-                  Your KYC was rejected. Please resubmit with correct information.
+                  Your KYC was rejected. Please resubmit with correct
+                  information.
                 </p>
                 <Button onClick={() => setShowKYCForm(true)} variant="outline">
                   Resubmit KYC
@@ -879,7 +986,9 @@ const UserProfile = () => {
         <Card>
           <CardContent className="text-center py-8">
             <Building className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500">Complete KYC to view company information.</p>
+            <p className="text-gray-500">
+              Complete KYC to view company information.
+            </p>
           </CardContent>
         </Card>
       ) : (
@@ -887,57 +996,73 @@ const UserProfile = () => {
           <CardContent className="p-6 space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm font-medium text-gray-600">Business Name</Label>
+                <Label className="text-sm font-medium text-gray-600">
+                  Business Name
+                </Label>
                 <p className="font-semibold">{kycData.business_name}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium text-gray-600">Display Name</Label>
+                <Label className="text-sm font-medium text-gray-600">
+                  Display Name
+                </Label>
                 <p className="font-semibold">{kycData.display_business_name}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium text-gray-600">Business Type</Label>
+                <Label className="text-sm font-medium text-gray-600">
+                  Business Type
+                </Label>
                 <p className="font-semibold">{kycData.business_type}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium text-gray-600">Registration Number</Label>
-                <p className="font-semibold">{kycData.business_registration_number}</p>
+                <Label className="text-sm font-medium text-gray-600">
+                  Registration Number
+                </Label>
+                <p className="font-semibold">
+                  {kycData.business_registration_number}
+                </p>
               </div>
               <div className="sm:col-span-2">
-                <Label className="text-sm font-medium text-gray-600">Business Address</Label>
+                <Label className="text-sm font-medium text-gray-600">
+                  Business Address
+                </Label>
                 <p className="font-semibold">{kycData.business_address}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium text-gray-600">Contact Email</Label>
+                <Label className="text-sm font-medium text-gray-600">
+                  Contact Email
+                </Label>
                 <p className="font-semibold">{kycData.contact_email}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium text-gray-600">Contact Phone</Label>
+                <Label className="text-sm font-medium text-gray-600">
+                  Contact Phone
+                </Label>
                 <p className="font-semibold">{kycData.contact_phone}</p>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
-          </div>
+    </div>
   );
 
   const renderContent = () => {
     switch (activeSection) {
-      case 'overview':
+      case "overview":
         return renderOverview();
-      case 'posts':
+      case "posts":
         return renderPosts();
-      case 'products':
+      case "products":
         return renderProducts();
-      case 'groups':
+      case "groups":
         return renderGroups();
-      case 'orders':
+      case "orders":
         return renderOrders();
-      case 'cart':
+      case "cart":
         return renderCart();
-      case 'kyc':
+      case "kyc":
         return renderKYCStatus();
-      case 'company':
+      case "company":
         return renderCompanyInfo();
       default:
         return renderPosts();
@@ -945,7 +1070,7 @@ const UserProfile = () => {
   };
 
   if (!profileUserId) {
-    navigate('/auth');
+    navigate("/auth");
     return null;
   }
 
@@ -961,8 +1086,10 @@ const UserProfile = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">User not found</h1>
-          <Button onClick={() => navigate('/')}>Go Home</Button>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            User not found
+          </h1>
+          <Button onClick={() => navigate("/")}>Go Home</Button>
         </div>
       </div>
     );
@@ -971,13 +1098,13 @@ const UserProfile = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Header />
-      
+
       {/* Main Content Container */}
       <div className="flex-1 container mx-auto px-2 sm:px-4 py-4 sm:py-8 mt-20">
         <KYCStatusBanner />
-        
+
         {/* Profile Header */}
-        <Card className="mb-6 sm:mb-8">
+        <Card className="mb-3 sm:mb-5">
           <CardContent className="p-4 sm:p-6">
             {/* Main Profile Info */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-6">
@@ -987,42 +1114,56 @@ const UserProfile = () => {
                   {profile.full_name?.[0] || profile.email[0].toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              
+
               <div className="flex-1 space-y-3 sm:space-y-4 text-center sm:text-left">
                 <div>
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 mb-2">
-                    <h1 className="text-2xl sm:text-3xl font-bold">{profile.full_name || profile.email}</h1>
-                    {isVendor && kycData?.status === 'approved' && (
+                    <h1 className="text-2xl sm:text-3xl font-bold">
+                      {profile.full_name || profile.email}
+                    </h1>
+                    {isVendor && kycData?.status === "approved" && (
                       <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-500 mx-auto sm:mx-0" />
                     )}
                   </div>
-                  <p className="text-gray-600">@{profile.email.split('@')[0]}</p>
+                  <p className="text-gray-600">
+                    @{profile.email.split("@")[0]}
+                  </p>
                   <Badge variant="outline" className="mt-2 capitalize">
                     {profile.role}
                   </Badge>
                 </div>
-                
+
                 {/* Stats */}
                 <div className="flex justify-center sm:justify-start gap-6 sm:gap-8">
                   <div className="text-center">
-                    <div className="text-lg sm:text-xl font-bold">{posts.length}</div>
-                    <div className="text-xs sm:text-sm text-gray-600">Posts</div>
+                    <div className="text-lg sm:text-xl font-bold">
+                      {posts.length}
+                    </div>
+                    <div className="text-xs sm:text-sm text-gray-600">
+                      Posts
+                    </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-lg sm:text-xl font-bold">{followersCount}</div>
-                    <div className="text-xs sm:text-sm text-gray-600">Followers</div>
+                    <div className="text-lg sm:text-xl font-bold">
+                      {followersCount}
+                    </div>
+                    <div className="text-xs sm:text-sm text-gray-600">
+                      Followers
+                    </div>
                   </div>
                   <div className="text-center">
-                    <div className="text-lg sm:text-xl font-bold">{followingCount}</div>
-                    <div className="text-xs sm:text-sm text-gray-600">Following</div>
+                    <div className="text-lg sm:text-xl font-bold">
+                      {followingCount}
+                    </div>
+                    <div className="text-xs sm:text-sm text-gray-600">
+                      Following
+                    </div>
                   </div>
                 </div>
-                
+
                 {/* Bio */}
-                {profile.bio && (
-                  <p className="text-gray-800">{profile.bio}</p>
-                )}
-                
+                {profile.bio && <p className="text-gray-800">{profile.bio}</p>}
+
                 {/* Additional Info */}
                 <div className="flex flex-wrap justify-center sm:justify-start gap-3 sm:gap-4 text-xs sm:text-sm text-gray-600">
                   {profile.location && (
@@ -1033,18 +1174,22 @@ const UserProfile = () => {
                   )}
                   <span className="flex items-center gap-1">
                     <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
-                    Joined {new Date(profile.created_at).toLocaleDateString('en-US', { 
-                      month: 'long', 
-                      year: 'numeric' 
+                    Joined{" "}
+                    {new Date(profile.created_at).toLocaleDateString("en-US", {
+                      month: "long",
+                      year: "numeric",
                     })}
                   </span>
                 </div>
               </div>
-              
+
               {/* Action Buttons */}
               <div className="flex gap-2 w-full sm:w-auto">
                 {isOwnProfile ? (
-                  <Button onClick={() => setEditingProfile(true)} className="flex-1 sm:flex-none">
+                  <Button
+                    onClick={() => setEditingProfile(true)}
+                    className="flex-1 sm:flex-none"
+                  >
                     <Edit className="w-4 h-4 mr-2" />
                     Edit Profile
                   </Button>
@@ -1059,56 +1204,64 @@ const UserProfile = () => {
         </Card>
 
         {/* Main Content with Sidebar */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-8 min-h-[600px]">
-          {/* Mobile Navigation Toggle */}
-          <div className="lg:hidden mb-4">
-            <Button 
-              variant="outline" 
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="w-full flex items-center justify-between"
+        {profile.role === "admin" ? (
+          <AdminDashboard />
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-8 min-h-[600px]">
+            {/* Mobile Navigation Toggle */}
+            <div className="lg:hidden mb-4">
+              <Button
+                variant="outline"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="w-full flex items-center justify-between"
+              >
+                <span>Navigation</span>
+                {mobileMenuOpen ? (
+                  <X className="w-4 h-4" />
+                ) : (
+                  <Menu className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
+
+            {/* Sidebar */}
+            <div
+              className={cn(
+                "lg:col-span-1",
+                mobileMenuOpen ? "block" : "hidden lg:block"
+              )}
             >
-              <span>Navigation</span>
-              {mobileMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-            </Button>
-          </div>
+              <Card className="h-full lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)]">
+                <CardContent className="p-3 sm:p-4 h-full flex flex-col">
+                  <nav className="space-y-1 sm:space-y-2">
+                    {navItems.map((item) => (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveSection(item.id)}
+                        className={cn(
+                          "w-full flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 rounded-lg text-left transition-colors text-sm sm:text-base",
+                          activeSection === item.id
+                            ? "bg-pink-100 text-pink-700"
+                            : "hover:bg-gray-100"
+                        )}
+                      >
+                        <item.icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                        {item.label}
+                      </button>
+                    ))}
+                  </nav>
+                  {/* Spacer to fill remaining height */}
+                  <div className="flex-1"></div>
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* Sidebar */}
-          <div className={cn(
-            "lg:col-span-1",
-            mobileMenuOpen ? "block" : "hidden lg:block"
-          )}>
-            <Card className="h-full lg:sticky lg:top-24 lg:max-h-[calc(100vh-8rem)]">
-              <CardContent className="p-3 sm:p-4 h-full flex flex-col">
-                <nav className="space-y-1 sm:space-y-2">
-                  {navItems.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => setActiveSection(item.id)}
-                      className={cn(
-                        "w-full flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 rounded-lg text-left transition-colors text-sm sm:text-base",
-                        activeSection === item.id
-                          ? "bg-pink-100 text-pink-700"
-                          : "hover:bg-gray-100"
-                      )}
-                    >
-                      <item.icon className="w-4 h-4 sm:w-5 sm:h-5" />
-                      {item.label}
-                    </button>
-                  ))}
-                </nav>
-                {/* Spacer to fill remaining height */}
-                <div className="flex-1"></div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Content Area */}
-          <div className="lg:col-span-3 min-h-[500px]">
-            <div className="space-y-6">
-              {renderContent()}
+            {/* Content Area */}
+            <div className="lg:col-span-3 min-h-[500px]">
+              <div className="space-y-6">{renderContent()}</div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Edit Profile Dialog */}
@@ -1124,7 +1277,12 @@ const UserProfile = () => {
                 <Input
                   id="full_name"
                   value={profileForm.full_name}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, full_name: e.target.value }))}
+                  onChange={(e) =>
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      full_name: e.target.value,
+                    }))
+                  }
                 />
               </div>
               <div>
@@ -1132,7 +1290,9 @@ const UserProfile = () => {
                 <Input
                   id="bio"
                   value={profileForm.bio}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, bio: e.target.value }))}
+                  onChange={(e) =>
+                    setProfileForm((prev) => ({ ...prev, bio: e.target.value }))
+                  }
                 />
               </div>
               <div>
@@ -1140,7 +1300,12 @@ const UserProfile = () => {
                 <Input
                   id="location"
                   value={profileForm.location}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, location: e.target.value }))}
+                  onChange={(e) =>
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      location: e.target.value,
+                    }))
+                  }
                 />
               </div>
               <div>
@@ -1148,35 +1313,37 @@ const UserProfile = () => {
                 <Input
                   id="website"
                   value={profileForm.website}
-                  onChange={(e) => setProfileForm(prev => ({ ...prev, website: e.target.value }))}
+                  onChange={(e) =>
+                    setProfileForm((prev) => ({
+                      ...prev,
+                      website: e.target.value,
+                    }))
+                  }
                 />
               </div>
               <div className="flex gap-2">
-                <Button onClick={handleProfileUpdate} className="flex-1">Save Changes</Button>
-                <Button variant="outline" onClick={() => setEditingProfile(false)} className="flex-1">Cancel</Button>
+                <Button onClick={handleProfileUpdate} className="flex-1">
+                  Save Changes
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setEditingProfile(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
               </div>
             </CardContent>
           </Card>
         </div>
       )}
-
-      {/* Dialogs */}
-      {showKYCForm && (
-        <KYCForm 
-          onClose={() => setShowKYCForm(false)}
-          onSuccess={() => {
-            setShowKYCForm(false);
-            queryClient.invalidateQueries({ queryKey: ['kyc'] });
-          }}
-        />
-      )}
-
+      
       {showProductForm && (
-        <ProductForm 
+        <ProductForm
           onClose={() => setShowProductForm(false)}
           onSuccess={() => {
             setShowProductForm(false);
-            queryClient.invalidateQueries({ queryKey: ['vendor-products'] });
+            queryClient.invalidateQueries({ queryKey: ["vendor-products"] });
           }}
         />
       )}
@@ -1185,13 +1352,13 @@ const UserProfile = () => {
         <ImportProductsModal
           onClose={() => setShowImportModal(false)}
           onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ['vendor-products'] });
-            queryClient.invalidateQueries({ queryKey: ['vendor-stats'] });
+            queryClient.invalidateQueries({ queryKey: ["vendor-products"] });
+            queryClient.invalidateQueries({ queryKey: ["vendor-stats"] });
           }}
         />
       )}
 
-            {/* Floating Action Button for Bulk Discount - Centered and Bigger */}
+      {/* Floating Action Button for Bulk Discount - Centered and Bigger */}
       {selectedProducts.size > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 100, scale: 0.8 }}
@@ -1205,7 +1372,8 @@ const UserProfile = () => {
             className="bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white shadow-2xl hover:shadow-3xl transition-all duration-300 rounded-full px-8 py-4 text-lg font-semibold min-w-[280px] h-14"
           >
             <TrendingUp className="w-6 h-6 mr-3" />
-            Add Tiers to {selectedProducts.size} Product{selectedProducts.size > 1 ? 's' : ''}
+            Add Tiers to {selectedProducts.size} Product
+            {selectedProducts.size > 1 ? "s" : ""}
             {selectedProducts.size > 100 && (
               <span className="ml-2 text-sm opacity-75">Max 100</span>
             )}
@@ -1222,8 +1390,8 @@ const UserProfile = () => {
             setShowBulkDiscountModal(false);
             setSelectedProducts(new Set());
             setIsBulkSelectionMode(false);
-            queryClient.invalidateQueries({ queryKey: ['vendor-products'] });
-            queryClient.invalidateQueries({ queryKey: ['product-tiers-bulk'] });
+            queryClient.invalidateQueries({ queryKey: ["vendor-products"] });
+            queryClient.invalidateQueries({ queryKey: ["product-tiers-bulk"] });
           }}
         />
       )}
