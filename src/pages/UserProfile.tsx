@@ -136,17 +136,17 @@ const UserProfile = () => {
     setMobileMenuOpen(false);
   }, [activeSection]);
 
-  // Fetch KYC data for vendors
+  // Fetch KYC data for vendors (only active records)
   const { data: kycData } = useQuery({
     queryKey: ["kyc", profile?.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("vendor_kyc")
-        .select("*")
-        .eq("vendor_id", profile?.id)
+        .from('vendor_kyc')
+        .select('*')
+        .eq('vendor_id', profile?.id)
         .single();
-
-      if (error && error.code !== "PGRST116") throw error;
+      
+      if (error && error.code !== 'PGRST116') throw error;
       return data;
     },
     enabled: !!profile?.id && isVendor,
@@ -462,12 +462,29 @@ const UserProfile = () => {
     });
   };
 
-  // KYC status banner (only for own vendor profile when not approved)
+  // Helper to determine KYC status
+  const getKYCStatus = () => {
+    if (!isVendor || !isOwnProfile) return { status: 'not_vendor' };
+    if (!kycData) return { status: 'none' };
+    if (kycData.status === 'pending') return { status: 'pending' };
+    if (kycData.status === 'rejected') return { status: 'rejected', reason: kycData.rejection_reason };
+    if (kycData.status === 'approved') return { status: 'approved' };
+    return { status: 'unknown' };
+  };
+
+  // KYC status flags
+  const kycStatus = getKYCStatus();
+  const isKYCApproved = kycStatus.status === 'approved';
+  const isKYCPending = kycStatus.status === 'pending';
+  const isKYCRejected = kycStatus.status === 'rejected';
+  const hasNoKYC = kycStatus.status === 'none';
+
+  // Updated KYC status banner
   const KYCStatusBanner = () => {
     if (!isVendor || !isOwnProfile) return null;
 
     if (!kycData) {
-      return (
+    return (
         <Alert className="mb-6 border-orange-200 bg-orange-50">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -488,7 +505,7 @@ const UserProfile = () => {
       );
     }
 
-    if (kycData.status === "pending") {
+    if (kycData.status === 'pending') {
       return (
         <Alert className="mb-6 border-blue-200 bg-blue-50">
           <Clock className="h-4 w-4" />
@@ -499,7 +516,18 @@ const UserProfile = () => {
         </Alert>
       );
     }
-
+    if (isKYCRejected) {
+      return (
+        <Alert className="mb-6 border-red-200 bg-red-50">
+          <AlertCircle className="h-4 w-4 text-red-500" />
+          <AlertDescription>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span>Your KYC was rejected. Reason: <span className="font-semibold">{kycStatus.reason || 'No reason provided.'}</span></span>
+            </div>
+          </AlertDescription>
+        </Alert>
+      );
+    }
     return null;
   };
 
@@ -610,14 +638,14 @@ const UserProfile = () => {
   );
 
   const renderProducts = () => {
-    const isKYCApproved = kycData?.status === "approved";
-    const isKYCPending = kycData?.status === "pending";
-    const isKYCRejected = kycData?.status === "rejected";
+    const isKYCApproved = kycData?.status === 'approved';
+    const isKYCPending = kycData?.status === 'pending';
+    const isKYCRejected = kycData?.status === 'rejected';
     const hasNoKYC = !kycData;
 
     // Helper function to render KYC status banner
     const renderKYCBanner = () => {
-      if (hasNoKYC || isKYCRejected) {
+      if (hasNoKYC) {
         return (
           <Alert className="mb-6 border-orange-200 bg-orange-50">
             <AlertCircle className="h-4 w-4" />
@@ -647,6 +675,27 @@ const UserProfile = () => {
             <AlertDescription>
               Your KYC verification is pending approval. You'll be able to add
               products once approved.
+            </AlertDescription>
+          </Alert>
+        );
+      }
+
+      if (isKYCRejected) {
+        return (
+          <Alert className="mb-6 border-red-200 bg-red-50">
+            <AlertCircle className="h-4 w-4 text-red-500" />
+            <AlertDescription>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span>Your KYC was rejected. Reason: <span className="font-semibold">{kycStatus.reason || 'No reason provided.'}</span></span>
+                <Button 
+                  onClick={() => setShowKYCForm(true)}
+                  size="sm"
+                  variant="outline"
+                  className="self-start sm:self-auto"
+                >
+                  Resubmit KYC
+                </Button>
+              </div>
             </AlertDescription>
           </Alert>
         );
@@ -740,7 +789,7 @@ const UserProfile = () => {
         )}
 
         {/* Show KYC banner for own profile if KYC not approved */}
-        {isOwnProfile && !isKYCApproved && renderKYCBanner()}
+        {isOwnProfile && renderKYCBanner()}
 
         {/* Only show product content if KYC is approved or viewing someone else's profile */}
         {(isKYCApproved || !isOwnProfile) && (
@@ -927,7 +976,7 @@ const UserProfile = () => {
   const renderKYCStatus = () => (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold">KYC Verification Status</h3>
-      {!kycData ? (
+      {!kycData && !showKYCForm ? (
         <Card>
           <CardContent className="text-center py-8">
             <AlertCircle className="w-12 h-12 mx-auto text-orange-400 mb-4" />
@@ -936,6 +985,16 @@ const UserProfile = () => {
               Complete your KYC verification to start selling
             </p>
             <Button onClick={() => setShowKYCForm(true)}>Complete KYC</Button>
+          </CardContent>
+        </Card>
+      ) : showKYCForm ? (
+        <Card>
+          <CardContent className="py-8">
+            <KYCForm
+              isInline
+              existingData={kycData}
+              onClose={() => setShowKYCForm(false)}
+            />
           </CardContent>
         </Card>
       ) : (
@@ -960,13 +1019,20 @@ const UserProfile = () => {
                 <p className="text-sm text-gray-600">
                   Business Name: {kycData.business_name}
                 </p>
+                {kycData.version > 1 && (
+                  <p className="text-xs text-gray-500">
+                    Version {kycData.version} • Submission #{kycData.submission_count}
+                  </p>
+                )}
               </div>
+              <Badge variant={kycData.status === 'approved' ? 'default' : kycData.status === 'pending' ? 'secondary' : 'destructive'}>
+                {kycData.status}
+              </Badge>
             </div>
             {kycData.status === "rejected" && (
               <div className="mt-4">
                 <p className="text-sm text-red-600 mb-4">
-                  Your KYC was rejected. Please resubmit with correct
-                  information.
+                  Your KYC was rejected. Please resubmit with correct information.
                 </p>
                 <Button onClick={() => setShowKYCForm(true)} variant="outline">
                   Resubmit KYC
@@ -1102,7 +1168,7 @@ const UserProfile = () => {
       {/* Main Content Container */}
       <div className="flex-1 container mx-auto px-2 sm:px-4 py-4 sm:py-8 mt-20">
         <KYCStatusBanner />
-
+        
         {/* Profile Header */}
         <Card className="mb-3 sm:mb-5">
           <CardContent className="p-4 sm:p-6">
@@ -1337,7 +1403,18 @@ const UserProfile = () => {
           </Card>
         </div>
       )}
-      
+
+      {/* Dialogs */}
+      {showKYCForm && (
+        <KYCForm 
+          onClose={() => setShowKYCForm(false)}
+          onSuccess={() => {
+            setShowKYCForm(false);
+            queryClient.invalidateQueries({ queryKey: ['kyc'] });
+          }}
+        />
+      )}
+
       {showProductForm && (
         <ProductForm
           onClose={() => setShowProductForm(false)}
@@ -1378,7 +1455,7 @@ const UserProfile = () => {
               <span className="ml-2 text-sm opacity-75">Max 100</span>
             )}
           </Button>
-        </motion.div>
+            </motion.div>
       )}
 
       {/* Bulk Discount Modal */}
