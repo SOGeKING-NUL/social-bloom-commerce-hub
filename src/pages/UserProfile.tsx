@@ -33,6 +33,8 @@ import {
   Building,
   Mail,
   Phone,
+  ChevronDown,
+  Globe,
   MapPin,
   Menu,
   X,
