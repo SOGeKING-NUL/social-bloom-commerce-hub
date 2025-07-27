@@ -17,14 +17,11 @@ interface NavLinkItem {
 }
 
 const navLinks: NavLinkItem[] = [
-  { to: "/feed", label: "Feed" },
+  { to: "/", label: "Feed" },
   { to: "/products", label: "Products" },
   { to: "/groups", label: "Groups" },
-  { to: "/", label: "About" },
+  // { to: "/", label: "About" },
 ];
-interface User {
-  id: string;
-}
 
 export default function Header() {
   const location = useLocation();

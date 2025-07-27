@@ -29,7 +29,7 @@ const queryClient = new QueryClient();
 // Redirect component for old routes
 const ProfileRedirect = () => {
   const { user } = useAuth();
-  return <Navigate to={user ? `/users/${user.id}` : '/auth'} replace />;
+  // return <Navigate to={user ? `/users/${user.id}` : '/auth'} replace />;
 };
 
 const App = () => (
@@ -41,14 +41,14 @@ const App = () => (
           <Sonner />
           <BrowserRouter>
             <Routes>
-              <Route path="/" element={<Index />} />
+              <Route path="/" element={<Feed />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/search" element={<SearchUs />} />
-              <Route path="/feed" element={
+              {/* <Route path="/feed" element={
                 <ProtectedRoute>
                   <Feed />
                 </ProtectedRoute>
-            } />
+            } /> */}
               <Route path="/products" element={<Products />} />
               <Route path="/products/:productId" element={<ProductDetail />} />
               <Route path="/products/:productId/edit" element={
@@ -92,11 +92,11 @@ const App = () => (
                 </ProtectedRoute>
               } />
               {/* Redirect old routes to user profile */}
-              <Route path="/profile" element={
+              {/* <Route path="/profile" element={
                 <ProtectedRoute>
                   <ProfileRedirect />
                 </ProtectedRoute>
-              } />
+              } /> */}
               {/* <Route path="/dashboard" element={
                 <ProtectedRoute requireAuth={true}>
                   <Dashboard />
