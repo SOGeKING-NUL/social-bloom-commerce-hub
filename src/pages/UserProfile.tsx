@@ -90,13 +90,13 @@ const UserProfile = () => {
     queryKey: ["user-profile", profileUserId],
     queryFn: async () => {
       if (!profileUserId) return null;
-
+      
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", profileUserId)
         .single();
-
+      
       if (error) throw error;
       return data;
     },
@@ -502,7 +502,7 @@ const UserProfile = () => {
               >
                 Complete KYC
               </Button>
-            </div>
+              </div>
           </AlertDescription>
         </Alert>
       );
@@ -547,7 +547,7 @@ const UserProfile = () => {
           <CardContent>
             <div className="text-2xl font-bold">
               {vendorStats?.totalProducts || 0}
-            </div>
+          </div>
           </CardContent>
         </Card>
         <Card>
@@ -597,8 +597,8 @@ const UserProfile = () => {
           </div>
         </CardContent>
       </Card>
-    </div>
-  );
+      </div>
+    );
 
   const renderPosts = () => (
     <div className="space-y-4">
@@ -650,7 +650,7 @@ const UserProfile = () => {
     // Helper function to render KYC status banner
     const renderKYCBanner = () => {
       if (hasNoKYC) {
-        return (
+    return (
           <Alert className="mb-6 border-orange-200 bg-orange-50">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
@@ -691,26 +691,26 @@ const UserProfile = () => {
             <AlertDescription>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <span>Your KYC was rejected. Reason: <span className="font-semibold">{kycStatus.reason || 'No reason provided.'}</span></span>
-                <Button 
+          <Button
                   onClick={() => setShowKYCForm(true)}
                   size="sm"
-                  variant="outline"
+            variant="outline"
                   className="self-start sm:self-auto"
-                >
+          >
                   Resubmit KYC
-                </Button>
-              </div>
+          </Button>
+      </div>
             </AlertDescription>
           </Alert>
-        );
-      }
+    );
+  }
 
       return null;
     };
 
     const filteredProducts = getFilteredProducts();
 
-    return (
+  return (
       <div className="space-y-3 sm:space-y-4 lg:space-y-6">
         {/* Header with actions - Enhanced Mobile */}
         <div className="flex flex-col gap-3 sm:gap-4">
@@ -822,7 +822,7 @@ const UserProfile = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 lg:gap-6">
                 {filteredProducts.map((product, index) => {
                   const tierInfo = getProductTierInfo(product.id);
                   return (
@@ -1454,7 +1454,7 @@ const UserProfile = () => {
                 />
               </div>
               <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2">
-                <Button 
+                <Button
                   onClick={handleProfileUpdate} 
                   className="flex-1 text-sm sm:text-base"
                   disabled={updateProfileMutation.isPending}
@@ -1496,7 +1496,7 @@ const UserProfile = () => {
               <span className="ml-2 text-xs sm:text-sm opacity-75 hidden sm:inline">Max 100</span>
             )}
           </Button>
-        </motion.div>
+            </motion.div>
       )}
 
       {/* Other dialogs remain the same but ensure they're responsive */}
