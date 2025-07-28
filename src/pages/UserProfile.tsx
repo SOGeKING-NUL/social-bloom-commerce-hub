@@ -604,7 +604,7 @@ const UserProfile = () => {
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-semibold">Posts</h3>
         {isOwnProfile && (
-          <Button onClick={() => navigate("/feed")}>
+          <Button onClick={() => navigate("/")}>
             <Plus className="w-4 h-4 mr-2" />
             Create Post
           </Button>
@@ -752,7 +752,7 @@ const UserProfile = () => {
                   onClick={() => setShowProductForm(true)}
                   className="text-sm sm:text-base"
                   size="sm"
-                >
+      >
                   <Plus className="w-4 h-4 mr-2" />
                   <span className="hidden sm:inline">Add Product</span>
                   <span className="sm:hidden">Add</span>
