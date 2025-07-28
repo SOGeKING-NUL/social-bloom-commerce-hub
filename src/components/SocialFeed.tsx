@@ -15,7 +15,7 @@ const SocialFeed = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  // Fetch posts from database with user avatar
+  // Fetch posts from database with user avatar and images
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ['social-feed-posts'],
     queryFn: async () => {
@@ -30,6 +30,10 @@ const SocialFeed = () => {
           ),
           post_likes!left (
             user_id
+          ),
+          post_images (
+            image_url,
+            display_order
           )
         `)
         .order('created_at', { ascending: false })
@@ -44,7 +48,7 @@ const SocialFeed = () => {
         id: post.id,
         user_id: post.user_id,
         content: post.content,
-        image: post.image_url,
+        images: post.post_images?.sort((a, b) => a.display_order - b.display_order) || [],
         likes: post.likes_count || 0,
         comments: post.comments_count || 0,
         shares: post.shares_count || 0,
@@ -247,13 +251,38 @@ const SocialFeed = () => {
                 
                 <p className="text-gray-700 dark:text-gray-300 mb-4 text-sm line-clamp-3">{post.content}</p>
                 
-                {post.image && (
+                {post.images && post.images.length > 0 && (
                   <div className="mb-4 rounded-lg overflow-hidden">
-                    <img 
-                      src={post.image} 
-                      alt="Post content"
-                      className="w-full h-32 object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
-                    />
+                    <div className={`grid gap-1 ${
+                      post.images.length === 1 ? 'grid-cols-1' :
+                      post.images.length === 2 ? 'grid-cols-2' :
+                      post.images.length === 3 ? 'grid-cols-3' :
+                      'grid-cols-2'
+                    }`}>
+                      {post.images.slice(0, 4).map((image, index) => (
+                        <div 
+                          key={index} 
+                          className={`relative ${
+                            post.images.length === 3 && index === 2 ? 'col-span-2' :
+                            post.images.length === 4 && index === 3 ? 'col-span-2' : ''
+                          }`}
+                        >
+                          <div className={`${
+                            post.images.length === 1 ? 'aspect-[4/3]' :
+                            post.images.length === 2 ? 'aspect-square' :
+                            post.images.length === 3 && index === 2 ? 'aspect-[2/1]' :
+                            post.images.length === 4 && index === 3 ? 'aspect-[2/1]' :
+                            'aspect-square'
+                          }`}>
+                            <img
+                              src={image.image_url}
+                              alt={`Post image ${index + 1}`}
+                              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
                 

@@ -39,7 +39,7 @@ import { TablesInsert } from "@/integrations/supabase/types";
 // Define interfaces
 interface PostData {
   content: string;
-  imageUrl?: string;
+  imageUrls?: string[];
   feeling?: string;
   tags?: string[];
 }
@@ -163,27 +163,42 @@ const InstagramStylePostCreator = ({
 
   // Post creation mutation
   const createPostMutation = useMutation({
-    mutationFn: async ({ content, imageUrl, feeling, tags }: PostData) => {
+    mutationFn: async ({ content, imageUrls, feeling, tags }: PostData) => {
       if (!user) throw new Error("Please log in to create a post");
 
       const postData: TablesInsert<"posts"> = {
         user_id: user.id,
         content,
-        image_url: imageUrl,
         post_type: "text",
         //@ts-ignore
         feeling: feeling || null,
         tags: tags || [],
       };
 
-      const { data, error } = await supabase
+      const { data: post, error } = await supabase
         .from("posts")
         .insert(postData)
         .select()
         .single();
 
       if (error) throw error;
-      return data;
+
+      // Upload images to post_images table if any
+      if (imageUrls && imageUrls.length > 0) {
+        const imageData = imageUrls.map((url, index) => ({
+          post_id: post.id,
+          image_url: url,
+          display_order: index,
+        }));
+
+        const { error: imageError } = await supabase
+          .from("post_images")
+          .insert(imageData);
+
+        if (imageError) throw imageError;
+      }
+
+      return post;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["posts"] });
@@ -212,15 +227,15 @@ const InstagramStylePostCreator = ({
   // File handling
   const handleFileSelect = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(event.target.files || []).slice(0, 10);
+      const files = Array.from(event.target.files || []).slice(0, 4); // Limit to 4 images
       if (files.length === 0) return;
 
       setMedia((prev) => {
-        const newFiles = [...prev.files, ...files].slice(0, 10);
+        const newFiles = [...prev.files, ...files].slice(0, 4);
         const newUrls = [
           ...prev.previewUrls,
           ...files.map((file) => URL.createObjectURL(file)),
-        ].slice(0, 10);
+        ].slice(0, 4);
         return { files: newFiles, previewUrls: newUrls };
       });
     },
@@ -241,8 +256,8 @@ const InstagramStylePostCreator = ({
     async (file: File): Promise<string | null> => {
       try {
         const fileExt = file.name.split(".").pop();
-        const fileName = `${user?.id}_${Date.now()}.${fileExt}`;
-        const filePath = `posts/${fileName}`;
+        const fileName = `${user?.id}/${Date.now()}_${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+        const filePath = `${fileName}`;
 
         const { error } = await supabase.storage
           .from("posts")
@@ -275,13 +290,19 @@ const InstagramStylePostCreator = ({
       return;
     }
 
-    let imageUrl: string | undefined;
+    let imageUrls: string[] = [];
     if (media.files.length > 0) {
-      imageUrl = await uploadFileToSupabase(media.files[0]);
-      if (!imageUrl) {
+      // Upload all files
+      const uploadPromises = media.files.map(file => uploadFileToSupabase(file));
+      const uploadedUrls = await Promise.all(uploadPromises);
+      
+      // Filter out failed uploads
+      imageUrls = uploadedUrls.filter(url => url !== null) as string[];
+      
+      if (imageUrls.length === 0 && media.files.length > 0) {
         toast({
           title: "Upload failed",
-          description: "Failed to upload image. Please try again.",
+          description: "Failed to upload images. Please try again.",
           variant: "destructive",
         });
         return;
@@ -293,7 +314,7 @@ const InstagramStylePostCreator = ({
 
     createPostMutation.mutate({
       content,
-      imageUrl,
+      imageUrls,
       feeling: selectedFeeling,
       tags,
     });
@@ -421,17 +442,31 @@ const InstagramStylePostCreator = ({
       {/* Media Preview */}
       {media.previewUrls.length > 0 && (
         <div className="px-4 py-3">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-80 overflow-y-auto">
+          <div className={`grid gap-1 rounded-xl overflow-hidden ${
+            media.previewUrls.length === 1 ? 'grid-cols-1' :
+            media.previewUrls.length === 2 ? 'grid-cols-2' :
+            media.previewUrls.length === 3 ? 'grid-cols-3' :
+            'grid-cols-2'
+          }`}>
             {media.previewUrls.map((url, index) => (
-              <div
-                key={index}
-                className="relative group rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-700"
+              <div 
+                key={index} 
+                className={`relative group ${
+                  media.previewUrls.length === 3 && index === 2 ? 'col-span-2' :
+                  media.previewUrls.length === 4 && index === 3 ? 'col-span-2' : ''
+                }`}
               >
-                <div className="aspect-square">
+                <div className={`${
+                  media.previewUrls.length === 1 ? 'aspect-[4/3]' :
+                  media.previewUrls.length === 2 ? 'aspect-square' :
+                  media.previewUrls.length === 3 && index === 2 ? 'aspect-[2/1]' :
+                  media.previewUrls.length === 4 && index === 3 ? 'aspect-[2/1]' :
+                  'aspect-square'
+                }`}>
                   {media.files[index]?.type.startsWith("video/") ? (
                     <video
                       src={url}
-                      className="w-full h-full object-cover rounded-lg"
+                      className="w-full h-full object-cover"
                       controls={false}
                       muted
                     />
@@ -439,13 +474,13 @@ const InstagramStylePostCreator = ({
                     <img
                       src={url}
                       alt={`Preview ${index + 1}`}
-                      className="w-full h-full object-cover rounded-lg hover:scale-105 transition-transform duration-200"
+                      className="w-full h-full object-cover"
                     />
                   )}
                 </div>
                 <button
                   onClick={() => removeFile(index)}
-                  className="absolute top-2 right-2 bg-gray-800 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                  className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -512,7 +547,7 @@ const InstagramStylePostCreator = ({
         </div>
         {media.files.length > 0 && (
           <span className="text-sm font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md">
-            {media.files.length}/10 files
+            {media.files.length}/4 files
           </span>
         )}
       </div>

@@ -179,3 +179,4 @@ const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardPr
 };
 
 export default HighlightProductCard;
+ 

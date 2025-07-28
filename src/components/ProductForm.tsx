@@ -35,7 +35,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-
+  
   const [form, setForm] = useState({
     name: existingData?.name || '',
     description: existingData?.description || '',
@@ -44,7 +44,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
     stock_quantity: existingData?.stock_quantity || 0,
     is_active: existingData ? existingData.is_active : true,
   });
-
+  
   const [tiers, setTiers] = useState<DiscountTier[]>([]);
   const [productImages, setProductImages] = useState<ProductImage[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -170,20 +170,20 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
   const uploadImage = async (file: File): Promise<string | null> => {
     const fileExt = file.name.split('.').pop();
     const filePath = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-
+    
     const { data, error } = await supabase.storage
       .from('product-images')
       .upload(filePath, file);
-
+    
     if (error) {
       console.error('Error uploading image:', error);
       return null;
     }
-
+    
     const { data: { publicUrl } } = supabase.storage
       .from('product-images')
       .getPublicUrl(data.path);
-
+    
     return publicUrl;
   };
 
@@ -219,7 +219,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
   const submitProductMutation = useMutation({
     mutationFn: async () => {
       if (!profile?.id) throw new Error('User not authenticated');
-
+      
       const productData = {
         ...form,
         price: parseFloat(form.price as string),
@@ -227,14 +227,14 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
       };
 
       let productId: string;
-
+      
       if (existingData) {
         // Update existing product
         const { error } = await supabase
           .from('products')
           .update(productData)
           .eq('id', existingData.id);
-
+        
         if (error) throw error;
 
         productId = existingData.id;
@@ -325,7 +325,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
         const { error } = await supabase
           .from('product_discount_tiers')
           .insert(tiersData);
-
+        
         if (error) throw error;
       }
 
@@ -472,13 +472,13 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
                   </div>
                   
                   <div className="flex items-center gap-2">
-                    <Input 
+            <Input 
                       id={`product_image_${index}`}
-                      type="file"
-                      accept="image/*"
+              type="file"
+              accept="image/*"
                       onChange={(e) => handleImageChange(index, e)}
                       className="flex-1"
-                    />
+            />
                     {productImages[index] && (
                       <Button
                         type="button"
@@ -492,14 +492,14 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
                   </div>
                   
                   {productImages[index]?.preview && (
-                    <div className="mt-2">
-                      <img 
+              <div className="mt-2">
+                <img 
                         src={productImages[index].preview} 
                         alt={`Product Image ${index + 1}`} 
                         className="w-full max-h-32 object-contain rounded border"
-                      />
-                    </div>
-                  )}
+                />
+              </div>
+            )}
                 </div>
               ))}
             </div>

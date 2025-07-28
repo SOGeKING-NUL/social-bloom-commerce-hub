@@ -146,3 +146,4 @@ const ShoppingCategories = () => {
 };
 
 export default ShoppingCategories;
+ 

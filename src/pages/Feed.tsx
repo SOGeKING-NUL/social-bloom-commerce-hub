@@ -57,7 +57,7 @@ const Feed = () => {
     });
   };
 
-  // Fetch posts from database (assuming 'feeling' is a column in posts table)
+  // Fetch posts from database with images
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ["posts"],
     queryFn: async () => {
@@ -72,7 +72,11 @@ const Feed = () => {
             avatar_url
           ),
           post_likes (user_id),
-          comment_count: post_comments (count)
+          comment_count: post_comments (count),
+          post_images (
+            image_url,
+            display_order
+          )
         `
         )
         .order("created_at", { ascending: false });
@@ -96,6 +100,7 @@ const Feed = () => {
         comments_count: post.comment_count?.[0]?.count || 0,
         //@ts-ignore
         feeling: post.feeling || null, // Ensure feeling property is properly included in the object
+        images: post.post_images?.sort((a, b) => a.display_order - b.display_order) || [],
       }));
     },
   });
@@ -344,13 +349,38 @@ const Feed = () => {
                     {renderContentWithTags(post.content, post.id)}
                   </div>
 
-                  {post.image_url && (
+                  {post.images && post.images.length > 0 && (
                     <div className="mb-4 rounded-2xl overflow-hidden">
-                      <img
-                        src={post.image_url}
-                        alt="Post content"
-                        className="w-full h-64 object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
+                      <div className={`grid gap-1 ${
+                        post.images.length === 1 ? 'grid-cols-1' :
+                        post.images.length === 2 ? 'grid-cols-2' :
+                        post.images.length === 3 ? 'grid-cols-3' :
+                        'grid-cols-2'
+                      }`}>
+                        {post.images.map((image, index) => (
+                          <div 
+                            key={index} 
+                            className={`relative ${
+                              post.images.length === 3 && index === 2 ? 'col-span-2' :
+                              post.images.length === 4 && index === 3 ? 'col-span-2' : ''
+                            }`}
+                          >
+                            <div className={`${
+                              post.images.length === 1 ? 'aspect-[4/3]' :
+                              post.images.length === 2 ? 'aspect-square' :
+                              post.images.length === 3 && index === 2 ? 'aspect-[2/1]' :
+                              post.images.length === 4 && index === 3 ? 'aspect-[2/1]' :
+                              'aspect-square'
+                            }`}>
+                              <img
+                                src={image.image_url}
+                                alt={`Post image ${index + 1}`}
+                                className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
                       />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 
