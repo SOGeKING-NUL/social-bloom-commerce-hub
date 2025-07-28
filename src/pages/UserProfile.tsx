@@ -42,7 +42,10 @@ import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import KYCForm from "@/components/KYCForm";
+import ProductForm from "@/components/ProductForm";
 import VendorProductCard from "@/components/VendorProductCard";
+import ImportProductsModal from "@/components/ImportProductsModal";
+import BulkDiscountModal from "@/components/BulkDiscountModal";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import AdminDashboard from "@/components/dashboards/AdminDashboard";
@@ -1497,6 +1500,46 @@ const UserProfile = () => {
 
       {/* Other dialogs remain the same but ensure they're responsive */}
       {/* ... existing dialogs with responsive enhancements ... */}
+
+      {/* Product Form Modal */}
+      {showProductForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <ProductForm
+              onClose={() => setShowProductForm(false)}
+              onSuccess={() => {
+                setShowProductForm(false);
+                queryClient.invalidateQueries({ queryKey: ['vendor-products'] });
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Import Products Modal */}
+      {showImportModal && (
+        <ImportProductsModal
+          onClose={() => setShowImportModal(false)}
+          onSuccess={() => {
+            setShowImportModal(false);
+            queryClient.invalidateQueries({ queryKey: ['vendor-products'] });
+          }}
+        />
+      )}
+
+      {/* Bulk Discount Modal */}
+      {showBulkDiscountModal && (
+        <BulkDiscountModal
+          selectedProductIds={Array.from(selectedProducts)}
+          onClose={() => setShowBulkDiscountModal(false)}
+          onSuccess={() => {
+            setShowBulkDiscountModal(false);
+            setSelectedProducts(new Set());
+            setIsBulkSelectionMode(false);
+            queryClient.invalidateQueries({ queryKey: ['product-tiers-bulk'] });
+          }}
+        />
+      )}
 
       <Footer />
     </div>
