@@ -386,17 +386,17 @@ const ProductDetail = () => {
               
               {/* Action Buttons Overlay */}
               <div className="absolute top-4 right-4 flex gap-2 z-10">
-                <Button
-                  variant="ghost"
-                  size="sm"
+              <Button
+                variant="ghost"
+                size="sm"
                   className="bg-white/80 hover:bg-white/90 backdrop-blur-sm"
-                  onClick={handleWishlistToggle}
-                  disabled={addToWishlistMutation.isPending || removeFromWishlistMutation.isPending}
-                >
-                  <Heart 
-                    className={`w-5 h-5 ${isInWishlist ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} 
-                  />
-                </Button>
+                onClick={handleWishlistToggle}
+                disabled={addToWishlistMutation.isPending || removeFromWishlistMutation.isPending}
+              >
+                <Heart 
+                  className={`w-5 h-5 ${isInWishlist ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} 
+                />
+              </Button>
                 <Button
                   variant="ghost"
                   size="sm"

@@ -17,7 +17,7 @@ const Footer = () => {
               whileHover={{ scale: 1.05 }}
               transition={{ type: "spring", stiffness: 300 }}
             >
-              <span className="text-4xl font-extrabold font-borel text-white">SocialBloom</span>
+              <span className="text-4xl font-extrabold font-borel text-white">Gup Shop</span>
             </motion.div>
             <p className="text-pink-100 text-sm mb-6 max-w-xs mx-auto md:mx-0">
               The social e-commerce platform where communities come together to discover, share, and shop their favorite products with friends and family.
@@ -150,7 +150,7 @@ const Footer = () => {
             transition={{ duration: 0.6, delay: 1.2 }}
           >
             <p className="text-pink-100 text-sm mb-2">
-              © 2025 SocialBloom. All rights reserved. |{" "}
+              © 2025 Gup Shop. All rights reserved. |{" "}
               <a href="#" className="text-yellow-300 hover:text-pink-200 transition-colors">
                 Legal
               </a>{" "}

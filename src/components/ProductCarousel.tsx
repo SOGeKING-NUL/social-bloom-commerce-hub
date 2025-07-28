@@ -81,7 +81,7 @@ const ProductCarousel = () => {
             </span>{" "}
              score the best deals with{" "}
              <span className="tracking-wider font-light font-pacifico text-pink-500">
-              bloom
+              Gup Shop
             </span>
           </h2>
         </motion.div>
@@ -218,3 +218,4 @@ const ProductCarousel = () => {
 };
 
 export default ProductCarousel;
+ 

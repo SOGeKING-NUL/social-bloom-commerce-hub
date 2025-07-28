@@ -83,7 +83,7 @@ const Auth = () => {
               transition={{ duration: 0.5, delay: 0.2 }}
             >
               <span className="text-5xl font-extrabold text-pink-800">
-                SocialBloom
+                Gup Shop
               </span>
             </motion.div>
             <motion.h1
@@ -92,7 +92,7 @@ const Auth = () => {
               animate={{ opacity: 1 }}
               transition={{ duration: 0.5, delay: 0.4 }}
             >
-              {isLogin ? "Welcome Back" : "Join SocialBloom"}
+              {isLogin ? "Welcome Back" : "Join Gup Shop"}
             </motion.h1>
             <p className="text-gray-600 text-lg">
               {isLogin

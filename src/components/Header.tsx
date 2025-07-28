@@ -102,10 +102,12 @@ export default function Header() {
         >
           <div className="container mx-auto py-1 px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
-              <NavLink to="/" className="flex items-center justify-center pt-5">
-                <span className="text-2xl font-borel font-bold text-pink-800">
-                  SocialBloom
-                </span>
+              <NavLink to="/" className="flex items-center justify-center">
+                <img 
+                  src="/GupShop.png" 
+                  alt="Gup Shop Logo" 
+                  className="h-16 object-contain"
+                />
               </NavLink>
 
               <nav className="hidden md:flex items-center space-x-8">

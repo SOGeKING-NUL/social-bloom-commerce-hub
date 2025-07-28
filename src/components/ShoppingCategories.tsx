@@ -67,7 +67,7 @@ const ShoppingCategories = () => {
         >
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-gray-900 mb-4 tracking-tight">
             Explore Varieties in{" "}
-            <span className="text-pink-500 font-cursive font-light text-6xl">Bloom</span>
+            <span className="text-pink-500 font-cursive font-light text-6xl">Gup Shop</span>
           </h2>
           <p className="text-lg sm:text-xl text-gray-600/70 font-bold max-w-3xl mx-auto">
             Dive into a world of curated products tailored to your lifestyle
