@@ -6,9 +6,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Heart, ShoppingCart, ArrowLeft, Users } from "lucide-react";
+import { Heart, ShoppingCart, ArrowLeft, Users, Share2 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import ImageGallery from "@/components/ImageGallery";
 import {
   Dialog,
   DialogContent,
@@ -374,40 +375,53 @@ const ProductDetail = () => {
             Back to Products
           </Button>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Product Image */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+            {/* Product Image Gallery */}
             <div className="relative">
-              {productImages && productImages.length > 0 ? (
-                <div className="relative">
-                  <img 
-                    src={productImages[0]?.image_url || product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=600&h=600&fit=crop"}
-                    alt={product.name}
-                    className="w-full h-96 object-cover rounded-lg"
+              <ImageGallery 
+                images={productImages || []}
+                productName={product.name}
+                fallbackImage={product.image_url}
+              />
+              
+              {/* Action Buttons Overlay */}
+              <div className="absolute top-4 right-4 flex gap-2 z-10">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="bg-white/80 hover:bg-white/90 backdrop-blur-sm"
+                  onClick={handleWishlistToggle}
+                  disabled={addToWishlistMutation.isPending || removeFromWishlistMutation.isPending}
+                >
+                  <Heart 
+                    className={`w-5 h-5 ${isInWishlist ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} 
                   />
-                  {productImages.length > 1 && (
-                    <div className="absolute bottom-4 right-4 bg-black/50 text-white text-sm px-3 py-1 rounded">
-                      {productImages.length} images
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <img 
-                  src={product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=600&h=600&fit=crop"}
-                  alt={product.name}
-                  className="w-full h-96 object-cover rounded-lg"
-                />
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="absolute top-4 right-4 bg-white/80 hover:bg-white"
-                onClick={handleWishlistToggle}
-                disabled={addToWishlistMutation.isPending || removeFromWishlistMutation.isPending}
-              >
-                <Heart 
-                  className={`w-5 h-5 ${isInWishlist ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} 
-                />
-              </Button>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="bg-white/80 hover:bg-white/90 backdrop-blur-sm"
+                  onClick={() => {
+                    // Share functionality
+                    if (navigator.share) {
+                      navigator.share({
+                        title: product.name,
+                        text: `Check out this product: ${product.name}`,
+                        url: window.location.href,
+                      });
+                    } else {
+                      // Fallback: copy to clipboard
+                      navigator.clipboard.writeText(window.location.href);
+                      toast({
+                        title: "Link copied!",
+                        description: "Product link has been copied to clipboard.",
+                      });
+                    }
+                  }}
+                >
+                  <Share2 className="w-5 h-5 text-gray-600" />
+                </Button>
+              </div>
             </div>
 
             {/* Product Details */}
