@@ -83,6 +83,7 @@ const BulkDiscountModal = ({ selectedProductIds, onClose, onSuccess }: BulkDisco
   // Calculate statistics
   const productsWithTiers = productsInfo.filter(p => p.hasTiers);
   const productsWithoutTiers = productsInfo.filter(p => !p.hasTiers);
+  const totalProducts = productsInfo.length;
 
   // Tier management functions
   const addTier = () => {
@@ -108,20 +109,15 @@ const BulkDiscountModal = ({ selectedProductIds, onClose, onSuccess }: BulkDisco
       const results = {
         successful: [] as string[],
         failed: [] as { productId: string; error: string }[],
-        skipped: [] as string[]
+        updated: [] as string[],
+        newlyCreated: [] as string[]
       };
 
       for (const productId of selectedProductIds) {
         try {
           const productInfo = productsInfo.find(p => p.id === productId);
           
-          // Skip products that already have tiers
-          if (productInfo?.hasTiers) {
-            results.skipped.push(productId);
-            continue;
-          }
-
-          // Delete existing tiers (if any)
+          // Always delete existing tiers first (complete replacement)
           await supabase
             .from('product_discount_tiers')
             .delete()
@@ -155,6 +151,13 @@ const BulkDiscountModal = ({ selectedProductIds, onClose, onSuccess }: BulkDisco
             if (updateError) throw updateError;
 
             results.successful.push(productId);
+            
+            // Track whether this was an update or new creation
+            if (productInfo?.hasTiers) {
+              results.updated.push(productId);
+            } else {
+              results.newlyCreated.push(productId);
+            }
           }
         } catch (error: any) {
           results.failed.push({
@@ -172,12 +175,11 @@ const BulkDiscountModal = ({ selectedProductIds, onClose, onSuccess }: BulkDisco
       
       // Show success toast
       const successCount = results.successful.length;
-      const skippedCount = results.skipped.length;
       const failedCount = results.failed.length;
       
       toast({
         title: "Bulk Update Complete",
-        description: `${successCount} updated, ${skippedCount} skipped, ${failedCount} failed`,
+        description: `${successCount} products updated, ${failedCount} failed`,
       });
     },
     onError: (error: any) => {
@@ -243,7 +245,7 @@ const BulkDiscountModal = ({ selectedProductIds, onClose, onSuccess }: BulkDisco
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <CheckCircle className="w-4 h-4 text-green-500" />
-              <span className="text-sm text-gray-600">Without Tiers</span>
+              <span className="text-sm text-gray-600">New Tiers</span>
             </div>
             <div className="text-2xl font-bold">{productsWithoutTiers.length}</div>
           </CardContent>
@@ -252,7 +254,7 @@ const BulkDiscountModal = ({ selectedProductIds, onClose, onSuccess }: BulkDisco
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-orange-500" />
-              <span className="text-sm text-gray-600">Will be Skipped</span>
+              <span className="text-sm text-gray-600">Will be Updated</span>
             </div>
             <div className="text-2xl font-bold">{productsWithTiers.length}</div>
           </CardContent>
@@ -264,7 +266,8 @@ const BulkDiscountModal = ({ selectedProductIds, onClose, onSuccess }: BulkDisco
         <Alert className="border-orange-200 bg-orange-50">
           <AlertTriangle className="h-4 w-4 text-orange-600" />
           <AlertDescription className="text-orange-800">
-            {productsWithTiers.length} product(s) already have tier discounts and will be skipped.
+            <strong>Warning:</strong> {productsWithTiers.length} product(s) already have tier discounts. 
+            Their existing tiers will be completely replaced with the new configuration.
           </AlertDescription>
         </Alert>
       )}
@@ -382,9 +385,15 @@ const BulkDiscountModal = ({ selectedProductIds, onClose, onSuccess }: BulkDisco
       <div className="space-y-2">
         <Label className="text-base font-semibold">Products to Update</Label>
         <div className="max-h-40 overflow-y-auto space-y-1">
-          {productsWithoutTiers.map(product => (
-            <div key={product.id} className="flex items-center gap-3 p-2 bg-green-50 rounded">
-              <CheckCircle className="w-4 h-4 text-green-500" />
+          {productsInfo.map(product => (
+            <div key={product.id} className={`flex items-center gap-3 p-2 rounded ${
+              product.hasTiers ? 'bg-orange-50' : 'bg-green-50'
+            }`}>
+              {product.hasTiers ? (
+                <AlertTriangle className="w-4 h-4 text-orange-500" />
+              ) : (
+                <CheckCircle className="w-4 h-4 text-green-500" />
+              )}
               <img 
                 src={product.image_url || 'https://via.placeholder.com/40'} 
                 alt={product.name}
@@ -392,26 +401,13 @@ const BulkDiscountModal = ({ selectedProductIds, onClose, onSuccess }: BulkDisco
               />
               <span className="text-sm font-medium">{product.name}</span>
               <span className="text-sm text-gray-500 ml-auto">₹{product.price}</span>
+              {product.hasTiers && (
+                <span className="text-xs text-orange-600 ml-2">Will be updated</span>
+              )}
             </div>
           ))}
         </div>
       </div>
-
-      {/* Skipped Products */}
-      {productsWithTiers.length > 0 && (
-        <div className="space-y-2">
-          <Label className="text-base font-semibold text-orange-600">Skipped Products</Label>
-          <div className="max-h-32 overflow-y-auto space-y-1">
-            {productsWithTiers.map(product => (
-              <div key={product.id} className="flex items-center gap-3 p-2 bg-orange-50 rounded">
-                <AlertTriangle className="w-4 h-4 text-orange-500" />
-                <span className="text-sm">{product.name}</span>
-                <span className="text-xs text-orange-600 ml-auto">Already has tiers</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Action Buttons */}
       <div className="flex gap-3 pt-4">
@@ -422,7 +418,7 @@ const BulkDiscountModal = ({ selectedProductIds, onClose, onSuccess }: BulkDisco
           onClick={handleApply}
           className="flex-1 bg-gradient-to-r from-pink-500 to-rose-500"
         >
-          Apply to {productsWithoutTiers.length} Products
+          Apply to {totalProducts} Products
         </Button>
       </div>
     </div>
@@ -448,20 +444,12 @@ const BulkDiscountModal = ({ selectedProductIds, onClose, onSuccess }: BulkDisco
       </div>
 
       {/* Results Summary */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 gap-4">
         <Card className="border-green-200">
           <CardContent className="p-4 text-center">
             <CheckCircle className="w-6 h-6 text-green-500 mx-auto mb-2" />
             <div className="text-2xl font-bold text-green-600">{processingResults.successful.length}</div>
-            <div className="text-sm text-gray-600">Successful</div>
-          </CardContent>
-        </Card>
-        
-        <Card className="border-orange-200">
-          <CardContent className="p-4 text-center">
-            <AlertTriangle className="w-6 h-6 text-orange-500 mx-auto mb-2" />
-            <div className="text-2xl font-bold text-orange-600">{processingResults.skipped.length}</div>
-            <div className="text-sm text-gray-600">Skipped</div>
+            <div className="text-sm text-gray-600">Updated</div>
           </CardContent>
         </Card>
         
