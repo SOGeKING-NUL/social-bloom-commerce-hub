@@ -94,6 +94,24 @@ const ProductDetail = () => {
     enabled: !!id,
   });
 
+  // Fetch product images
+  const { data: productImages } = useQuery({
+    queryKey: ['product-images', id],
+    queryFn: async () => {
+      if (!id) return [];
+      
+      const { data, error } = await supabase
+        .from('product_images')
+        .select('image_url, is_primary, display_order')
+        .eq('product_id', id)
+        .order('display_order');
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
   // Fetch discount tiers for this product
   const { data: tiers } = useQuery({
     queryKey: ['product-tiers', id],
@@ -359,11 +377,26 @@ const ProductDetail = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Product Image */}
             <div className="relative">
-              <img 
-                src={product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=600&h=600&fit=crop"}
-                alt={product.name}
-                className="w-full h-96 object-cover rounded-lg"
-              />
+              {productImages && productImages.length > 0 ? (
+                <div className="relative">
+                  <img 
+                    src={productImages[0]?.image_url || product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=600&h=600&fit=crop"}
+                    alt={product.name}
+                    className="w-full h-96 object-cover rounded-lg"
+                  />
+                  {productImages.length > 1 && (
+                    <div className="absolute bottom-4 right-4 bg-black/50 text-white text-sm px-3 py-1 rounded">
+                      {productImages.length} images
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <img 
+                  src={product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=600&h=600&fit=crop"}
+                  alt={product.name}
+                  className="w-full h-96 object-cover rounded-lg"
+                />
+              )}
               <Button
                 variant="ghost"
                 size="sm"

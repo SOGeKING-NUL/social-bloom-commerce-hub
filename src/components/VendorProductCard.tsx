@@ -4,6 +4,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Edit, Package, TrendingUp, Target, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface VendorProductCardProps {
   product: {
@@ -40,6 +42,22 @@ const VendorProductCard = ({
   maxDiscount = 0
 }: VendorProductCardProps) => {
   const navigate = useNavigate();
+
+  // Fetch product images
+  const { data: productImages } = useQuery({
+    queryKey: ["product-images", product.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_images")
+        .select("image_url, is_primary, display_order")
+        .eq("product_id", product.id)
+        .order("display_order");
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!product.id,
+  });
 
   const handleEdit = () => {
     // In selection mode, clicking should select instead of navigate
@@ -88,16 +106,30 @@ const VendorProductCard = ({
       >
         {/* Product Image */}
         <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100">
-          <img
-            src={
-              product.image_url ||
-              "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=500&h=600&fit=crop"
-            }
-            alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-700 hover:scale-105 cursor-pointer"
-            onClick={handleViewProduct}
-            loading="lazy"
-          />
+          {productImages && productImages.length > 0 ? (
+            <div className="relative w-full h-full">
+              <img
+                src={productImages[0]?.image_url || product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=500&h=600&fit=crop"}
+                alt={product.name}
+                className="w-full h-full object-cover transition-transform duration-700 hover:scale-105 cursor-pointer"
+                onClick={handleViewProduct}
+                loading="lazy"
+              />
+              {productImages.length > 1 && (
+                <div className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                  +{productImages.length - 1} more
+                </div>
+              )}
+            </div>
+          ) : (
+            <img
+              src={product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=500&h=600&fit=crop"}
+              alt={product.name}
+              className="w-full h-full object-cover transition-transform duration-700 hover:scale-105 cursor-pointer"
+              onClick={handleViewProduct}
+              loading="lazy"
+            />
+          )}
           <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white/30 to-transparent" />
           
           {/* Selection Overlay - Prominent Visual Feedback */}

@@ -26,6 +26,22 @@ const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardPr
   const navigate = useNavigate();
   const vendorName = vendor.full_name || vendor.email?.split("@")[0] || "Unknown Vendor";
 
+  // Fetch product images
+  const { data: productImages } = useQuery({
+    queryKey: ["product-images", product.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_images")
+        .select("image_url, is_primary, display_order")
+        .eq("product_id", product.id)
+        .order("display_order");
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!product.id,
+  });
+
   // Fetch discount tiers for this product
   const { data: tiers, isLoading } = useQuery({
     queryKey: ["product-tiers", product.id],
@@ -59,16 +75,30 @@ const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardPr
       <div className="relative overflow-hidden rounded-2xl bg-white shadow-lg transition-all duration-500 hover:shadow-2xl hover:shadow-pink-300/50 hover:scale-[1.02]">
         {/* Optimized Image Container */}
         <div className="relative w-full aspect-[4/3] overflow-hidden bg-gray-100">
-          <img
-            src={
-              product.image_url ||
-              "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=500&h=600&fit=crop"
-            }
-            alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-700 cursor-pointer hover:scale-105"
-            onClick={() => navigate(`/products/${product.id}`)}
-            loading="lazy"
-          />
+          {productImages && productImages.length > 0 ? (
+            <div className="relative w-full h-full">
+              <img
+                src={productImages[0]?.image_url || product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=500&h=600&fit=crop"}
+                alt={product.name}
+                className="w-full h-full object-cover transition-transform duration-700 cursor-pointer hover:scale-105"
+                onClick={() => navigate(`/products/${product.id}`)}
+                loading="lazy"
+              />
+              {productImages.length > 1 && (
+                <div className="absolute bottom-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                  +{productImages.length - 1} more
+                </div>
+              )}
+            </div>
+          ) : (
+            <img
+              src={product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=500&h=600&fit=crop"}
+              alt={product.name}
+              className="w-full h-full object-cover transition-transform duration-700 cursor-pointer hover:scale-105"
+              onClick={() => navigate(`/products/${product.id}`)}
+              loading="lazy"
+            />
+          )}
           <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white/30 to-transparent" />
           <button className="absolute top-3 right-3 p-2 rounded-full bg-white/80 backdrop-blur-sm border border-white/50 transition-all duration-300 hover:bg-white/90 hover:scale-110">
             <Heart className="w-4 h-4 text-gray-600 hover:text-pink-500" />

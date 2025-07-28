@@ -21,6 +21,15 @@ interface DiscountTier {
   discount_percentage: number;
 }
 
+interface ProductImage {
+  id?: string;
+  file?: File;
+  url?: string;
+  preview?: string;
+  isPrimary: boolean;
+  displayOrder: number;
+}
+
 const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
   const { profile, user } = useAuth();
   const { toast } = useToast();
@@ -33,15 +42,12 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
     price: existingData?.price || '',
     category: existingData?.category || '',
     stock_quantity: existingData?.stock_quantity || 0,
-    image_url: existingData?.image_url || '',
     is_active: existingData ? existingData.is_active : true,
   });
 
   const [tiers, setTiers] = useState<DiscountTier[]>([]);
-
+  const [productImages, setProductImages] = useState<ProductImage[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(existingData?.image_url || null);
 
   // Fetch KYC data to verify vendor can add products
   const { data: kycData, isLoading: isKYCLoading } = useQuery({
@@ -61,12 +67,30 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
     enabled: !!user?.id && profile?.role === 'vendor',
   });
 
+  // Fetch existing product images if editing a product
+  const { data: existingImages } = useQuery({
+    queryKey: ['product-images', existingData?.id],
+    queryFn: async () => {
+      if (!existingData?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('product_images')
+        .select('*')
+        .eq('product_id', existingData.id)
+        .order('display_order');
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!existingData?.id,
+  });
+
   // Fetch existing discount tiers if editing a product
   const { data: discountTiers } = useQuery({
     queryKey: ['product-tiers', existingData?.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('product_discount_tiers') // Assuming the new table is named 'product_discount_tiers'
+        .from('product_discount_tiers')
         .select('*')
         .eq('product_id', existingData.id)
         .order('tier_number');
@@ -76,6 +100,21 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
     },
     enabled: !!existingData?.id,
   });
+
+  // Set initial product images from fetched data
+  useEffect(() => {
+    if (existingImages) {
+      setProductImages(
+        existingImages.map((img: any) => ({
+          id: img.id,
+          url: img.image_url,
+          preview: img.image_url,
+          isPrimary: img.is_primary,
+          displayOrder: img.display_order,
+        }))
+      );
+    }
+  }, [existingImages]);
 
   // Set initial tiers from fetched data
   useEffect(() => {
@@ -106,23 +145,35 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
     }
   }, [isKYCLoading, isVendor, isKYCApproved, onClose, navigate, toast]);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setImageFile(file);
-      setImagePreview(URL.createObjectURL(file));
+      const preview = URL.createObjectURL(file);
+      
+      setProductImages(prev => {
+        const newImages = [...prev];
+        if (newImages[index]) {
+          newImages[index] = { ...newImages[index], file, preview };
+        } else {
+          newImages[index] = { 
+            file, 
+            preview, 
+            isPrimary: index === 0, 
+            displayOrder: index 
+          };
+        }
+        return newImages;
+      });
     }
   };
 
-  const uploadImage = async (): Promise<string | null> => {
-    if (!imageFile) return form.image_url || null;
-
-    const fileExt = imageFile.name.split('.').pop();
+  const uploadImage = async (file: File): Promise<string | null> => {
+    const fileExt = file.name.split('.').pop();
     const filePath = `${Date.now()}_${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
 
     const { data, error } = await supabase.storage
       .from('product-images')
-      .upload(filePath, imageFile);
+      .upload(filePath, file);
 
     if (error) {
       console.error('Error uploading image:', error);
@@ -134,6 +185,19 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
       .getPublicUrl(data.path);
 
     return publicUrl;
+  };
+
+  const removeImage = (index: number) => {
+    setProductImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const setPrimaryImage = (index: number) => {
+    setProductImages(prev => 
+      prev.map((img, i) => ({ 
+        ...img, 
+        isPrimary: i === index 
+      }))
+    );
   };
 
   const addTier = () => {
@@ -156,14 +220,10 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
     mutationFn: async () => {
       if (!profile?.id) throw new Error('User not authenticated');
 
-      // Upload image first
-      const imageUrl = await uploadImage();
-
       const productData = {
         ...form,
         price: parseFloat(form.price as string),
         stock_quantity: parseInt(form.stock_quantity as string),
-        image_url: imageUrl,
       };
 
       let productId: string;
@@ -178,6 +238,14 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
         if (error) throw error;
 
         productId = existingData.id;
+
+        // Delete existing product images
+        const { error: deleteImagesError } = await supabase
+          .from('product_images')
+          .delete()
+          .eq('product_id', productId);
+
+        if (deleteImagesError) throw deleteImagesError;
 
         // Delete existing tiers
         const { error: deleteError } = await supabase
@@ -200,6 +268,49 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
         if (!inserted || inserted.length === 0) throw new Error('Failed to insert product');
 
         productId = inserted[0].id;
+      }
+
+      // Upload and insert product images
+      const imagesToUpload = productImages.filter(img => img.file);
+      const existingImages = productImages.filter(img => img.url && !img.file);
+
+      if (imagesToUpload.length > 0) {
+        const uploadPromises = imagesToUpload.map(async (img) => {
+          const imageUrl = await uploadImage(img.file!);
+          return {
+            product_id: productId,
+            image_url: imageUrl,
+            display_order: img.displayOrder,
+            is_primary: img.isPrimary,
+          };
+        });
+
+        const uploadedImages = await Promise.all(uploadPromises);
+        const validImages = uploadedImages.filter(img => img.image_url);
+
+        if (validImages.length > 0) {
+          const { error } = await supabase
+            .from('product_images')
+            .insert(validImages);
+
+          if (error) throw error;
+        }
+      }
+
+      // Insert existing images (for editing)
+      if (existingImages.length > 0) {
+        const existingImagesData = existingImages.map(img => ({
+          product_id: productId,
+          image_url: img.url!,
+          display_order: img.displayOrder,
+          is_primary: img.isPrimary,
+        }));
+
+        const { error } = await supabase
+          .from('product_images')
+          .insert(existingImagesData);
+
+        if (error) throw error;
       }
 
       // Insert new tiers if any
@@ -339,23 +450,59 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
           </div>
           
           <div>
-            <Label htmlFor="product_image">Product Image</Label>
-            <Input 
-              id="product_image"
-              name="product_image"
-              type="file"
-              accept="image/*"
-              onChange={handleImageChange}
-            />
-            {imagePreview && (
-              <div className="mt-2">
-                <img 
-                  src={imagePreview} 
-                  alt="Product Preview" 
-                  className="w-full max-h-48 object-contain rounded border"
-                />
-              </div>
-            )}
+            <Label>Product Images (Up to 3)</Label>
+            <div className="space-y-3">
+              {[0, 1, 2].map((index) => (
+                <div key={index} className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor={`product_image_${index}`} className="text-sm">
+                      Image {index + 1} {index === 0 && '(Primary)'}
+                    </Label>
+                    {productImages[index] && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPrimaryImage(index)}
+                        className={productImages[index]?.isPrimary ? 'bg-green-100 text-green-700' : ''}
+                      >
+                        {productImages[index]?.isPrimary ? 'Primary' : 'Set Primary'}
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Input 
+                      id={`product_image_${index}`}
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageChange(index, e)}
+                      className="flex-1"
+                    />
+                    {productImages[index] && (
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => removeImage(index)}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {productImages[index]?.preview && (
+                    <div className="mt-2">
+                      <img 
+                        src={productImages[index].preview} 
+                        alt={`Product Image ${index + 1}`} 
+                        className="w-full max-h-32 object-contain rounded border"
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Discount Tiers UI - Placed beneath product image for layout flow */}
