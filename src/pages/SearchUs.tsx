@@ -6,6 +6,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft,
   Search,
@@ -141,7 +142,9 @@ function FloatingSearchFilter({
 export default function SearchUs() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
+  const [followingUsers, setFollowingUsers] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
+  const { toast } = useToast();
   const debouncedQuery = useDebounce(searchQuery, 100);
   const enabled = debouncedQuery.length > 1;
 
@@ -181,6 +184,86 @@ export default function SearchUs() {
     { name: "Fashion", icon: "👗", count: "95+ groups" },
     { name: "Books", icon: "📚", count: "45+ groups" },
   ];
+
+  // Handle navigation to different pages
+  const handleUserClick = (userId: string) => {
+    navigate(`/users/${userId}`);
+  };
+
+  const handleGroupClick = (groupId: string) => {
+    navigate(`/groups/${groupId}`);
+  };
+
+  const handleProductClick = (productId: string) => {
+    navigate(`/products/${productId}`);
+  };
+
+  // Handle follow functionality
+  const handleFollowUser = async (userId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent navigation when clicking follow button
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        toast({
+          title: "Authentication required",
+          description: "Please log in to follow users",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (followingUsers.has(userId)) {
+        // Unfollow user
+        const { error } = await supabase
+          .from("follows")
+          .delete()
+          .eq("follower_id", user.id)
+          .eq("following_id", userId);
+
+        if (error) throw error;
+
+        setFollowingUsers((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(userId);
+          return newSet;
+        });
+
+        toast({
+          title: "Unfollowed",
+          description: "You have unfollowed this user",
+        });
+      } else {
+        // Follow user
+        const { error } = await supabase
+          .from("follows")
+          .insert([
+            {
+              follower_id: user.id,
+              following_id: userId,
+            },
+          ]);
+
+        if (error) throw error;
+
+        setFollowingUsers((prev) => new Set(prev).add(userId));
+
+        toast({
+          title: "Following",
+          description: "You are now following this user",
+        });
+      }
+    } catch (error) {
+      console.error("Error following user:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update follow status",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen bg-white pb-20">
@@ -232,6 +315,7 @@ export default function SearchUs() {
                       <Card
                         key={user.id}
                         className="hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => handleUserClick(user.id)}
                       >
                         <CardContent className="p-4">
                           <div className="flex items-center space-x-4">
@@ -249,11 +333,14 @@ export default function SearchUs() {
                               <p className="text-gray-600">{user.email}</p>
                             </div>
                             <Button
-                              variant="outline"
+                              variant={
+                                followingUsers.has(user.id) ? "default" : "outline"
+                              }
                               size="sm"
                               className="bg-transparent"
+                              onClick={(e) => handleFollowUser(user.id, e)}
                             >
-                              Follow
+                              {followingUsers.has(user.id) ? "Following" : "Follow"}
                             </Button>
                           </div>
                         </CardContent>
@@ -276,6 +363,7 @@ export default function SearchUs() {
                       <Card
                         key={group.id}
                         className="hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => handleGroupClick(group.id)}
                       >
                         <CardContent className="p-4">
                           <div className="flex items-center space-x-4">
@@ -296,6 +384,10 @@ export default function SearchUs() {
                               variant="outline"
                               size="sm"
                               className="bg-transparent"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Add join group functionality here if needed
+                              }}
                             >
                               Join
                             </Button>
@@ -320,6 +412,7 @@ export default function SearchUs() {
                       <Card
                         key={product.id}
                         className="hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => handleProductClick(product.id)}
                       >
                         <div className="aspect-square relative">
                           <img
@@ -331,6 +424,10 @@ export default function SearchUs() {
                             variant="ghost"
                             size="icon"
                             className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm hover:bg-white rounded-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Add wishlist functionality here if needed
+                            }}
                           >
                             <Heart className="h-4 w-4 text-gray-600" />
                           </Button>
@@ -350,6 +447,10 @@ export default function SearchUs() {
                           <Button
                             size="sm"
                             className="w-full mt-2 bg-primary hover:bg-primary/90 text-white text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Add to cart functionality here if needed
+                            }}
                           >
                             <ShoppingCart className="h-3 w-3 mr-1" />
                             Add to Cart
@@ -373,78 +474,76 @@ export default function SearchUs() {
               )}
           </div>
         ) : (
-          !searchQuery && (
-            /* Default Search Screen */
-            <div className="space-y-8">
-              {/* Trending Searches */}
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <TrendingUp className="h-5 w-5 mr-2 text-primary" />
-                  Trending Searches
-                </h2>
-                <div className="flex flex-wrap gap-2">
-                  {trendingSearches.map((term) => (
-                    <Button
-                      key={term}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSearchQuery(term)}
-                      className="rounded-full bg-gray-50 hover:bg-primary/10 hover:text-primary hover:border-primary"
-                    >
-                      {term}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Recent Searches */}
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <Clock className="h-5 w-5 mr-2 text-primary" />
-                  Recent Searches
-                </h2>
-                <div className="space-y-3">
-                  {["Coffee Lovers", "Electronics Deal", "Fashion Group"].map(
-                    (search, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
-                        onClick={() => setSearchQuery(search)}
-                      >
-                        <Search className="h-4 w-4 text-gray-400" />
-                        <span className="text-gray-700">{search}</span>
-                      </div>
-                    )
-                  )}
-                </div>
-              </div>
-
-              {/* Popular Categories */}
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  Popular Categories
-                </h2>
-                <div className="grid grid-cols-2 gap-4">
-                  {categories.map((category) => (
-                    <Card
-                      key={category.name}
-                      className="hover:shadow-md transition-shadow cursor-pointer"
-                    >
-                      <CardContent className="p-4 text-center">
-                        <div className="text-2xl mb-2">{category.icon}</div>
-                        <h3 className="font-semibold text-gray-900 text-sm">
-                          {category.name}
-                        </h3>
-                        <p className="text-xs text-gray-500">
-                          {category.count}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+          /* Default Search Screen */
+          <div className="space-y-8">
+            {/* Trending Searches */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <TrendingUp className="h-5 w-5 mr-2 text-primary" />
+                Trending Searches
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {trendingSearches.map((term) => (
+                  <Button
+                    key={term}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSearchQuery(term)}
+                    className="rounded-full bg-gray-50 hover:bg-primary/10 hover:text-primary hover:border-primary"
+                  >
+                    {term}
+                  </Button>
+                ))}
               </div>
             </div>
-          )
+
+            {/* Recent Searches */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Clock className="h-5 w-5 mr-2 text-primary" />
+                Recent Searches
+              </h2>
+              <div className="space-y-3">
+                {["Coffee Lovers", "Electronics Deal", "Fashion Group"].map(
+                  (search, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer"
+                      onClick={() => setSearchQuery(search)}
+                    >
+                      <Search className="h-4 w-4 text-gray-400" />
+                      <span className="text-gray-700">{search}</span>
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+
+            {/* Popular Categories */}
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Popular Categories
+              </h2>
+              <div className="grid grid-cols-2 gap-4">
+                {categories.map((category) => (
+                  <Card
+                    key={category.name}
+                    className="hover:shadow-md transition-shadow cursor-pointer"
+                  >
+                    <CardContent className="p-4 text-center">
+                      <div className="text-2xl mb-2">{category.icon}</div>
+                      <h3 className="font-semibold text-gray-900 text-sm">
+                        {category.name}
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        {category.count}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
       </div>
 

@@ -1,4 +1,3 @@
-//@ts-ignore
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,7 +11,6 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
-  User,
   Package,
   FileText,
   BarChart3,
@@ -44,13 +42,11 @@ import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import KYCForm from "@/components/KYCForm";
-import ProductForm from "@/components/ProductForm";
 import VendorProductCard from "@/components/VendorProductCard";
-import ImportProductsModal from "@/components/ImportProductsModal";
-import BulkDiscountModal from "@/components/BulkDiscountModal";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import AdminDashboard from "@/components/dashboards/AdminDashboard";
+import { Textarea } from "@/components/ui/textarea";
 
 const UserProfile = () => {
   const { userId } = useParams();
@@ -1324,7 +1320,7 @@ const UserProfile = () => {
         </Card>
 
         {/* Main Content with Sidebar - Enhanced Responsive Grid */}
-        {profile.role === "admin" ? (
+        {user.role === "admin" ? (
           <AdminDashboard />
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6 xl:gap-8">
