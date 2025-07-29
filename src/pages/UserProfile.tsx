@@ -56,6 +56,7 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import AdminDashboard from "@/components/dashboards/AdminDashboard";
 import { Textarea } from "@/components/ui/textarea";
+import PostCard from "@/components/PostCard";
 
 const UserProfile = () => {
   const { userId } = useParams();
@@ -230,12 +231,38 @@ const UserProfile = () => {
 
       const { data, error } = await supabase
         .from("posts")
-        .select("*")
+        .select(`
+          *,
+          profiles:user_id (
+            full_name,
+            email,
+            avatar_url
+          ),
+          post_likes (user_id),
+          comment_count: post_comments (count),
+          post_images (
+            image_url,
+            display_order
+          )
+        `)
         .eq("user_id", profile.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data;
+
+      return data.map((post) => ({
+        ...post,
+        user: {
+          id: post.user_id,
+          name: post.profiles?.full_name || post.profiles?.email?.split("@")[0] || "Unknown User",
+          avatar: post.profiles?.avatar_url || null,
+          username: `@${post.profiles?.email?.split("@")[0] || "user"}`,
+        },
+        liked: false, // Will be updated when we add like functionality
+        likes_count: post.post_likes?.length || 0,
+        comments_count: post.comment_count?.[0]?.count || 0,
+        images: post.post_images || [],
+      }));
     },
     enabled: !!profile?.id,
   });
@@ -658,7 +685,7 @@ const UserProfile = () => {
         </CardContent>
       </Card>
       </div>
-    );
+  );
 
   const renderPosts = () => (
     <div className="space-y-4">
@@ -680,20 +707,11 @@ const UserProfile = () => {
       ) : (
         <div className="space-y-4">
           {posts.map((post) => (
-            <Card key={post.id}>
-              <CardContent className="p-4">
-                <p>{post.content}</p>
-                <div className="flex items-center gap-4 mt-3 text-sm text-gray-500">
-                  <span className="flex items-center gap-1">
-                    <Heart className="w-4 h-4" />0
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <MessageCircle className="w-4 h-4" />0
-                  </span>
-                  <span>{new Date(post.created_at).toLocaleDateString()}</span>
-                </div>
-              </CardContent>
-            </Card>
+            <PostCard
+              key={post.id}
+              post={post}
+              showUserInfo={true} // Show user info in profile section
+            />
           ))}
         </div>
       )}

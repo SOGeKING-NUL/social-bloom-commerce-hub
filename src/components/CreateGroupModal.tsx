@@ -22,25 +22,37 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Lock, Globe, Users, Package } from "lucide-react";
+import { useEffect } from "react";
 
 interface CreateGroupModalProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  preSelectedProductId?: string; // Optional: pre-select a specific product
 }
 
-const CreateGroupModal = ({ isOpen, onOpenChange, onSuccess }: CreateGroupModalProps) => {
+const CreateGroupModal = ({ isOpen, onOpenChange, onSuccess, preSelectedProductId }: CreateGroupModalProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-    product_id: "",
+    product_id: preSelectedProductId || "", // Pre-select product if provided
     is_private: true, // Default to private
     member_limit: 50,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Update form data when preSelectedProductId changes
+  useEffect(() => {
+    if (preSelectedProductId) {
+      setFormData(prev => ({
+        ...prev,
+        product_id: preSelectedProductId
+      }));
+    }
+  }, [preSelectedProductId]);
 
   // Fetch available products for group creation
   const { data: products = [] } = useQuery({

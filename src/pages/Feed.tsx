@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import CommentsDialog from "@/components/CommentsDialog";
 import InstagramStylePostCreator from "@/components/InstagramStylePostCreator";
+import PostCard from "@/components/PostCard";
 import { useNavigate } from "react-router-dom";
 
 // Define feelings (same as in post creator)
@@ -293,137 +294,12 @@ const Feed = () => {
             {/* Posts Feed */}
             <div className="space-y-6">
               {posts.map((post) => (
-                <div
+                <PostCard
                   key={post.id}
-                  className="smooth-card rounded-xl p-6 animate-fade-in dark:bg-gray-800 dark:border-gray-700 cursor-pointer"
-                  onClick={() => handlePostClick(post.id)}
-                >
-                  <div className="flex items-center mb-4">
-                    {post.user.avatar ? (
-                      <Avatar
-                        className="w-12 h-12 mr-4 cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
-                        onClick={(e) => handleUserClick(e, post.user.id)}
-                      >
-                        <AvatarImage
-                          src={post.user.avatar}
-                          alt={post.user.name}
-                        />
-                        <AvatarFallback>
-                          {post.user.name.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                    ) : (
-                      <div
-                        className="w-12 h-12 mr-4 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-medium cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
-                        onClick={(e) => handleUserClick(e, post.user.id)}
-                      >
-                        {post.user.name.charAt(0)}
-                      </div>
-                    )}
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <h3
-                          className="font-semibold cursor-pointer hover:text-pink-500 transition-colors dark:text-white dark:hover:text-pink-400"
-                          onClick={(e) => handleUserClick(e, post.user.id)}
-                        >
-                          {post.user.name}
-                        </h3>
-                        {post.feeling && (
-                          <span className="text-sm text-gray-600 dark:text-gray-400">
-                            is feeling{" "}
-                            {
-                              feelings.find((f) => f.name === post.feeling)
-                                ?.emoji
-                            }{" "}
-                            {post.feeling}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {post.user.username}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mb-4 text-gray-700 dark:text-gray-300">
-                    {renderContentWithTags(post.content, post.id)}
-                  </div>
-
-                  {post.images && post.images.length > 0 && (
-                    <div className="mb-4 rounded-2xl overflow-hidden">
-                      <div className={`grid gap-1 ${
-                        post.images.length === 1 ? 'grid-cols-1' :
-                        post.images.length === 2 ? 'grid-cols-2' :
-                        post.images.length === 3 ? 'grid-cols-3' :
-                        'grid-cols-2'
-                      }`}>
-                        {post.images.map((image, index) => (
-                          <div 
-                            key={index} 
-                            className={`relative ${
-                              post.images.length === 3 && index === 2 ? 'col-span-2' :
-                              post.images.length === 4 && index === 3 ? 'col-span-2' : ''
-                            }`}
-                          >
-                            <div className={`${
-                              post.images.length === 1 ? 'aspect-[4/3]' :
-                              post.images.length === 2 ? 'aspect-square' :
-                              post.images.length === 3 && index === 2 ? 'aspect-[2/1]' :
-                              post.images.length === 4 && index === 3 ? 'aspect-[2/1]' :
-                              'aspect-square'
-                            }`}>
-                              <img
-                                src={image.image_url}
-                                alt={`Post image ${index + 1}`}
-                                className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
-                      />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="border-t border-pink-100 dark:border-gray-600 pt-4">
-                    <div className="flex items-center justify-between">
-                      <Button
-                        variant="ghost"
-                        onClick={(e) => handleLike(e, post.id, post.liked)}
-                        disabled={likePostMutation.isPending}
-                        className={`flex items-center space-x-2 rounded-xl ${
-                          post.liked
-                            ? "text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/20"
-                            : "text-gray-600 hover:text-pink-500 hover:bg-pink-50 rounded-xl dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20"
-                        }`}
-                      >
-                        <Heart
-                          className={`w-5 h-5 ${
-                            post.liked ? "fill-current" : ""
-                          }`}
-                        />
-                        <span>{post.likes_count || 0}</span>
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        onClick={(e) => handleCommentClick(e, post.id)}
-                        className="flex items-center space-x-2 text-gray-600 hover:text-pink-500 hover:bg-pink-50 rounded-xl dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20"
-                      >
-                        <MessageCircle className="w-5 h-5" />
-                        <span>{post.comments_count || 0}</span>
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        onClick={(e) => handleShare(e, post.id)}
-                        className="flex items-center space-x-2 text-gray-600 hover:text-pink-500 hover:bg-pink-50 rounded-xl dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20"
-                      >
-                        <Share className="w-5 h-5" />
-                        <span>{post.shares_count || 0}</span>
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                  post={post}
+                  onUserClick={handleUserClick}
+                  onCommentClick={handleCommentClick}
+                />
               ))}
 
               {posts.length === 0 && (

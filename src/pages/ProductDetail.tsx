@@ -6,10 +6,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Heart, ShoppingCart, ArrowLeft, Users, Share2 } from "lucide-react";
+import { Heart, ShoppingCart, ArrowLeft, Users, Share2, Minus, Plus } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ImageGallery from "@/components/ImageGallery";
+import CreateGroupModal from "@/components/CreateGroupModal";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +29,7 @@ const ProductDetail = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
   const [groupForm, setGroupForm] = useState({
     name: '',
@@ -103,14 +105,37 @@ const ProductDetail = () => {
       
       const { data, error } = await supabase
         .from('product_images')
-        .select('image_url, is_primary, display_order')
+        .select('image_url, display_order')
         .eq('product_id', id)
-        .order('display_order');
-
+        .order('display_order', { ascending: true });
+      
       if (error) throw error;
       return data || [];
     },
     enabled: !!id,
+  });
+
+  // Check if product is in cart and get quantity
+  const { data: cartItem, refetch: refetchCartItem } = useQuery({
+    queryKey: ['cart-item', user?.id, id],
+    queryFn: async () => {
+      if (!user || !id) return null;
+      
+      console.log('Fetching cart item for user:', user.id, 'product:', id);
+      
+      const { data, error } = await supabase
+        .from('cart_items')
+        .select('id, quantity')
+        .eq('user_id', user.id)
+        .eq('product_id', id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      
+      console.log('Cart item result:', data);
+      return data;
+    },
+    enabled: !!user && !!id,
   });
 
   // Fetch discount tiers for this product
@@ -235,8 +260,12 @@ const ProductDetail = () => {
       }
     },
     onSuccess: () => {
+      // Invalidate all cart-related queries to ensure UI updates
       queryClient.invalidateQueries({ queryKey: ['cart-count'] });
       queryClient.invalidateQueries({ queryKey: ['cart-items'] });
+      queryClient.invalidateQueries({ queryKey: ['cart-item', user?.id, id] });
+      // Also trigger an immediate refetch
+      refetchCartItem();
       toast({ title: "Added to cart" });
     },
     onError: (error: any) => {
@@ -245,53 +274,116 @@ const ProductDetail = () => {
     },
   });
 
-  // Create group mutation
-  const createGroupMutation = useMutation({
+  // Increment cart quantity mutation
+  const incrementCartMutation = useMutation({
     mutationFn: async () => {
-      if (!user || !id) throw new Error('Please login to create a group');
-      if (!product) throw new Error('Product data is not available'); // Added check
+      if (!user || !id || !cartItem) throw new Error('Cannot increment cart item');
       
-      console.log('Creating group with data:', {
-        name: groupForm.name,
-        description: groupForm.description,
-        creator_id: user.id,
-        product_id: product.id, // Use product.id here
-      });
+      const { error } = await supabase
+        .from('cart_items')
+        .update({ quantity: cartItem.quantity + 1 })
+        .eq('id', cartItem.id);
       
-      const { data, error } = await supabase
-        .from('groups')
-        .insert({
-          name: groupForm.name,
-          description: groupForm.description,
-          creator_id: user.id,
-          product_id: product.id, // Ensure this is the correct product ID
-        })
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('Group creation error:', error);
-        throw error;
-      }
-      
-      return data;
+      if (error) throw error;
     },
-    onSuccess: (data) => {
-      console.log('Group created successfully:', data);
-      setIsGroupDialogOpen(false);
-      setGroupForm({ name: '', description: '' });
-      toast({ title: "Group created successfully!" });
-      navigate('/groups');
+    onSuccess: () => {
+      // Invalidate all cart-related queries to ensure UI updates
+      queryClient.invalidateQueries({ queryKey: ['cart-count'] });
+      queryClient.invalidateQueries({ queryKey: ['cart-items'] });
+      queryClient.invalidateQueries({ queryKey: ['cart-item', user?.id, id] });
+      // Also trigger an immediate refetch
+      refetchCartItem();
+      toast({ title: "Added to cart" });
     },
     onError: (error: any) => {
-      console.error('Create group error:', error);
-      toast({ 
-        title: "Error creating group", 
-        description: error.message || "Please try again later",
-        variant: "destructive" 
-      });
+      console.error('Increment cart error:', error);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
     },
   });
+
+  // Decrement cart quantity mutation
+  const decrementCartMutation = useMutation({
+    mutationFn: async () => {
+      if (!user || !id || !cartItem) throw new Error('Cannot decrement cart item');
+      
+      if (cartItem.quantity <= 1) {
+        // Remove item from cart if quantity would become 0
+        const { error } = await supabase
+          .from('cart_items')
+          .delete()
+          .eq('id', cartItem.id);
+        
+        if (error) throw error;
+      } else {
+        // Decrease quantity
+        const { error } = await supabase
+          .from('cart_items')
+          .update({ quantity: cartItem.quantity - 1 })
+          .eq('id', cartItem.id);
+        
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      // Invalidate all cart-related queries to ensure UI updates
+      queryClient.invalidateQueries({ queryKey: ['cart-count'] });
+      queryClient.invalidateQueries({ queryKey: ['cart-items'] });
+      queryClient.invalidateQueries({ queryKey: ['cart-item', user?.id, id] });
+      toast({ title: cartItem?.quantity <= 1 ? "Removed from cart" : "Updated cart" });
+    },
+    onError: (error: any) => {
+      console.error('Decrement cart error:', error);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Create group mutation - REMOVED: Now using CreateGroupModal
+  // const createGroupMutation = useMutation({
+  //   mutationFn: async () => {
+  //     if (!user || !id) throw new Error('Please login to create a group');
+  //     if (!product) throw new Error('Product data is not available');
+  //     
+  //     console.log('Creating group with data:', {
+  //       name: groupForm.name,
+  //       description: groupForm.description,
+  //       creator_id: user.id,
+  //       product_id: product.id,
+  //     });
+  //     
+  //     const { data, error } = await supabase
+  //       .from('groups')
+  //       .insert({
+  //         name: groupForm.name,
+  //         description: groupForm.description,
+  //         creator_id: user.id,
+  //         product_id: product.id,
+  //       })
+  //       .select()
+  //       .single();
+  //     
+  //     if (error) {
+  //       console.error('Group creation error:', error);
+  //       throw error;
+  //     }
+  //     
+  //     return data;
+  //   },
+  //   onSuccess: (data) => {
+  //     console.log('Group created successfully:', data);
+  //     setIsGroupDialogOpen(false);
+  //     setGroupForm({ name: '', description: '' });
+  //     toast({ title: "Group created successfully!" });
+  //     navigate('/groups');
+  //   },
+  //   onError: (error: any) => {
+  //     console.error('Create group error:', error);
+  //     toast({ 
+  //       title: "Error creating group", 
+  //       description: error.message || "Please try again later",
+  //       variant: "destructive" 
+  //     });
+  //   },
+  // });
 
   const handleWishlistToggle = () => {
     if (!user) {
@@ -456,74 +548,83 @@ const ProductDetail = () => {
               )}
 
               <div className="space-y-3">
-                <Button
-                  onClick={() => addToCartMutation.mutate()}
-                  className="w-full bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
-                  disabled={addToCartMutation.isPending}
-                  size="lg"
-                >
-                  <ShoppingCart className="w-5 h-5 mr-2" />
-                  {addToCartMutation.isPending ? 'Adding...' : 'Add to Cart'}
-                </Button>
-                
-                {hasTiers && (
-                  <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
-                    <DialogTrigger asChild>
+                {cartItem ? (
+                  // Item is in cart - show quantity controls above disabled button
+                  <div className="space-y-3">
+                    {/* Quantity controls centered */}
+                    <div className="flex items-center justify-center gap-2">
                       <Button
                         variant="outline"
-                        className="w-full border-pink-200 text-pink-600 hover:bg-pink-50"
-                        size="lg"
-                        disabled={!user} // Disable if user not logged in
+                        size="sm"
+                        onClick={() => decrementCartMutation.mutate()}
+                        disabled={decrementCartMutation.isPending}
                       >
-                        <Users className="w-5 h-5 mr-2" />
-                        Create Group for this Product
+                        <Minus className="w-4 h-4" />
                       </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Create Group for {product.name}</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div>
-                          <Label htmlFor="groupName">Group Name</Label>
-                          <Input
-                            id="groupName"
-                            value={groupForm.name}
-                            onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
-                            placeholder="Enter group name"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="groupDescription">Description</Label>
-                          <Textarea
-                            id="groupDescription"
-                            value={groupForm.description}
-                            onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })}
-                            placeholder="Describe your group"
-                          />
-                        </div>
-                        <Button
-                          onClick={() => {
-                            if (!user) {
-                              toast({ title: "Please login to create a group.", variant: "destructive"});
-                              return;
-                            }
-                            createGroupMutation.mutate();
-                          }}
-                          className="w-full"
-                          disabled={!groupForm.name || createGroupMutation.isPending || !user}
-                        >
-                          {createGroupMutation.isPending ? 'Creating...' : 'Create Group'}
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                      <span className="w-8 text-center font-medium">{cartItem.quantity}</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => incrementCartMutation.mutate()}
+                        disabled={incrementCartMutation.isPending}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    
+                    {/* Disabled Add to Cart button */}
+                    <Button
+                      className="w-full bg-gray-300 text-gray-500 cursor-not-allowed"
+                      disabled={true}
+                      size="lg"
+                    >
+                      <ShoppingCart className="w-5 h-5 mr-2" />
+                      Item already in cart
+                    </Button>
+                  </div>
+                ) : (
+                  // Item not in cart - show add to cart button
+                  <Button
+                    onClick={() => addToCartMutation.mutate()}
+                    className="w-full bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
+                    disabled={addToCartMutation.isPending}
+                    size="lg"
+                  >
+                    <ShoppingCart className="w-5 h-5 mr-2" />
+                    {addToCartMutation.isPending ? 'Adding...' : 'Add to Cart'}
+                  </Button>
+                )}
+                
+                {hasTiers && (
+                  <Button
+                    variant="outline"
+                    className="w-full border-pink-200 text-pink-600 hover:bg-pink-50"
+                    size="lg"
+                    disabled={!user} // Disable if user not logged in
+                    onClick={() => setShowCreateGroupModal(true)}
+                  >
+                    <Users className="w-5 h-5 mr-2" />
+                    Create Group for this Product
+                  </Button>
                 )}
               </div>
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Create Group Modal */}
+      <CreateGroupModal
+        isOpen={showCreateGroupModal}
+        onOpenChange={setShowCreateGroupModal}
+        onSuccess={() => {
+          setShowCreateGroupModal(false);
+          queryClient.invalidateQueries({ queryKey: ["groups"] });
+          toast({ title: "Group created successfully!" });
+        }}
+        preSelectedProductId={product?.id}
+      />
+      
       <Footer />
     </div>
   );
