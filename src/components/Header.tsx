@@ -19,7 +19,7 @@ interface NavLinkItem {
 const navLinks: NavLinkItem[] = [
   { to: "/", label: "Feed" },
   { to: "/products", label: "Products" },
-  { to: "/groups", label: "Groups" },
+  // { to: "/groups", label: "Groups" }, // DISABLED: Groups removed - groups are now exclusively private
   // { to: "/", label: "About" },
 ];
 

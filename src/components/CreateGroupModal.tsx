@@ -288,39 +288,20 @@ const CreateGroupModal = ({ isOpen, onOpenChange, onSuccess }: CreateGroupModalP
             </Select>
           </div>
 
-          <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div className="flex items-center gap-2">
-              {formData.is_private ? (
-                <Lock className="w-4 h-4 text-pink-500" />
-              ) : (
-                <Globe className="w-4 h-4 text-green-500" />
-              )}
-              <span className="text-sm font-medium">
-                {formData.is_private ? "Private Group" : "Public Group"}
-              </span>
-            </div>
-            <Switch
-              checked={formData.is_private}
-              onCheckedChange={(checked) => setFormData({ ...formData, is_private: checked })}
-              disabled={isSubmitting}
-            />
-          </div>
-
-          {formData.is_private && (
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <div className="flex items-start gap-2">
-                <Lock className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                <div className="text-sm text-blue-700 dark:text-blue-300">
-                  <p className="font-medium">Private Group</p>
-                  <p className="text-xs mt-1">
-                    • Only visible to members<br/>
-                    • Access code will be generated automatically<br/>
-                    • Share the code to invite others
-                  </p>
-                </div>
+          {/* Groups are now exclusively private */}
+          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="flex items-start gap-2">
+              <Lock className="w-4 h-4 text-blue-500 mt-0.5 flex-shrink-0" />
+              <div className="text-sm text-blue-700 dark:text-blue-300">
+                <p className="font-medium">Private Group</p>
+                <p className="text-xs mt-1">
+                  • Only visible to members<br/>
+                  • Access code will be generated automatically<br/>
+                  • Share the code to invite others
+                </p>
               </div>
             </div>
-          )}
+          </div>
 
           <div className="flex gap-2">
             <Button

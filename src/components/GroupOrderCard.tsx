@@ -87,12 +87,10 @@ const GroupOrderCard: React.FC<GroupOrderCardProps> = ({ group }) => {
           {/* Gradient overlay */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent group-hover:from-black/30 transition-all duration-500" />
           
-          {/* Private indicator overlay */}
-          {group.is_private && (
-            <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm rounded-full p-2">
-              <Lock className="w-4 h-4 text-white" />
-            </div>
-          )}
+          {/* Private indicator overlay - All groups are now private */}
+          <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm rounded-full p-2">
+            <Lock className="w-4 h-4 text-white" />
+          </div>
         </div>
 
         {/* Card Content */}
@@ -103,18 +101,16 @@ const GroupOrderCard: React.FC<GroupOrderCardProps> = ({ group }) => {
               <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
                 {group.name}
               </h3>
-              {/* Only show badge for private groups */}
-              {group.is_private && (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                  className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-pink-500 to-rose-500 text-white"
-                >
-                  <Lock className="w-3 h-3" />
-                  Private
-                </motion.div>
-              )}
+              {/* All groups are now private */}
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-pink-500 to-rose-500 text-white"
+              >
+                <Lock className="w-3 h-3" />
+                Private
+              </motion.div>
             </div>
             
             {/* Description */}
@@ -125,8 +121,8 @@ const GroupOrderCard: React.FC<GroupOrderCardProps> = ({ group }) => {
             )}
           </div>
 
-          {/* Access Code Section for Private Groups */}
-          {group.is_private && group.access_code && (
+          {/* Access Code Section - All groups are now private */}
+          {group.access_code && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -169,11 +165,6 @@ const GroupOrderCard: React.FC<GroupOrderCardProps> = ({ group }) => {
                 </Button>
               </div>
             </motion.div>
-          )}
-
-          {/* Spacer for public groups to maintain consistent height */}
-          {!group.is_private && (
-            <div className="h-16"></div>
           )}
 
           {/* Footer */}

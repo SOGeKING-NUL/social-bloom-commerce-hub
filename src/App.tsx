@@ -13,7 +13,7 @@ import Feed from "./pages/Feed";
 import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
 import EditProduct from "./pages/EditProduct";
-import Groups from "./pages/Groups";
+// import Groups from "./pages/Groups"; // DISABLED: Groups page removed - groups are now exclusively private
 import GroupDetail from "./pages/GroupDetail";
 import Cart from "./pages/Cart";
 import Orders from "./pages/Orders";
@@ -56,6 +56,7 @@ const App = () => (
                   <EditProduct />
                 </ProtectedRoute>
               } />
+              {/* DISABLED: Groups routes removed - groups are now exclusively private
               <Route path="/groups" element={
                 <ProtectedRoute>
                   <Groups />
@@ -66,6 +67,7 @@ const App = () => (
                   <GroupDetail />
                 </ProtectedRoute>
               } />
+              */}
               <Route path="/cart" element={
                 <ProtectedRoute>
                   <Cart />
