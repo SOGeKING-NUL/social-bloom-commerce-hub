@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import StarRating from "./StarRating";
 
 interface HighlightProductCardProps {
   product: {
@@ -115,6 +116,30 @@ const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardPr
     }
   };
 
+  // Fetch average rating
+  const { data: averageRating } = useQuery({
+    queryKey: ['product-rating', product.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .rpc('get_product_average_rating', { product_uuid: product.id });
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch review count
+  const { data: reviewCount } = useQuery({
+    queryKey: ['product-review-count', product.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .rpc('get_product_review_count', { product_uuid: product.id });
+      
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Fetch product images
   const { data: productImages } = useQuery({
     queryKey: ["product-images", product.id],
@@ -217,25 +242,37 @@ const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardPr
             <p className="text-sm text-slate-600 line-clamp-2 leading-relaxed">
               {product.description || "Quality product perfect for group orders"}
             </p>
+            
+            {/* Rating Display */}
+            {averageRating && averageRating > 0 && (
+              <div className="flex items-center gap-2 pt-1">
+                <StarRating rating={Math.round(averageRating)} size="sm" />
+                <span className="text-xs text-slate-500">
+                  {averageRating.toFixed(1)} ({reviewCount || 0} {reviewCount === 1 ? 'review' : 'reviews'})
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Group Benefits Row - Fixed height, always shown */}
-          <div className="flex items-center gap-6 py-2 min-h-[40px]"> {/* Fixed min-height for consistency */}
-            <div className="text-center">
-              <div className="text-sm font-bold text-slate-800">
-                {isLoading ? "Loading..." : (hasTiers ? `${maxDiscount}%` : "N/A")}
+          {/* Group Benefits Row - Only show when tiers are available */}
+          {hasTiers && !isLoading && (
+            <div className="flex items-center gap-6 py-2">
+              <div className="text-center">
+                <div className="text-sm font-bold text-slate-800">
+                  {maxDiscount}%
+                </div>
+                <div className="text-xs text-slate-500 uppercase tracking-wide font-medium">Discount</div>
               </div>
-              <div className="text-xs text-slate-500 uppercase tracking-wide font-medium">Discount</div>
+              <div className="text-center">
+                <div className="text-sm font-bold text-slate-800">
+                  Groups
+                </div>
+                <div className="text-xs text-slate-500 uppercase tracking-wide font-medium">
+                  Available
+                </div>
+              </div>
             </div>
-            <div className="text-center">
-              <div className="text-sm font-bold text-slate-800">
-                {isLoading ? "Loading..." : (hasTiers ? "Groups" : "N/A")}
-              </div>
-              <div className="text-xs text-slate-500 uppercase tracking-wide font-medium">
-                {hasTiers ? "Available" : ""}
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Vendor Info */}
           <div className="border-t border-slate-100 pt-3">

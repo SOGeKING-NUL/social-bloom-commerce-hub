@@ -11,6 +11,9 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ImageGallery from "@/components/ImageGallery";
 import CreateGroupModal from "@/components/CreateGroupModal";
+import ReviewSummary from "@/components/ReviewSummary";
+import ReviewList from "@/components/ReviewList";
+import ReviewForm from "@/components/ReviewForm";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useState } from "react";
+import StarRating from "@/components/StarRating";
 
 const ProductDetail = () => {
   const { productId: id } = useParams(); // Changed: Use productId from params and alias as id
@@ -178,6 +182,32 @@ const ProductDetail = () => {
       return !!data;
     },
     enabled: !!user && !!id,
+  });
+
+  // Fetch average rating
+  const { data: averageRating } = useQuery({
+    queryKey: ['product-rating', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .rpc('get_product_average_rating', { product_uuid: id });
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  // Fetch review count
+  const { data: reviewCount } = useQuery({
+    queryKey: ['product-review-count', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .rpc('get_product_review_count', { product_uuid: id });
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
   });
 
   // Wishlist mutations
@@ -532,6 +562,14 @@ const ProductDetail = () => {
                 ₹{product.price}
               </div>
 
+              {/* Review Summary */}
+              <div className="flex items-center gap-2">
+                <StarRating rating={Math.round(averageRating || 0)} size="sm" />
+                <span className="text-sm text-gray-600">
+                  {averageRating?.toFixed(1) || '0.0'} ({reviewCount || 0} {reviewCount === 1 ? 'review' : 'reviews'})
+                </span>
+              </div>
+
               {product.description && (
                 <div>
                   <h3 className="text-lg font-semibold mb-2">Description</h3>
@@ -624,6 +662,31 @@ const ProductDetail = () => {
         }}
         preSelectedProductId={product?.id}
       />
+      
+      {/* Reviews Section */}
+      <div className="container mx-auto px-4 py-8">
+        <div className="max-w-4xl mx-auto">
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Customer Reviews</h2>
+          
+          {/* Review Summary */}
+          <div className="mb-8">
+            <ReviewSummary productId={product?.id || ''} />
+          </div>
+          
+          {/* Review Form */}
+          <div className="mb-8">
+            <ReviewForm productId={product?.id || ''} />
+          </div>
+          
+          {/* Review List */}
+          <div>
+            <ReviewList 
+              productId={product?.id || ''} 
+              productVendorId={product?.vendor_id || ''} 
+            />
+          </div>
+        </div>
+      </div>
       
       <Footer />
     </div>

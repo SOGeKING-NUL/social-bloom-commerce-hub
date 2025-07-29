@@ -10,6 +10,49 @@ import { Heart, ShoppingCart, Trash2, ArrowLeft, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import StarRating from "@/components/StarRating";
+
+// Component to display product rating in wishlist
+const WishlistProductRating = ({ productId }: { productId?: string }) => {
+  // Fetch average rating
+  const { data: averageRating } = useQuery({
+    queryKey: ['product-rating', productId],
+    queryFn: async () => {
+      if (!productId) return null;
+      const { data, error } = await supabase
+        .rpc('get_product_average_rating', { product_uuid: productId });
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!productId,
+  });
+
+  // Fetch review count
+  const { data: reviewCount } = useQuery({
+    queryKey: ['product-review-count', productId],
+    queryFn: async () => {
+      if (!productId) return null;
+      const { data, error } = await supabase
+        .rpc('get_product_review_count', { product_uuid: productId });
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!productId,
+  });
+
+  if (!averageRating || averageRating <= 0) return null;
+
+  return (
+    <div className="flex items-center gap-2 mt-1">
+      <StarRating rating={Math.round(averageRating)} size="sm" />
+      <span className="text-xs text-gray-500">
+        {averageRating.toFixed(1)} ({reviewCount || 0} {reviewCount === 1 ? 'review' : 'reviews'})
+      </span>
+    </div>
+  );
+};
 
 const Wishlist = () => {
   const navigate = useNavigate();
@@ -344,6 +387,10 @@ const Wishlist = () => {
                           <span className="text-lg font-bold text-gray-900 block mt-1">
                             ₹{item.products?.price?.toFixed(2) || "0.00"}
                           </span>
+                          
+                          {/* Rating Display */}
+                          <WishlistProductRating productId={item.products?.id} />
+                          
                           <p className="text-sm text-green-600 mt-1">
                             In stock
                           </p>
