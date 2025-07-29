@@ -449,8 +449,8 @@ const InstagramStylePostCreator = ({
             'grid-cols-2'
           }`}>
             {media.previewUrls.map((url, index) => (
-              <div 
-                key={index} 
+              <div
+                key={index}
                 className={`relative group ${
                   media.previewUrls.length === 3 && index === 2 ? 'col-span-2' :
                   media.previewUrls.length === 4 && index === 3 ? 'col-span-2' : ''

@@ -37,6 +37,8 @@ import {
   Menu,
   X,
   TrendingUp,
+  Lock,
+  Key,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
@@ -46,6 +48,10 @@ import ProductForm from "@/components/ProductForm";
 import VendorProductCard from "@/components/VendorProductCard";
 import ImportProductsModal from "@/components/ImportProductsModal";
 import BulkDiscountModal from "@/components/BulkDiscountModal";
+import JoinByCodeDialog from "@/components/JoinByCodeDialog";
+import CreateGroupModal from "@/components/CreateGroupModal";
+import GroupOrderCard from "@/components/GroupOrderCard";
+import { Database } from "@/integrations/supabase/types";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import AdminDashboard from "@/components/dashboards/AdminDashboard";
@@ -63,6 +69,8 @@ const UserProfile = () => {
   const [showProductForm, setShowProductForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [showJoinByCodeDialog, setShowJoinByCodeDialog] = useState(false);
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [profileForm, setProfileForm] = useState({
     full_name: "",
     bio: "",
@@ -271,30 +279,83 @@ const UserProfile = () => {
   // Fetch user's groups
   const { data: userGroups = [] } = useQuery({
     queryKey: ["user-groups", profile?.id],
-    queryFn: async () => {
+    queryFn: async (): Promise<any[]> => {
       if (!profile?.id) return [];
 
-      const { data, error } = await supabase
+      console.log("Fetching groups for user:", profile.id);
+
+      // First get the group IDs that the user is a member of
+      const { data: memberData, error: memberError } = await supabase
         .from("group_members")
-        .select(
-          `
-          groups (
-            id,
-            name,
-            description,
-            is_private,
-            created_at,
-            products (
-              name,
-              image_url
-            )
-          )
-        `
-        )
+        .select("group_id")
         .eq("user_id", profile.id);
 
-      if (error) throw error;
-      return data.map((item) => item.groups).filter(Boolean);
+      if (memberError) {
+        console.error("Error fetching group memberships:", memberError);
+        throw memberError;
+      }
+
+      console.log("Group memberships:", memberData);
+
+      if (!memberData || memberData.length === 0) {
+        console.log("No group memberships found");
+        return [];
+      }
+
+      // Extract group IDs
+      const groupIds = memberData.map(item => item.group_id);
+
+      // Then fetch the groups with basic data (no product relationship)
+      const { data: groupsData, error: groupsError } = await supabase
+        .from("groups")
+        .select(`
+          id,
+          name,
+          description,
+          is_private,
+          access_code,
+          created_at,
+          product_id
+        `)
+        .in("id", groupIds);
+
+      if (groupsError) {
+        console.error("Error fetching groups:", groupsError);
+        throw groupsError;
+      }
+
+      console.log("Groups data:", groupsData);
+
+      // If we have groups, fetch their products separately
+      if (groupsData && groupsData.length > 0) {
+        const productIds = groupsData.map(group => group.product_id).filter(Boolean);
+        
+        if (productIds.length > 0) {
+          const { data: productsData, error: productsError } = await supabase
+            .from("products")
+            .select("id, name, image_url")
+            .in("id", productIds);
+
+          if (productsError) {
+            console.error("Error fetching products:", productsError);
+            // Don't throw here, just log the error and continue without products
+          } else {
+            console.log("Products data:", productsData);
+            
+            // Merge products with groups
+            const productsMap = new Map(productsData?.map(p => [p.id, p]) || []);
+            const groupsWithProducts: any[] = groupsData.map(group => ({
+              ...group,
+              product: productsMap.get(group.product_id) || null
+            }));
+            
+            console.log("Groups with products:", groupsWithProducts);
+            return groupsWithProducts;
+          }
+        }
+      }
+
+      return groupsData as any[] || [];
     },
     enabled: !!profile?.id,
   });
@@ -644,7 +705,7 @@ const UserProfile = () => {
     const isKYCApproved = kycData?.status === 'approved';
     const isKYCPending = kycData?.status === 'pending';
     const isKYCRejected = kycData?.status === 'rejected';
-    const hasNoKYC = !kycData;
+    const hasNoKYC = kycStatus.status === 'none';
 
     // Helper function to render KYC status banner
     const renderKYCBanner = () => {
@@ -848,49 +909,57 @@ const UserProfile = () => {
 
   const renderGroups = () => (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Groups</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold">Groups</h3>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowJoinByCodeDialog(true)}
+            className="flex items-center gap-2"
+          >
+            <Key className="w-4 h-4" />
+            Join by Code
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => setShowCreateGroupModal(true)}
+            className="flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Create Group
+          </Button>
+        </div>
+      </div>
+
       {userGroups.length === 0 ? (
         <Card>
-          <CardContent className="text-center py-8">
+          <CardContent className="text-center py-12">
             <Users className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500">Not in any groups yet.</p>
+            <p className="text-gray-500 mb-4">Not in any groups yet.</p>
+            <div className="flex gap-2 justify-center">
+              <Button
+                variant="outline"
+                onClick={() => setShowJoinByCodeDialog(true)}
+                className="flex items-center gap-2"
+              >
+                <Key className="w-4 h-4" />
+                Join Private Group
+              </Button>
+              <Button
+                onClick={() => setShowCreateGroupModal(true)}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Create Group
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {userGroups.map((group) => (
-            <Card
-              key={group.id}
-              className="cursor-pointer hover:shadow-md transition-shadow"
-              onClick={() => navigate(`/groups/${group.id}`)}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3 mb-2">
-                  <img
-                    src={group.products?.image_url || "/placeholder.svg"}
-                    alt={group.products?.name}
-                    className="w-10 h-10 rounded object-cover"
-                  />
-                  <div>
-                    <h4 className="font-semibold">{group.name}</h4>
-                    <p className="text-sm text-gray-600">
-                      {group.products?.name}
-                    </p>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-600 line-clamp-2">
-                  {group.description}
-                </p>
-                <div className="flex items-center justify-between mt-3 text-sm">
-                  <Badge variant={group.is_private ? "secondary" : "default"}>
-                    {group.is_private ? "Private" : "Public"}
-                  </Badge>
-                  <span className="text-gray-500">
-                    {new Date(group.created_at).toLocaleDateString()}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+            <GroupOrderCard key={group.id} group={group} />
           ))}
         </div>
       )}
@@ -913,7 +982,7 @@ const UserProfile = () => {
             <Card key={order.id}>
               <CardContent className="p-4">
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-3 gap-2">
-                  <div>
+              <div>
                     <h4 className="font-medium">
                       Order #{order.id.slice(0, 8)}
                     </h4>
@@ -1507,10 +1576,6 @@ const UserProfile = () => {
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <ProductForm
               onClose={() => setShowProductForm(false)}
-              onSuccess={() => {
-                setShowProductForm(false);
-                queryClient.invalidateQueries({ queryKey: ['vendor-products'] });
-              }}
             />
           </div>
         </div>
@@ -1540,6 +1605,25 @@ const UserProfile = () => {
           }}
         />
       )}
+
+      {/* Join by Code Dialog */}
+      <JoinByCodeDialog
+        isOpen={showJoinByCodeDialog}
+        onOpenChange={setShowJoinByCodeDialog}
+      />
+
+      {/* Create Group Modal */}
+      <CreateGroupModal
+        isOpen={showCreateGroupModal}
+        onOpenChange={setShowCreateGroupModal}
+        onSuccess={() => {
+          setShowCreateGroupModal(false);
+          // Invalidate user groups query with the specific user ID
+          queryClient.invalidateQueries({ queryKey: ["user-groups", profileUserId] });
+          queryClient.invalidateQueries({ queryKey: ["user-groups"] });
+          queryClient.invalidateQueries({ queryKey: ["groups"] });
+        }}
+      />
 
       <Footer />
     </div>

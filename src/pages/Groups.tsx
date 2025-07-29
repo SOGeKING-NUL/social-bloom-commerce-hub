@@ -15,6 +15,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import InviteMembersDialog from "@/components/InviteMembersDialog";
+import GroupOrderCard from "@/components/GroupOrderCard";
+import CreateGroupModal from "@/components/CreateGroupModal";
 
 const Groups = () => {
   const { toast } = useToast();
@@ -24,6 +26,7 @@ const Groups = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [selectedGroupForInvite, setSelectedGroupForInvite] = useState<any>(null);
   const [newGroupForm, setNewGroupForm] = useState({
     name: "",
@@ -41,7 +44,7 @@ const Groups = () => {
     queryFn: async () => {
       console.log('Groups: Starting fetch for user:', user?.id);
       
-      // Get basic groups data first
+      // Get basic groups data first - filter private groups on frontend
       const { data: basicGroups, error: basicError } = await supabase
         .from('groups')
         .select('*')
@@ -59,10 +62,30 @@ const Groups = () => {
         return [];
       }
 
+      // Filter: show public groups OR private groups where user is a member
+      let filteredGroups = basicGroups;
+      if (user?.id) {
+        // Get groups where user is a member
+        const { data: userGroups } = await supabase
+          .from('group_members')
+          .select('group_id')
+          .eq('user_id', user.id);
+        
+        const userGroupIds = userGroups?.map(g => g.group_id) || [];
+        
+        // Filter to show public groups OR private groups where user is a member
+        filteredGroups = basicGroups.filter(group => 
+          !group.is_private || userGroupIds.includes(group.id)
+        );
+      } else {
+        // If not logged in, only show public groups
+        filteredGroups = basicGroups.filter(group => !group.is_private);
+      }
+
       // Get related data separately
-      const groupIds = basicGroups.map(g => g.id);
-      const creatorIds = [...new Set(basicGroups.map(g => g.creator_id))];
-      const productIds = [...new Set(basicGroups.map(g => g.product_id).filter(Boolean))];
+      const groupIds = filteredGroups.map(g => g.id);
+      const creatorIds = [...new Set(filteredGroups.map(g => g.creator_id))];
+      const productIds = [...new Set(filteredGroups.map(g => g.product_id).filter(Boolean))];
       
       // Get creator profiles
       const { data: creators } = await supabase
@@ -93,7 +116,7 @@ const Groups = () => {
       console.log('Groups: Related data:', { creators, products, allMembers, joinRequests });
       
       // Combine all data
-      const processedGroups = basicGroups.map(group => {
+      const processedGroups = filteredGroups.map(group => {
         const creator = creators?.find(c => c.id === group.creator_id);
         const product = products?.find(p => p.id === group.product_id);
         const groupMembers = allMembers?.filter(m => m.group_id === group.id) || [];
@@ -454,198 +477,19 @@ const Groups = () => {
                   className="pl-10 border-pink-200 focus:ring-pink-300"
                 />
               </div>
-              <Dialog open={showCreateForm} onOpenChange={setShowCreateForm}>
-                <DialogTrigger asChild>
-                  <Button className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500">
-                    <Plus className="w-5 h-5 mr-2" />
-                    Create Group
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Create New Group</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <Input
-                      value={newGroupForm.name}
-                      onChange={(e) => setNewGroupForm({ ...newGroupForm, name: e.target.value })}
-                      placeholder="Group name"
-                      className="border-pink-200 focus:ring-pink-300"
-                    />
-                    <Textarea
-                      value={newGroupForm.description}
-                      onChange={(e) => setNewGroupForm({ ...newGroupForm, description: e.target.value })}
-                      placeholder="Group description"
-                      className="border-pink-200 focus:ring-pink-300"
-                      rows={3}
-                    />
-                    <Select value={newGroupForm.product_id} onValueChange={(value) => setNewGroupForm({ ...newGroupForm, product_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a product for this group" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products.map((product) => (
-                          <SelectItem key={product.id} value={product.id}>
-                            {product.name} - ₹{product.price}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="is_private">Private Group</Label>
-                        <Switch
-                          id="is_private"
-                          checked={newGroupForm.is_private}
-                          onCheckedChange={(checked) => setNewGroupForm({ ...newGroupForm, is_private: checked })}
-                        />
-                      </div>
-                      
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="invite_only">Invite Only</Label>
-                        <Switch
-                          id="invite_only"
-                          checked={newGroupForm.invite_only}
-                          onCheckedChange={(checked) => setNewGroupForm({ ...newGroupForm, invite_only: checked })}
-                        />
-                      </div>
-                      
-                      {!newGroupForm.invite_only && !newGroupForm.is_private && (
-                        <div className="flex items-center justify-between">
-                          <Label htmlFor="auto_approve">Auto-approve Join Requests</Label>
-                          <Switch
-                            id="auto_approve"
-                            checked={newGroupForm.auto_approve_requests}
-                            onCheckedChange={(checked) => setNewGroupForm({ ...newGroupForm, auto_approve_requests: checked })}
-                          />
-                        </div>
-                      )}
-                      
-                      <div>
-                        <Label htmlFor="max_members">Maximum Members</Label>
-                        <Input
-                          id="max_members"
-                          type="number"
-                          min="1"
-                          max="500"
-                          value={newGroupForm.max_members}
-                          onChange={(e) => setNewGroupForm({ ...newGroupForm, max_members: parseInt(e.target.value) })}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="flex gap-4">
-                      <Button
-                        onClick={handleCreateGroup}
-                        disabled={createGroupMutation.isPending || !newGroupForm.name.trim() || !newGroupForm.product_id}
-                        className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 flex-1"
-                      >
-                        {createGroupMutation.isPending ? 'Creating...' : 'Create Group'}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowCreateForm(false)}
-                        className="border-pink-200 text-pink-600 hover:bg-pink-50"
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button 
+                onClick={() => setShowCreateGroupModal(true)}
+                className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Create Group
+              </Button>
             </div>
 
             {/* Groups Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredGroups.map((group) => (
-                <div key={group.id} className="smooth-card overflow-hidden floating-card animate-fade-in">
-                  <div className="relative">
-                    <img 
-                      src={group.image} 
-                      alt={group.name}
-                      className="w-full h-48 object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
-                      onClick={() => handleGroupClick(group.id)}
-                    />
-                    <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-full p-2">
-                      {group.is_private ? (
-                        <Lock className="w-4 h-4 text-pink-500" />
-                      ) : (
-                        <Globe className="w-4 h-4 text-green-500" />
-                      )}
-                    </div>
-                    {group.isJoined && (
-                      <div className="absolute top-4 left-4 bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                        Joined
-                      </div>
-                    )}
-                    {group.hasPendingRequest && (
-                      <div className="absolute top-4 left-4 bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">
-                        Requested
-                      </div>
-                    )}
-                    {group.invite_only && (
-                      <div className="absolute bottom-4 left-4 bg-purple-500 text-white text-xs px-2 py-1 rounded-full">
-                        Invite Only
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="p-6">
-                    <h3 className="text-xl font-semibold mb-2">{group.name}</h3>
-                    <p className="text-pink-600 font-medium mb-2">{group.product?.name}</p>
-                    <p className="text-gray-600 text-sm mb-4">{group.description || "A shopping group for exclusive products"}</p>
-                    
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center text-gray-500">
-                        <Users className="w-4 h-4 mr-1" />
-                        <span className="text-sm">{group.members} members</span>
-                      </div>
-                      {group.creator_id === user?.id && (
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => handleInviteMembers(group)}
-                          className="border-pink-200 text-pink-600 hover:bg-pink-50"
-                        >
-                          <UserPlus className="w-4 h-4 mr-1" />
-                          Invite
-                        </Button>
-                      )}
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleJoinGroup(group.id, group.isJoined, group)}
-                        disabled={toggleGroupMembershipMutation.isPending || group.hasPendingRequest}
-                        variant={group.isJoined ? "outline" : "default"}
-                        className={`w-full ${group.isJoined 
-                          ? "border-pink-200 text-pink-600 hover:bg-pink-50" 
-                          : group.hasPendingRequest
-                          ? "bg-yellow-500 text-white cursor-not-allowed"
-                          : "social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
-                        }`}
-                      >
-                        {toggleGroupMembershipMutation.isPending ? "Processing..." :
-                         group.isJoined ? "Leave" : 
-                         group.hasPendingRequest ? "Requested" :
-                         group.invite_only ? "Invite Only" :
-                         (group.is_private && !group.auto_approve_requests) ? "Request to Join" : "Join Group"}
-                      </Button>
-                      
-                      <Button 
-                        size="sm" 
-                        variant="ghost"
-                        onClick={() => handleGroupClick(group.id)}
-                        className="w-full text-pink-600 hover:bg-pink-50"
-                      >
-                        <ArrowRight className="w-4 h-4 mr-2" />
-                        View Group
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+                <GroupOrderCard key={group.id} group={group} />
               ))}
             </div>
 
@@ -659,6 +503,16 @@ const Groups = () => {
           </div>
         </div>
       </div>
+
+      {/* Create Group Modal */}
+      <CreateGroupModal
+        isOpen={showCreateGroupModal}
+        onOpenChange={setShowCreateGroupModal}
+        onSuccess={() => {
+          setShowCreateGroupModal(false);
+          queryClient.invalidateQueries({ queryKey: ["groups"] });
+        }}
+      />
 
       {/* Invite Members Dialog */}
       {selectedGroupForInvite && (

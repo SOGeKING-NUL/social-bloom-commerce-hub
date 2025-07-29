@@ -18,12 +18,12 @@ const GroupsPreview = () => {
       console.log('GroupsPreview: Starting fetch for 10 latest groups...');
       
       try {
-        // Get latest 10 groups ordered by created_at
+        // Get latest 10 groups ordered by created_at - filter private groups on frontend
         const { data: groupsData, error: groupsError } = await supabase
           .from('groups')
           .select('*')
           .order('created_at', { ascending: false })
-          .limit(10);
+          .limit(20); // Get more to filter
         
         console.log('GroupsPreview: Groups query result:', { groupsData, groupsError });
         
@@ -37,11 +37,14 @@ const GroupsPreview = () => {
           return [];
         }
 
-        // Get all unique creator IDs and product IDs
-        const creatorIds = [...new Set(groupsData.map(g => g.creator_id))];
-        const productIds = [...new Set(groupsData.map(g => g.product_id).filter(Boolean))];
+        // Filter to only show public groups
+        const publicGroups = groupsData.filter(group => !group.is_private).slice(0, 10);
         
-        console.log('GroupsPreview: Processing groups:', { groupsData, creatorIds, productIds });
+        // Get all unique creator IDs and product IDs
+        const creatorIds = [...new Set(publicGroups.map(g => g.creator_id))];
+        const productIds = [...new Set(publicGroups.map(g => g.product_id).filter(Boolean))];
+        
+        console.log('GroupsPreview: Processing groups:', { publicGroups, creatorIds, productIds });
         
         // Get creators in parallel
         const creatorsPromise = creatorIds.length > 0 
@@ -54,7 +57,7 @@ const GroupsPreview = () => {
           : Promise.resolve({ data: [], error: null });
         
         // Get group members count in parallel
-        const groupIds = groupsData.map(g => g.id);
+        const groupIds = publicGroups.map(g => g.id);
         const membersPromise = groupIds.length > 0
           ? supabase.from('group_members').select('group_id').in('group_id', groupIds)
           : Promise.resolve({ data: [], error: null });
@@ -82,7 +85,7 @@ const GroupsPreview = () => {
         }, {});
         
         // Combine all data
-        const processedGroups = groupsData.map(group => {
+        const processedGroups = publicGroups.map(group => {
           const creator = creators.find(c => c.id === group.creator_id);
           const product = products.find(p => p.id === group.product_id);
           const memberCount = memberCounts[group.id] || 0;
@@ -255,7 +258,7 @@ const GroupsPreview = () => {
           >
             <div>
               <h2 className="text-5xl  font-extrabold text-rose-800 mb-2">Active Groups</h2>
-              <p className="text-xl text-gray-600">Join groups and share experiences</p>
+            <p className="text-xl text-gray-600">Join groups and share experiences</p>
             </div>
             
             <Button 
@@ -278,61 +281,61 @@ const GroupsPreview = () => {
               onMouseEnter={() => setIsPaused(true)}
               onMouseLeave={() => setIsPaused(false)}
             >
-              <AnimatePresence>
+            <AnimatePresence>
                 {[...groups, ...groups, ...groups].map((group, index) => (
-                  <motion.div
+                <motion.div
                     key={`${group.id}-${index}`}
                     className="flex-shrink-0 w-72 bg-white rounded-2xl overflow-hidden cursor-pointer transform transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border border-gray-200"
-                    onClick={() => handleGroupClick(group.id)}
+                  onClick={() => handleGroupClick(group.id)}
                     initial={{ opacity: 0, x: 50 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ duration: 0.4, delay: (index % groups.length) * 0.1 }}
                     whileHover={{ scale: 1.02 }}
-                  >
-                    <div className="relative">
-                      <img 
-                        src={group.image} 
-                        alt={group.name}
-                        className="w-full h-48 object-cover"
-                      />
-                      <div className="absolute top-4 left-4">
+                >
+                  <div className="relative">
+                    <img 
+                      src={group.image} 
+                      alt={group.name}
+                      className="w-full h-48 object-cover"
+                    />
+                    <div className="absolute top-4 left-4">
                         <span className="bg-white/90 backdrop-blur-sm text-pink-600 px-3 py-2 rounded-full text-sm font-medium flex items-center shadow-md">
-                          <Package size={16} className="mr-1" />
-                          {group.productName}
-                        </span>
-                      </div>
+                        <Package size={16} className="mr-1" />
+                        {group.productName}
+                      </span>
+                    </div>
                       <div className="absolute top-4 right-4">
                         <span className="bg-pink-500 text-white px-2 py-1 rounded-full text-xs font-medium">
                           New
                         </span>
                       </div>
-                    </div>
+                  </div>
+                  
+                  <div className="p-5">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2 line-clamp-1">{group.name}</h3>
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{group.description}</p>
                     
-                    <div className="p-5">
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2 line-clamp-1">{group.name}</h3>
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">{group.description}</p>
-                      
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center text-pink-600">
-                          <UsersThree size={20} className="mr-2" />
-                          <span className="font-medium text-sm">{group.members} members</span>
-                        </div>
-                        <span className="text-sm text-gray-500">by {group.creatorName}</span>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center text-pink-600">
+                        <UsersThree size={20} className="mr-2" />
+                        <span className="font-medium text-sm">{group.members} members</span>
                       </div>
-                      
-                      <Button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleGroupClick(group.id);
-                        }}
-                        className="w-full bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white font-semibold py-2 rounded-full transition-all duration-300"
-                      >
-                        Join Group
-                      </Button>
+                      <span className="text-sm text-gray-500">by {group.creatorName}</span>
                     </div>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
+                      
+                    <Button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleGroupClick(group.id);
+                      }}
+                      className="w-full bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500 text-white font-semibold py-2 rounded-full transition-all duration-300"
+                    >
+                        Join Group
+                    </Button>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
             </motion.div>
 
             <div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-gray-50 to-transparent pointer-events-none z-10"></div>

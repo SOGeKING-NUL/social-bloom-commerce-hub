@@ -16,6 +16,9 @@ export type Database = {
           full_name: string | null
           role: 'user' | 'vendor' | 'admin'
           avatar_url: string | null
+          bio: string | null
+          website: string | null
+          location: string | null
           created_at: string
           updated_at: string
         }
@@ -25,6 +28,9 @@ export type Database = {
           full_name?: string | null
           role?: 'user' | 'vendor' | 'admin'
           avatar_url?: string | null
+          bio?: string | null
+          website?: string | null
+          location?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -34,6 +40,9 @@ export type Database = {
           full_name?: string | null
           role?: 'user' | 'vendor' | 'admin'
           avatar_url?: string | null
+          bio?: string | null
+          website?: string | null
+          location?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -170,6 +179,96 @@ export type Database = {
           }
         ]
       }
+      groups: {
+        Row: {
+          id: string
+          creator_id: string
+          product_id: string
+          name: string
+          description: string | null
+          is_private: boolean
+          member_limit: number
+          access_code: string | null
+          code_generated_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          creator_id: string
+          product_id: string
+          name: string
+          description?: string | null
+          is_private?: boolean
+          member_limit?: number
+          access_code?: string | null
+          code_generated_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          creator_id?: string
+          product_id?: string
+          name?: string
+          description?: string | null
+          is_private?: boolean
+          member_limit?: number
+          access_code?: string | null
+          code_generated_at?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "groups_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "groups_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      group_members: {
+        Row: {
+          id: string
+          group_id: string
+          user_id: string
+          joined_at: string
+        }
+        Insert: {
+          id?: string
+          group_id: string
+          user_id: string
+          joined_at?: string
+        }
+        Update: {
+          id?: string
+          group_id?: string
+          user_id?: string
+          joined_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       product_discount_tiers: {
         Row: {
           id: string
@@ -208,11 +307,195 @@ export type Database = {
           }
         ]
       }
+      cart_items: {
+        Row: {
+          id: string
+          user_id: string
+          product_id: string
+          quantity: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          product_id: string
+          quantity?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          product_id?: string
+          quantity?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cart_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cart_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      wishlist: {
+        Row: {
+          id: string
+          user_id: string
+          product_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          product_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          product_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wishlist_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wishlist_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      orders: {
+        Row: {
+          id: string
+          user_id: string
+          total_amount: number
+          status: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          total_amount: number
+          status?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          total_amount?: number
+          status?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      order_items: {
+        Row: {
+          id: string
+          order_id: string
+          product_id: string
+          quantity: number
+          price: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          order_id: string
+          product_id: string
+          quantity: number
+          price: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          order_id?: string
+          product_id?: string
+          quantity?: number
+          price?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_items_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      posts: {
+        Row: {
+          id: string
+          user_id: string
+          content: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          content: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          content?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       vendor_kyc: {
         Row: {
           id: string
           vendor_id: string
           business_name: string
+          display_business_name: string | null
+          business_type: string | null
+          business_registration_number: string | null
+          business_address: string | null
+          contact_email: string | null
+          contact_phone: string | null
           ho_address: string
           warehouse_address: string
           phone_number: string
@@ -236,6 +519,12 @@ export type Database = {
           id?: string
           vendor_id: string
           business_name: string
+          display_business_name?: string | null
+          business_type?: string | null
+          business_registration_number?: string | null
+          business_address?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           ho_address: string
           warehouse_address: string
           phone_number: string
@@ -259,6 +548,12 @@ export type Database = {
           id?: string
           vendor_id?: string
           business_name?: string
+          display_business_name?: string | null
+          business_type?: string | null
+          business_registration_number?: string | null
+          business_address?: string | null
+          contact_email?: string | null
+          contact_phone?: string | null
           ho_address?: string
           warehouse_address?: string
           phone_number?: string
@@ -360,6 +655,18 @@ export type Database = {
       update_updated_at_column: {
         Args: Record<PropertyKey, never>
         Returns: unknown
+      }
+      join_private_group_by_code: {
+        Args: {
+          access_code_param: string
+          user_uuid: string
+        }
+        Returns: {
+          success: boolean
+          message: string
+          group_id?: string
+          group_name?: string
+        }
       }
     }
     Enums: {
