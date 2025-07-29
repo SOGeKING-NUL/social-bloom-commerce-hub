@@ -284,7 +284,7 @@ const InstagramStylePostCreator = ({
   // File handling
   const handleFileSelect = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(event.target.files || []).slice(0, 4); // Limit to 4 images
+      const files = Array.from(event.target.files || []).slice(0, 4); // Limit to 4 files (images/videos)
       if (files.length === 0) return;
 
       setMedia((prev) => {
@@ -359,7 +359,7 @@ const InstagramStylePostCreator = ({
       if (imageUrls.length === 0 && media.files.length > 0) {
         toast({
           title: "Upload failed",
-          description: "Failed to upload images. Please try again.",
+          description: "Failed to upload media files. Please try again.",
           variant: "destructive",
         });
         return;

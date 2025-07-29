@@ -305,7 +305,7 @@ const PostCard: React.FC<PostCardProps> = ({
         </div>
       )}
 
-      {/* Images Section */}
+      {/* Media Section */}
       {post.images && post.images.length > 0 && (
         <div className="px-4 pb-4">
           <div className={`grid gap-2 ${
@@ -314,29 +314,42 @@ const PostCard: React.FC<PostCardProps> = ({
             post.images.length === 3 ? 'grid-cols-3' :
             'grid-cols-2'
           }`}>
-            {post.images.map((image, index) => (
-              <div 
-                key={index} 
-                className={`relative rounded-xl overflow-hidden ${
-                  post.images.length === 3 && index === 2 ? 'col-span-2' :
-                  post.images.length === 4 && index === 3 ? 'col-span-2' : ''
-                }`}
-              >
-                <div className={`${
-                  post.images.length === 1 ? 'aspect-[4/3]' :
-                  post.images.length === 2 ? 'aspect-square' :
-                  post.images.length === 3 && index === 2 ? 'aspect-[2/1]' :
-                  post.images.length === 4 && index === 3 ? 'aspect-[2/1]' :
-                  'aspect-square'
-                }`}>
-                  <img
-                    src={image.image_url}
-                    alt={`Post image ${index + 1}`}
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
-                  />
+            {post.images.map((image, index) => {
+              const isVideo = image.image_url.match(/\.(mp4|webm|ogg|mov|avi|mkv)$/i);
+              
+              return (
+                <div 
+                  key={index} 
+                  className={`relative rounded-xl overflow-hidden ${
+                    post.images.length === 3 && index === 2 ? 'col-span-2' :
+                    post.images.length === 4 && index === 3 ? 'col-span-2' : ''
+                  }`}
+                >
+                  <div className={`${
+                    post.images.length === 1 ? 'aspect-[4/3]' :
+                    post.images.length === 2 ? 'aspect-square' :
+                    post.images.length === 3 && index === 2 ? 'aspect-[2/1]' :
+                    post.images.length === 4 && index === 3 ? 'aspect-[2/1]' :
+                    'aspect-square'
+                  }`}>
+                    {isVideo ? (
+                      <video
+                        src={image.image_url}
+                        controls
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
+                        preload="metadata"
+                      />
+                    ) : (
+                      <img
+                        src={image.image_url}
+                        alt={`Post media ${index + 1}`}
+                        className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
+                      />
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
