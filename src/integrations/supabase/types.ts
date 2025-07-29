@@ -382,27 +382,110 @@ export type Database = {
           }
         ]
       }
-      orders: {
+      user_addresses: {
         Row: {
           id: string
           user_id: string
-          total_amount: number
-          status: string
+          address_type: 'home' | 'office' | 'other'
+          full_name: string
+          phone_number: string
+          address_line1: string
+          address_line2: string | null
+          city: string
+          state: string
+          postal_code: string
+          country: string
+          is_default: boolean
           created_at: string
+          updated_at: string
         }
         Insert: {
           id?: string
           user_id: string
-          total_amount: number
-          status?: string
+          address_type: 'home' | 'office' | 'other'
+          full_name: string
+          phone_number: string
+          address_line1: string
+          address_line2?: string | null
+          city: string
+          state: string
+          postal_code: string
+          country?: string
+          is_default?: boolean
           created_at?: string
+          updated_at?: string
         }
         Update: {
           id?: string
           user_id?: string
-          total_amount?: number
-          status?: string
+          address_type?: 'home' | 'office' | 'other'
+          full_name?: string
+          phone_number?: string
+          address_line1?: string
+          address_line2?: string | null
+          city?: string
+          state?: string
+          postal_code?: string
+          country?: string
+          is_default?: boolean
           created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_addresses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      orders: {
+        Row: {
+          id: string
+          user_id: string
+          order_number: string
+          total_amount: number
+          shipping_amount: number
+          status: 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+          shipping_address_id: string | null
+          shipping_address_text: string
+          payment_method: string
+          payment_status: 'pending' | 'paid' | 'failed'
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          order_number?: string
+          total_amount: number
+          shipping_amount?: number
+          status?: 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+          shipping_address_id?: string | null
+          shipping_address_text: string
+          payment_method?: string
+          payment_status?: 'pending' | 'paid' | 'failed'
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          order_number?: string
+          total_amount?: number
+          shipping_amount?: number
+          status?: 'pending' | 'paid' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+          shipping_address_id?: string | null
+          shipping_address_text?: string
+          payment_method?: string
+          payment_status?: 'pending' | 'paid' | 'failed'
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -410,6 +493,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_shipping_address_id_fkey"
+            columns: ["shipping_address_id"]
+            isOneToOne: false
+            referencedRelation: "user_addresses"
             referencedColumns: ["id"]
           }
         ]
@@ -419,24 +509,33 @@ export type Database = {
           id: string
           order_id: string
           product_id: string
+          product_name: string
+          product_image_url: string | null
           quantity: number
-          price: number
+          unit_price: number
+          total_price: number
           created_at: string
         }
         Insert: {
           id?: string
           order_id: string
           product_id: string
+          product_name: string
+          product_image_url?: string | null
           quantity: number
-          price: number
+          unit_price: number
+          total_price: number
           created_at?: string
         }
         Update: {
           id?: string
           order_id?: string
           product_id?: string
+          product_name?: string
+          product_image_url?: string | null
           quantity?: number
-          price?: number
+          unit_price?: number
+          total_price?: number
           created_at?: string
         }
         Relationships: [
@@ -766,6 +865,10 @@ export type Database = {
           product_uuid: string
         }
         Returns: number
+      }
+      generate_order_number: {
+        Args: Record<PropertyKey, never>
+        Returns: string
       }
     }
     Enums: {

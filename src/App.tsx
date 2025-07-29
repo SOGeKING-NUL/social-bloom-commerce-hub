@@ -20,6 +20,8 @@ import Orders from "./pages/Orders";
 import UserProfile from "./pages/UserProfile";
 import Settings from "./pages/Settings";
 import Wishlist from "./pages/Wishlist";
+import Checkout from "./pages/Checkout";
+import OrderConfirmation from "./pages/OrderConfirmation";
 import NotFound from "./pages/NotFound";
 import SearchUs from "./pages/SearchUs";
 import Dashboard from "./pages/DashBoard";
@@ -76,6 +78,16 @@ const App = () => (
               <Route path="/wishlist" element={
                 <ProtectedRoute>
                   <Wishlist />
+                </ProtectedRoute>
+              } />
+              <Route path="/checkout" element={
+                <ProtectedRoute>
+                  <Checkout />
+                </ProtectedRoute>
+              } />
+              <Route path="/orders/:orderId" element={
+                <ProtectedRoute>
+                  <OrderConfirmation />
                 </ProtectedRoute>
               } />
               <Route path="/orders" element={

@@ -5,9 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { ShoppingCart, Trash2, ArrowLeft, Share2, Plus, Minus } from "lucide-react";
+import { ShoppingCart, Trash2, ArrowLeft, Plus, Minus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Layout from "@/components/Layout";
 import Header from "@/components/Header";
@@ -19,8 +17,6 @@ const Cart = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [shippingAddress, setShippingAddress] = useState('');
-  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   // Fetch cart items
   const { data: cartItems = [], isLoading, error } = useQuery({
@@ -406,43 +402,12 @@ const Cart = () => {
                       <span>₹{calculateTotal().toFixed(2)}</span>
                     </div>
                   </div>
-                  {!isCheckingOut ? (
-                    <Button
-                      className="w-full bg-pink-600 hover:bg-pink-700 text-white transition-colors rounded-md"
-                      onClick={() => setIsCheckingOut(true)}
-                    >
-                      Proceed to Checkout
-                    </Button>
-                  ) : (
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor="shipping">Shipping Address</Label>
-                        <Textarea
-                          id="shipping"
-                          value={shippingAddress}
-                          onChange={(e) => setShippingAddress(e.target.value)}
-                          placeholder="Enter your shipping address"
-                          className="mt-1"
-                        />
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button
-                          variant="outline"
-                          onClick={() => setIsCheckingOut(false)}
-                          className="flex-1"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          onClick={() => checkoutMutation.mutate()}
-                          disabled={checkoutMutation.isPending}
-                          className="flex-1 bg-pink-600 hover:bg-pink-700 text-white"
-                        >
-                          {checkoutMutation.isPending ? 'Processing...' : 'Place Order'}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                  <Button
+                    className="w-full bg-pink-600 hover:bg-pink-700 text-white transition-colors rounded-md"
+                    onClick={() => navigate("/checkout")}
+                  >
+                    Proceed to Checkout
+                  </Button>
                 </div>
               </div>
             </div>
