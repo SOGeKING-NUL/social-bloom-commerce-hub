@@ -1555,7 +1555,7 @@ const UserProfile = () => {
         </Card>
 
         {/* Main Content with Sidebar - Enhanced Responsive Grid */}
-        {user.role === "admin" ? (
+        {profile?.role === "admin" ? (
           <AdminDashboard />
         ) : (
           <div className="grid grid-cols-1 xl:grid-cols-5 gap-3 sm:gap-4 lg:gap-6 xl:gap-8">
