@@ -24,6 +24,25 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSuccess }) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Check if user has already reviewed this product
+  const { data: existingReview } = useQuery({
+    queryKey: ['user-review', productId, user?.id],
+    queryFn: async () => {
+      if (!user || !productId) return null;
+      
+      const { data, error } = await supabase
+        .from('product_reviews')
+        .select('id, rating, review_text, created_at')
+        .eq('product_id', productId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user && !!productId,
+  });
+
   const submitReviewMutation = useMutation({
     mutationFn: async () => {
       if (!user) throw new Error('User not authenticated');
@@ -50,6 +69,7 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSuccess }) => {
       setReviewText('');
       queryClient.invalidateQueries({ queryKey: ['product-reviews', productId] });
       queryClient.invalidateQueries({ queryKey: ['product-rating', productId] });
+      queryClient.invalidateQueries({ queryKey: ['user-review', productId, user?.id] });
       onSuccess?.();
     },
     onError: (error: Error) => {
@@ -87,6 +107,25 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSuccess }) => {
           <p className="text-center text-gray-500">
             Please log in to write a review.
           </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // If user has already reviewed, show a banner
+  if (existingReview) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Write a Review</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Alert className="border-green-200 bg-green-50">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <AlertDescription className="text-green-800">
+              You have already submitted a review for this product. Thank you for your feedback!
+            </AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     );

@@ -141,7 +141,7 @@ const EditProduct = () => {
         description: product.description || '',
         price: product.price || 0,
         category: product.category || '',
-        stock_quantity: product.stock_quantity || 0,
+        stock_quantity: product.stock_quantity === 0 ? '' : product.stock_quantity || '',
         is_active: product.is_active ?? true,
         image_url: product.image_url || '',
         group_order_enabled: (product as any).group_order_enabled ?? false,
@@ -219,10 +219,6 @@ const EditProduct = () => {
       newErrors.price = 'Price must be greater than 0';
     } else if (formData.price > 1000000) {
       newErrors.price = 'Price cannot exceed ₹10,00,000';
-    }
-
-    if (selectedCategories.length === 0) {
-      newErrors.category = 'At least one category is required';
     }
 
     if (formData.stock_quantity < 0) {
@@ -312,6 +308,24 @@ const EditProduct = () => {
           .insert(categoryMappings);
 
         if (insertCategoriesError) throw insertCategoriesError;
+      } else {
+        // Default to "Others" category if no categories selected
+        const { data: othersCategory, error: othersError } = await supabase
+          .from('product_categories')
+          .select('id')
+          .eq('name', 'Others')
+          .single();
+
+        if (othersError) throw othersError;
+
+        const { error: insertOthersError } = await supabase
+          .from('product_category_mappings')
+          .insert({
+            product_id: productId,
+            category_id: othersCategory.id,
+          });
+
+        if (insertOthersError) throw insertOthersError;
       }
     },
     onSuccess: () => {
