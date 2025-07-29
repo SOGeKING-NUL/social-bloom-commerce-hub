@@ -185,8 +185,7 @@ const Feed = () => {
     }
   };
 
-  const handleUserClick = (e: React.MouseEvent, userId: string) => {
-    e.stopPropagation();
+  const handleUserClick = (userId: string) => {
     navigate(`/users/${userId}`);
   };
 
@@ -228,8 +227,7 @@ const Feed = () => {
     }
   };
 
-  const handleCommentClick = (e: React.MouseEvent, postId: string) => {
-    e.stopPropagation();
+  const handleCommentClick = (postId: string) => {
     setSelectedPostForComments(postId);
   };
 
