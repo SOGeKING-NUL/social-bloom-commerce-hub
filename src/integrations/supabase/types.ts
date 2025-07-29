@@ -769,6 +769,42 @@ export type Database = {
           }
         ]
       }
+      user_follows: {
+        Row: {
+          id: string
+          follower_id: string
+          following_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          follower_id: string
+          following_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          follower_id?: string
+          following_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_follows_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_follows_following_id_fkey"
+            columns: ["following_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -869,6 +905,25 @@ export type Database = {
       generate_order_number: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      get_follower_count: {
+        Args: {
+          user_uuid: string
+        }
+        Returns: number
+      }
+      get_following_count: {
+        Args: {
+          user_uuid: string
+        }
+        Returns: number
+      }
+      is_following: {
+        Args: {
+          follower_uuid: string
+          following_uuid: string
+        }
+        Returns: boolean
       }
     }
     Enums: {

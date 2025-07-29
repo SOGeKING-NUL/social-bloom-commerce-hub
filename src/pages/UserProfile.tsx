@@ -92,6 +92,7 @@ const UserProfile = () => {
 
   const isOwnProfile = userId === user?.id || !userId;
   const profileUserId = userId || user?.id || "";
+  const isAdmin = user?.role === "admin";
 
   // Fetch user profile
   const { data: profile, isLoading } = useQuery({
@@ -188,20 +189,16 @@ const UserProfile = () => {
         .select(
           `
           quantity,
-          price,
+          unit_price,
+          total_price,
           orders!inner(created_at),
           products!inner(vendor_id)
         `
         )
         .eq("products.vendor_id", profile?.id);
 
-      const totalSold =
-        soldProductsData?.reduce((sum, item) => sum + item.quantity, 0) || 0;
-      const totalRevenue =
-        soldProductsData?.reduce(
-          (sum, item) => sum + item.quantity * item.price,
-          0
-        ) || 0;
+      const totalSold = soldProductsData?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+      const totalRevenue = soldProductsData?.reduce((sum, item) => sum + item.total_price, 0) || 0;
 
       // Sales last month
       const lastMonth = new Date();
@@ -222,6 +219,130 @@ const UserProfile = () => {
     },
     enabled: !!profile?.id && isVendor,
   });
+
+  // Follow functionality
+  const { data: isFollowing } = useQuery({
+    queryKey: ["is-following", user?.id, profileUserId],
+    queryFn: async () => {
+      if (!user?.id || !profileUserId || isOwnProfile) return false;
+      
+      const { data, error } = await supabase.rpc('is_following', {
+        follower_uuid: user.id,
+        following_uuid: profileUserId
+      });
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id && !!profileUserId && !isOwnProfile,
+  });
+
+  const { data: followersCount = 0 } = useQuery({
+    queryKey: ["followers-count", profileUserId],
+    queryFn: async () => {
+      if (!profileUserId) return 0;
+      
+      const { data, error } = await supabase.rpc('get_follower_count', {
+        user_uuid: profileUserId
+      });
+      
+      if (error) throw error;
+      return data || 0;
+    },
+    enabled: !!profileUserId,
+  });
+
+  const { data: followingCount = 0 } = useQuery({
+    queryKey: ["following-count", profileUserId],
+    queryFn: async () => {
+      if (!profileUserId) return 0;
+      
+      const { data, error } = await supabase.rpc('get_following_count', {
+        user_uuid: profileUserId
+      });
+      
+      if (error) throw error;
+      return data || 0;
+    },
+    enabled: !!profileUserId,
+  });
+
+  // Follow/Unfollow mutations
+  const followMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id || !profileUserId) throw new Error("User not authenticated");
+      
+      const { error } = await supabase
+        .from("user_follows")
+        .insert({
+          follower_id: user.id,
+          following_id: profileUserId
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["is-following", user?.id, profileUserId] });
+      queryClient.invalidateQueries({ queryKey: ["followers-count", profileUserId] });
+      queryClient.invalidateQueries({ queryKey: ["following-count", user?.id] });
+      toast({ title: "Followed successfully!" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error following user",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const unfollowMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id || !profileUserId) throw new Error("User not authenticated");
+      
+      const { error } = await supabase
+        .from("user_follows")
+        .delete()
+        .eq("follower_id", user.id)
+        .eq("following_id", profileUserId)
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["is-following", user?.id, profileUserId] });
+      queryClient.invalidateQueries({ queryKey: ["followers-count", profileUserId] });
+      queryClient.invalidateQueries({ queryKey: ["following-count", user?.id] });
+      toast({ title: "Unfollowed successfully!" });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error unfollowing user",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleFollowToggle = () => {
+    if (isFollowing) {
+      unfollowMutation.mutate();
+    } else {
+      followMutation.mutate();
+    }
+  };
+
+  const handleShareProfile = () => {
+    const profileUrl = `${window.location.origin}/users/${profileUserId}`;
+    if (navigator.share) {
+      navigator.share({
+        title: `${profile?.full_name || profile?.email}'s Profile`,
+        url: profileUrl,
+      });
+    } else {
+      navigator.clipboard.writeText(profileUrl);
+      toast({ title: "Profile link copied to clipboard!" });
+    }
+  };
 
   // Fetch user's posts
   const { data: posts = [] } = useQuery({
@@ -260,7 +381,7 @@ const UserProfile = () => {
         },
         liked: false, // Will be updated when we add like functionality
         likes_count: post.post_likes?.length || 0,
-        comments_count: post.comment_count?.[0]?.count || 0,
+        comments_count: typeof post.comment_count === 'number' ? post.comment_count : 0,
         images: post.post_images || [],
       }));
     },
@@ -442,34 +563,45 @@ const UserProfile = () => {
     enabled: !!profile?.id && !isVendor && isOwnProfile,
   });
 
-  // Calculate profile stats
-  const followersCount = 0; // TODO: implement when follows table is ready
-  const followingCount = 0; // TODO: implement when follows table is ready
+
 
   // Sidebar navigation items
-  const getUserNavItems = () => [
-    { id: "posts", label: "Posts", icon: FileText },
-    { id: "groups", label: "Groups", icon: Users },
-    ...(isOwnProfile
-      ? [
-          { id: "orders", label: "Orders", icon: ShoppingCart },
-          { id: "cart", label: "Cart", icon: ShoppingCart },
-        ]
-      : []),
-  ];
+  const getUserNavItems = () => {
+    // If viewing own profile, show all sections
+    if (isOwnProfile) {
+      return [
+        { id: "posts", label: "Posts", icon: FileText },
+        { id: "groups", label: "Groups", icon: Users },
+        { id: "orders", label: "Orders", icon: ShoppingCart },
+        { id: "cart", label: "Cart", icon: ShoppingCart },
+      ];
+    }
+    
+    // If viewing other user's profile, show only posts
+    return [
+      { id: "posts", label: "Posts", icon: FileText },
+    ];
+  };
 
-  const getVendorNavItems = () => [
-    { id: "overview", label: "Overview", icon: BarChart3 },
-    { id: "products", label: "Products", icon: Package },
-    { id: "posts", label: "Posts", icon: FileText },
-    { id: "groups", label: "Groups", icon: Users },
-    ...(isOwnProfile
-      ? [
-          { id: "kyc", label: "KYC Status", icon: Shield },
-          { id: "company", label: "Company Info", icon: Building },
-        ]
-      : []),
-  ];
+  const getVendorNavItems = () => {
+    // If viewing own profile, show all sections
+    if (isOwnProfile) {
+      return [
+        { id: "overview", label: "Overview", icon: BarChart3 },
+        { id: "products", label: "Products", icon: Package },
+        { id: "posts", label: "Posts", icon: FileText },
+        { id: "groups", label: "Groups", icon: Users },
+        { id: "kyc", label: "KYC Status", icon: Shield },
+        { id: "company", label: "Company Info", icon: Building },
+      ];
+    }
+    
+    // If viewing other vendor's profile, show posts and products
+    return [
+      { id: "posts", label: "Posts", icon: FileText },
+      { id: "products", label: "Products", icon: Package },
+    ];
+  };
 
   const navItems = isVendor ? getVendorNavItems() : getUserNavItems();
 
@@ -1395,14 +1527,27 @@ const UserProfile = () => {
                     <span className="sm:hidden">Edit</span>
                   </Button>
                 ) : (
-                  <Button 
-                    variant="outline" 
-                    className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base"
-                    size="sm"
-                  >
-                    <Users className="w-4 h-4 mr-2" />
-                    Follow
-                  </Button>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Button 
+                      variant={isFollowing ? "outline" : "default"}
+                      onClick={handleFollowToggle}
+                      disabled={followMutation.isPending || unfollowMutation.isPending}
+                      className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base"
+                      size="sm"
+                    >
+                      <Users className="w-4 h-4 mr-2" />
+                      {isFollowing ? "Unfollow" : "Follow"}
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={handleShareProfile}
+                      className="w-full sm:w-auto px-4 py-2 text-sm sm:text-base"
+                      size="sm"
+                    >
+                      <Share2 className="w-4 h-4 mr-2" />
+                      Share
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>

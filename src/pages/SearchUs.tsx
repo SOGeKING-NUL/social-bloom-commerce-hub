@@ -17,6 +17,7 @@ import {
   ShoppingCart,
   TrendingUp,
   Clock,
+  CheckCircle,
 } from "lucide-react";
 
 import type { Database } from "@/integrations/supabase/types";
@@ -38,14 +39,35 @@ export const fullTextSearch = <T extends TableNames>(
 
 export const searchUsers = async (
   query: string
-): Promise<Tables<"profiles">[]> => {
+): Promise<(Tables<"profiles"> & { kyc_status?: string })[]> => {
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
     .textSearch("full_name", query, { type: "websearch" });
 
   if (error) throw error;
-  return data || [];
+  
+  // For each user, check if they're a vendor and get their KYC status
+  const usersWithKYC = await Promise.all(
+    (data || []).map(async (user) => {
+      if (user.role === "vendor") {
+        const { data: kycData } = await supabase
+          .from("vendor_kyc")
+          .select("status")
+          .eq("vendor_id", user.id)
+          .eq("is_active", true)
+          .single();
+        
+        return {
+          ...user,
+          kyc_status: kycData?.status
+        };
+      }
+      return user;
+    })
+  );
+  
+  return usersWithKYC;
 };
 
 export const searchProducts = async (
@@ -142,7 +164,6 @@ function FloatingSearchFilter({
 export default function SearchUs() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
-  const [followingUsers, setFollowingUsers] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
   const { toast } = useToast();
   const debouncedQuery = useDebounce(searchQuery, 100);
@@ -196,73 +217,6 @@ export default function SearchUs() {
 
   const handleProductClick = (productId: string) => {
     navigate(`/products/${productId}`);
-  };
-
-  // Handle follow functionality
-  const handleFollowUser = async (userId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent navigation when clicking follow button
-
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          title: "Authentication required",
-          description: "Please log in to follow users",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (followingUsers.has(userId)) {
-        // Unfollow user
-        const { error } = await supabase
-          .from("follows")
-          .delete()
-          .eq("follower_id", user.id)
-          .eq("following_id", userId);
-
-        if (error) throw error;
-
-        setFollowingUsers((prev) => {
-          const newSet = new Set(prev);
-          newSet.delete(userId);
-          return newSet;
-        });
-
-        toast({
-          title: "Unfollowed",
-          description: "You have unfollowed this user",
-        });
-      } else {
-        // Follow user
-        const { error } = await supabase
-          .from("follows")
-          .insert([
-            {
-              follower_id: user.id,
-              following_id: userId,
-            },
-          ]);
-
-        if (error) throw error;
-
-        setFollowingUsers((prev) => new Set(prev).add(userId));
-
-        toast({
-          title: "Following",
-          description: "You are now following this user",
-        });
-      }
-    } catch (error) {
-      console.error("Error following user:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update follow status",
-        variant: "destructive",
-      });
-    }
   };
 
   return (
@@ -327,21 +281,19 @@ export default function SearchUs() {
                               />
                             </div>
                             <div className="flex-1">
-                              <h3 className="font-semibold text-gray-900">
-                                {user.full_name}
-                              </h3>
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold text-gray-900">
+                                  {user.full_name}
+                                </h3>
+                                {user.role === "vendor" && user.kyc_status === "approved" && (
+                                  <div className="flex items-center">
+                                    <CheckCircle className="w-4 h-4 text-green-500" />
+                                    <span className="text-xs text-green-600 ml-1 font-medium">Verified</span>
+                                  </div>
+                                )}
+                              </div>
                               <p className="text-gray-600">{user.email}</p>
                             </div>
-                            <Button
-                              variant={
-                                followingUsers.has(user.id) ? "default" : "outline"
-                              }
-                              size="sm"
-                              className="bg-transparent"
-                              onClick={(e) => handleFollowUser(user.id, e)}
-                            >
-                              {followingUsers.has(user.id) ? "Following" : "Follow"}
-                            </Button>
                           </div>
                         </CardContent>
                       </Card>
