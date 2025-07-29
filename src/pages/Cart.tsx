@@ -319,12 +319,12 @@ const Cart = () => {
                       />
                       <div className="flex-1 flex gap-4">
                         <img 
-                          src={item.product?.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=300&fit=crop"}
+                          src={item.product?.image_url || "/placeholder.svg"}
                           alt={item.product?.name || 'Product'}
                           className="w-24 h-24 object-cover rounded-md"
                           onClick={() => navigate(`/products/${item.product?.id}`)}
                           onError={(e) => {
-                            e.currentTarget.src = "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=300&fit=crop";
+                            e.currentTarget.src = "/placeholder.svg";
                           }}
                         />
                         <div className="flex-1 flex justify-between">

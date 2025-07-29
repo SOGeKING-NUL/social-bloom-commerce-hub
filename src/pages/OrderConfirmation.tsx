@@ -190,7 +190,7 @@ const OrderConfirmation = () => {
                     {order.order_items?.map((item: any) => (
                       <div key={item.id} className="flex items-center space-x-4 p-3 border rounded-lg">
                         <img
-                          src={item.product_image_url || item.products?.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=60&h=60&fit=crop"}
+                          src={item.product_image_url || item.products?.image_url || "/placeholder.svg"}
                           alt={item.product_name || item.products?.name}
                           className="w-12 h-12 object-cover rounded-md"
                         />

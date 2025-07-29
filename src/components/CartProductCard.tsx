@@ -38,7 +38,7 @@ const CartProductCard = ({ item, onUpdateQuantity, onRemoveItem }: CartProductCa
         <div className="flex space-x-4">
           <div className="relative flex-shrink-0">
             <img
-              src={item.product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=200&h=200&fit=crop"}
+              src={item.product.image_url || "/placeholder.svg"}
               alt={item.product.name}
               className="w-20 h-20 object-cover rounded-lg cursor-pointer hover:scale-105 transition-transform duration-300"
               onClick={() => navigate(`/products/${item.product.id}`)}

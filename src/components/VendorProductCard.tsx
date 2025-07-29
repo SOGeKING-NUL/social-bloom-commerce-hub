@@ -151,7 +151,7 @@ const VendorProductCard = ({
           <img
             src={productImages && productImages.length > 0 
               ? productImages[0]?.image_url 
-              : product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=500&h=600&fit=crop"
+              : product.image_url || "/placeholder.svg"
             }
             alt={product.name}
             className="w-full h-full object-cover transition-transform duration-700 hover:scale-105 cursor-pointer"

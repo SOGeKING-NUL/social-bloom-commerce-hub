@@ -238,7 +238,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
     <Card className="overflow-hidden hover:shadow-lg transition-shadow">
       <div className="relative">
         <img 
-          src={product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=300&fit=crop"}
+          src={product.image_url || "/placeholder.svg"}
           alt={product.name}
           className="w-full h-48 object-cover cursor-pointer hover:scale-105 transition-transform duration-300"
           onClick={() => navigate(`/products/${product.id}`)}

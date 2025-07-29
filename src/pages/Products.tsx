@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,12 +8,33 @@ import { motion } from "framer-motion";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import HighlightProductCard from "@/components/HighlightProductCard";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const PRODUCTS_PER_PAGE = 12;
 
 const Products = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+
+  // Fetch all categories from product_categories table
+  const { data: categories = [] } = useQuery({
+    queryKey: ['product-categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_categories')
+        .select('id, name')
+        .order('name');
+      
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   // Infinite query for products with pagination
   const {
@@ -50,8 +71,24 @@ const Products = () => {
         query = query.ilike('name', `%${searchTerm}%`);
       }
       
-      if (selectedCategory) {
-        query = query.eq('category', selectedCategory);
+      // Filter by category using the new mapping system
+      if (selectedCategory && selectedCategory !== "all") {
+        // Use a subquery to get product IDs that belong to the selected category
+        const { data: productIds } = await supabase
+          .from('product_category_mappings')
+          .select('product_id')
+          .eq('category_id', selectedCategory);
+        
+        if (productIds && productIds.length > 0) {
+          const ids = productIds.map(item => item.product_id);
+          query = query.in('id', ids);
+        } else {
+          // If no products found for this category, return empty result
+          return {
+            products: [],
+            nextPage: undefined,
+          };
+        }
       }
 
       const { data: products, error } = await query;
@@ -95,25 +132,6 @@ const Products = () => {
 
   // Flatten all pages into a single array
   const allProducts = data?.pages.flatMap(page => page.products) || [];
-
-  // Fetch categories
-  const { data: categories = [] } = useInfiniteQuery({
-    queryKey: ['product-categories'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('category')
-        .not('category', 'is', null)
-        .eq('is_active', true);
-      
-      if (error) throw error;
-      
-      const uniqueCategories = [...new Set(data.map(item => item.category))];
-      return uniqueCategories.filter(Boolean);
-    },
-    getNextPageParam: () => undefined, // Single page for categories
-    initialPageParam: 0,
-  }).data?.pages[0] || [];
 
   // Infinite scroll handler
   const handleScroll = useCallback(() => {
@@ -178,23 +196,24 @@ const Products = () => {
               />
             </div>
             <div className="flex gap-3 items-center justify-center">
-              <select
-                value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                className="px-4 py-3 rounded-xl border-2 border-pink-200 bg-white text-gray-700 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 transition-all duration-300 w-full md:w-auto min-w-[160px]"
-              >
-                <option value="">All Categories</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
+              <Select onValueChange={setSelectedCategory} defaultValue={selectedCategory}>
+                <SelectTrigger className="w-full md:w-auto min-w-[160px] px-4 py-3 rounded-xl border-2 border-pink-200 bg-white text-gray-700 focus:border-pink-500 focus:ring-2 focus:ring-pink-200 transition-all duration-300">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent className="border-pink-200">
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button
                 variant="outline"
                 onClick={() => {
                   setSearchTerm("");
-                  setSelectedCategory("");
+                  setSelectedCategory("all");
                 }}
                 className="flex items-center gap-2 px-4 py-3 rounded-xl border-2 border-pink-500 bg-gradient-to-r from-pink-500 to-rose-500 text-white hover:from-pink-600 hover:to-rose-600 transition-all duration-300 whitespace-nowrap"
               >

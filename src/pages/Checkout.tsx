@@ -630,7 +630,7 @@ const ReviewStep = ({
           {cartItems.map((item) => (
             <div key={item.id} className="flex items-center space-x-4 p-3 border rounded-lg">
               <img
-                src={item.products.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=100&h=100&fit=crop"}
+                src={item.products.image_url || "/placeholder.svg"}
                 alt={item.products.name}
                 className="w-16 h-16 object-cover rounded-md"
               />
@@ -762,7 +762,7 @@ const OrderSummary = ({
         {cartItems.map((item) => (
           <div key={item.id} className="flex items-center space-x-3">
             <img
-              src={item.products.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=60&h=60&fit=crop"}
+              src={item.products.image_url || "/placeholder.svg"}
               alt={item.products.name}
               className="w-12 h-12 object-cover rounded-md"
             />
