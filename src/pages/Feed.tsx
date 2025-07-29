@@ -58,10 +58,12 @@ const Feed = () => {
     });
   };
 
-  // Fetch posts from database with images
+  // Fetch posts from database with proper privacy filtering
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ["posts"],
     queryFn: async () => {
+      // The RLS policy should automatically filter posts based on privacy
+      // But we'll also add client-side filtering for better UX
       const { data, error } = await supabase
         .from("posts")
         .select(
@@ -77,14 +79,21 @@ const Feed = () => {
           post_images (
             image_url,
             display_order
+          ),
+          post_tag_mappings (
+            post_tags (
+              name
+            )
           )
         `
         )
+        .eq('status', 'published')
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      return data.map((post) => ({
+      // Transform the data
+      const transformedPosts = data.map((post) => ({
         ...post,
         user: {
           id: post.user_id,
@@ -99,10 +108,52 @@ const Feed = () => {
           user && post.post_likes?.some((like) => like.user_id === user?.id) || false,
         likes_count: post.post_likes?.length || 0,
         comments_count: post.comment_count?.[0]?.count || 0,
-        //@ts-ignore
-        feeling: post.feeling || null, // Ensure feeling property is properly included in the object
         images: post.post_images?.sort((a, b) => a.display_order - b.display_order) || [],
+        post_tags: post.post_tag_mappings?.map((mapping: any) => mapping.post_tags) || [],
       }));
+
+      // Additional client-side filtering for better UX
+      // This ensures that even if RLS doesn't work perfectly, we have a fallback
+      const filteredPosts = await Promise.all(
+        transformedPosts.map(async (post) => {
+          // If user is not logged in, only show public posts
+          if (!user) {
+            return post.privacy === 'public' ? post : null;
+          }
+
+          // If user is the post creator, show all their posts
+          if (post.user_id === user.id) {
+            return post;
+          }
+
+          // For other users, apply privacy rules
+          switch (post.privacy) {
+            case 'public':
+              return post;
+            case 'following':
+              // For 'following' posts, check if the current user follows the post creator
+              try {
+                const { data: followData } = await supabase
+                  .from('user_follows')
+                  .select('id')
+                  .eq('follower_id', user.id)
+                  .eq('following_id', post.user_id)
+                  .single();
+                
+                return followData ? post : null;
+              } catch (error) {
+                return null;
+              }
+            case 'draft':
+              // Draft posts should not appear in the feed
+              return null;
+            default:
+              return post;
+          }
+        })
+      );
+
+      return filteredPosts.filter(Boolean);
     },
   });
 

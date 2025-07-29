@@ -34,10 +34,10 @@ const FollowersModal = ({ isOpen, onClose, userId, type, title }: FollowersModal
       if (type === 'followers') {
         // Get followers
         query = supabase
-          .from('follows')
+          .from('user_follows')
           .select(`
             follower_id,
-            profiles!follows_follower_id_fkey (
+            profiles!user_follows_follower_id_fkey (
               id,
               full_name,
               email,
@@ -49,10 +49,10 @@ const FollowersModal = ({ isOpen, onClose, userId, type, title }: FollowersModal
       } else {
         // Get following
         query = supabase
-          .from('follows')
+          .from('user_follows')
           .select(`
             following_id,
-            profiles!follows_following_id_fkey (
+            profiles!user_follows_following_id_fkey (
               id,
               full_name,
               email,
@@ -89,7 +89,7 @@ const FollowersModal = ({ isOpen, onClose, userId, type, title }: FollowersModal
         if (!user || user.id === userProfile.id) return false;
         
         const { data } = await supabase
-          .from('follows')
+          .from('user_follows')
           .select('id')
           .eq('follower_id', user.id)
           .eq('following_id', userProfile.id)
@@ -110,14 +110,14 @@ const FollowersModal = ({ isOpen, onClose, userId, type, title }: FollowersModal
         if (isFollowing) {
           // Unfollow
           await supabase
-            .from('follows')
+            .from('user_follows')
             .delete()
             .eq('follower_id', user.id)
             .eq('following_id', userProfile.id);
         } else {
           // Follow
           await supabase
-            .from('follows')
+            .from('user_follows')
             .insert({
               follower_id: user.id,
               following_id: userProfile.id

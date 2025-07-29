@@ -13,6 +13,10 @@ import {
   User,
   ShoppingBag,
   Users,
+  Globe,
+  Lock,
+  FileText,
+  Tag,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -33,15 +37,22 @@ import {
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { debounce } from "lodash";
-import { TablesInsert } from "@/integrations/supabase/types";
+import { Database } from "@/integrations/supabase/types";
+import ProductTagCard from "./ProductTagCard";
+
+type TablesInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert'];
 
 // Define interfaces
 interface PostData {
   content: string;
   imageUrls?: string[];
-  feeling?: string;
-  tags?: string[];
+  postTag?: string;
+  privacy: 'public' | 'following' | 'draft';
+  status: 'published' | 'draft';
+  selectedProducts: string[];
+  selectedUsers: string[];
 }
 
 interface MediaState {
@@ -52,27 +63,32 @@ interface MediaState {
 interface TaggableEntity {
   id: string;
   name: string;
-  type: "user" | "product" | "group";
+  username?: string; // For users
+  type: "user" | "product";
+  price?: number;
+  image_url?: string | null;
+  vendor_id?: string;
 }
 
 interface TaggableEntities {
   users: TaggableEntity[];
   products: TaggableEntity[];
-  groups: TaggableEntity[];
 }
 
-// Define feelings
-const feelings = [
-  { emoji: "😊", name: "Happy" },
-  { emoji: "😢", name: "Sad" },
-  { emoji: "😍", name: "In Love" },
-  { emoji: "😴", name: "Sleepy" },
-  { emoji: "😃", name: "Excited" },
-  { emoji: "😣", name: "Frustrated" },
-  { emoji: "🥳", name: "Celebrating" },
-  { emoji: "😎", name: "Cool" },
-  { emoji: "🤩", name: "Amazed" },
-  { emoji: "😌", name: "Relaxed" },
+// Define post tags
+const postTags = [
+  { value: "review", label: "Review" },
+  { value: "tutorial", label: "Tutorial" },
+  { value: "unboxing", label: "Unboxing" },
+  { value: "question", label: "Question" },
+  { value: "announcement", label: "Announcement" },
+];
+
+// Define privacy options
+const privacyOptions = [
+  { value: "public", label: "Public", icon: Globe },
+  { value: "following", label: "Following", icon: Users },
+  { value: "draft", label: "Draft", icon: FileText },
 ];
 
 interface InstagramStylePostCreatorProps {
@@ -90,37 +106,35 @@ const InstagramStylePostCreator = ({
     files: [],
     previewUrls: [],
   });
-  const [selectedFeeling, setSelectedFeeling] = useState<string | null>(null);
+  const [selectedPostTag, setSelectedPostTag] = useState<string | null>(null);
+  const [privacy, setPrivacy] = useState<'public' | 'following' | 'draft'>('public');
   const [isTagModalOpen, setIsTagModalOpen] = useState(false);
   const [tagSearch, setTagSearch] = useState("");
   const [activeTab, setActiveTab] = useState("users");
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Fetch taggable entities separately
+  // Fetch taggable entities separately (removed groups)
   const fetchTaggableEntities = useCallback(async (search: string) => {
     const searchTerm = search.trim().toLowerCase();
     const query = searchTerm ? { search: `%${searchTerm}%` } : {};
 
-    const [usersRes, productsRes, groupsRes] = await Promise.all([
+    const [usersRes, productsRes] = await Promise.all([
       supabase
         .from("profiles")
-        .select("id, full_name")
-        .ilike("full_name", query.search || "*")
-        .limit(10),
+        .select("id, full_name, email")
+        .or(`full_name.ilike.${query.search || "*"},email.ilike.${query.search || "*"}`)
+        .limit(20),
       supabase
         .from("products")
-        .select("id, name")
+        .select("id, name, price, image_url, vendor_id")
         .ilike("name", query.search || "*")
-        .limit(10),
-      supabase
-        .from("groups")
-        .select("id, name")
-        .ilike("name", query.search || "*")
-        .limit(10),
+        .limit(20),
     ]);
 
-    if (usersRes.error || productsRes.error || groupsRes.error) {
+    if (usersRes.error || productsRes.error) {
       throw new Error("Failed to fetch taggable entities");
     }
 
@@ -128,26 +142,24 @@ const InstagramStylePostCreator = ({
       users:
         usersRes.data?.map((user) => ({
           id: user.id,
-          name: user.full_name || `User_${user.id.slice(0, 8)}`,
+          name: user.full_name || user.email?.split('@')[0] || `User_${user.id.slice(0, 8)}`,
+          username: `@${user.email?.split('@')[0] || user.id.slice(0, 8)}`,
           type: "user" as const,
         })) || [],
       products:
         productsRes.data?.map((product) => ({
           id: product.id,
           name: product.name,
+          price: product.price,
+          image_url: product.image_url,
+          vendor_id: product.vendor_id,
           type: "product" as const,
-        })) || [],
-      groups:
-        groupsRes.data?.map((group) => ({
-          id: group.id,
-          name: group.name,
-          type: "group" as const,
         })) || [],
     };
   }, []);
 
   const {
-    data: taggableEntities = { users: [], products: [], groups: [] },
+    data: taggableEntities = { users: [], products: [] },
     isLoading: isLoadingTags,
   } = useQuery<TaggableEntities>({
     queryKey: ["taggableEntities", tagSearch],
@@ -163,62 +175,107 @@ const InstagramStylePostCreator = ({
 
   // Post creation mutation
   const createPostMutation = useMutation({
-    mutationFn: async ({ content, imageUrls, feeling, tags }: PostData) => {
+    mutationFn: async ({ content, imageUrls, postTag, privacy, status, selectedProducts, selectedUsers }: PostData) => {
       if (!user) throw new Error("Please log in to create a post");
 
-      const postData: TablesInsert<"posts"> = {
-        user_id: user.id,
-        content,
-        post_type: "text",
-        //@ts-ignore
-        feeling: feeling || null,
-        tags: tags || [],
-      };
+      if (status === 'draft') {
+        // Save as draft
+        const draftData = {
+          user_id: user.id,
+          content,
+          privacy,
+        };
 
-      const { data: post, error } = await supabase
-        .from("posts")
-        .insert(postData)
-        .select()
-        .single();
+        const { data: draft, error } = await supabase
+          .from("drafts")
+          .insert(draftData)
+          .select()
+          .single();
 
-      if (error) throw error;
+        if (error) throw error;
+        return draft;
+      } else {
+        // Create published post
+        const postData: TablesInsert<"posts"> = {
+          user_id: user.id,
+          content,
+          privacy,
+          status: 'published',
+        };
 
-      // Upload images to post_images table if any
-      if (imageUrls && imageUrls.length > 0) {
-        const imageData = imageUrls.map((url, index) => ({
-          post_id: post.id,
-          image_url: url,
-          display_order: index,
-        }));
+        const { data: post, error } = await supabase
+          .from("posts")
+          .insert(postData)
+          .select()
+          .single();
 
-        const { error: imageError } = await supabase
-          .from("post_images")
-          .insert(imageData);
+        if (error) throw error;
 
-        if (imageError) throw imageError;
+        // Add post tag if selected
+        if (postTag) {
+          const { data: tagData } = await supabase
+            .from("post_tags")
+            .select("id")
+            .eq("name", postTag)
+            .single();
+
+          if (tagData) {
+            await supabase
+              .from("post_tag_mappings")
+              .insert({
+                post_id: post.id,
+                tag_id: tagData.id,
+              });
+          }
+        }
+
+        // Upload images to post_images table if any
+        if (imageUrls && imageUrls.length > 0) {
+          const imageData = imageUrls.map((url, index) => ({
+            post_id: post.id,
+            image_url: url,
+            display_order: index,
+          }));
+
+          const { error: imageError } = await supabase
+            .from("post_images")
+            .insert(imageData);
+
+          if (imageError) throw imageError;
+        }
+
+        return post;
       }
-
-      return post;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["posts"] });
-      queryClient.invalidateQueries({ queryKey: ["social-feed-posts"] });
+    onSuccess: (data) => {
+      toast({
+        title: privacy === 'draft' ? "Draft Saved!" : "Post Created!",
+        description: privacy === 'draft' 
+          ? "Your draft has been saved successfully." 
+          : "Your post has been published successfully.",
+      });
+
+      // Reset form
       setContent("");
       setMedia({ files: [], previewUrls: [] });
-      setSelectedFeeling(null);
+      setSelectedPostTag(null);
+      setPrivacy('public');
+      setSelectedProducts([]);
+      setSelectedUsers([]);
       setIsTagModalOpen(false);
-      setTagSearch("");
-      toast({
-        title: "Posted!",
-        description: "Your post has been shared with the community.",
-      });
-      onPostCreated?.();
+
+      // Invalidate queries
+      queryClient.invalidateQueries({ queryKey: ["posts"] });
+      queryClient.invalidateQueries({ queryKey: ["drafts"] });
+
+      if (onPostCreated) {
+        onPostCreated();
+      }
     },
     onError: (error: any) => {
       toast({
         title: "Error",
-        description:
-          error.message || "Failed to create post. Please try again.",
+        description: error.message || "Failed to create post",
         variant: "destructive",
       });
     },
@@ -280,11 +337,11 @@ const InstagramStylePostCreator = ({
 
   // Post submission
   const handlePost = useCallback(async () => {
-    if (!content.trim() && media.files.length === 0 && !selectedFeeling) {
+    if (!content.trim() && media.files.length === 0 && !selectedPostTag) {
       toast({
         title: "Empty post",
         description:
-          "Please add some content, select a file, or choose a feeling to post.",
+          "Please add some content, select a file, or choose a tag to post.",
         variant: "destructive",
       });
       return;
@@ -309,53 +366,66 @@ const InstagramStylePostCreator = ({
       }
     }
 
-    // Extract tags from content
-    const tags = content.match(/@[\w-]+/g)?.map((tag) => tag.slice(1)) || [];
-
     createPostMutation.mutate({
       content,
       imageUrls,
-      feeling: selectedFeeling,
-      tags,
+      postTag: selectedPostTag,
+      privacy,
+      status: 'published', // Always publish for now
+      selectedProducts,
+      selectedUsers,
     });
   }, [
     content,
     media.files,
-    selectedFeeling,
-    uploadFileToSupabase,
+    selectedPostTag,
+    privacy,
     createPostMutation,
     toast,
+    uploadFileToSupabase,
+    selectedProducts,
+    selectedUsers,
   ]);
 
-  // Feeling and tag handlers
-  const handleFeelingSelect = useCallback((feeling: string) => {
-    setSelectedFeeling(feeling);
+  // Category and privacy handlers
+  const handleCategorySelect = useCallback((tag: string) => {
+    setSelectedPostTag(prev => prev === tag ? null : tag);
   }, []);
 
-  const handleTagSelect = useCallback(
-    (entity: TaggableEntity) => {
-      const tag = `@${entity.name.replace(/\s+/g, "-")}`;
-      const textarea = textareaRef.current;
-      if (textarea) {
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const newContent =
-          content.slice(0, start) + tag + " " + content.slice(end);
-        setContent(newContent);
-        setTimeout(
-          () =>
-            textarea.setSelectionRange(
-              start + tag.length + 1,
-              start + tag.length + 1
-            ),
-          0
-        );
+  const handlePrivacySelect = useCallback((value: 'public' | 'following' | 'draft') => {
+    setPrivacy(value);
+  }, []);
+
+  const handleProductSelect = useCallback((productId: string) => {
+    setSelectedProducts(prev => {
+      if (prev.includes(productId)) {
+        return prev.filter(id => id !== productId);
+      } else {
+        return [...prev, productId];
       }
-      setIsTagModalOpen(false);
-      setTagSearch("");
-    },
-    [content]
-  );
+    });
+  }, []);
+
+  const handleUserSelect = useCallback((userId: string, username: string) => {
+    setSelectedUsers(prev => {
+      if (prev.includes(userId)) {
+        return prev.filter(id => id !== userId);
+      } else {
+        return [...prev, userId];
+      }
+    });
+    
+    // Add only username to content for clean display
+    setContent(prev => {
+      const cursorPosition = textareaRef.current?.selectionStart || prev.length;
+      const beforeCursor = prev.slice(0, cursorPosition);
+      const afterCursor = prev.slice(cursorPosition);
+      return beforeCursor + username + " " + afterCursor;
+    });
+    
+    // Close the modal
+    setIsTagModalOpen(false);
+  }, []);
 
   // User profile
   const userProfile = useMemo(
@@ -379,7 +449,7 @@ const InstagramStylePostCreator = ({
           onClick={handlePost}
           disabled={
             createPostMutation.isPending ||
-            (!content.trim() && media.files.length === 0 && !selectedFeeling)
+            (!content.trim() && media.files.length === 0 && !selectedPostTag)
           }
           className="bg-pink-500 text-white font-medium px-4 py-2 rounded-lg hover:bg-pink-600 disabled:bg-pink-300 transition-colors duration-200"
         >
@@ -410,20 +480,28 @@ const InstagramStylePostCreator = ({
               {userProfile.username}
             </p>
           </div>
-          {selectedFeeling && (
+          {selectedPostTag && (
             <span className="text-sm font-medium text-pink-600 dark:text-pink-400 flex items-center space-x-1 ml-2">
-              <span>
-                {feelings.find((f) => f.name === selectedFeeling)?.emoji}
-              </span>
-              <span>{selectedFeeling}</span>
+              <Tag className="w-4 h-4" />
+              <span>{selectedPostTag}</span>
             </span>
           )}
         </div>
-        <select className="text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-md border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-1 focus:ring-pink-500 transition-all duration-200">
-          <option className="bg-white dark:bg-gray-800">🌍 Public</option>
-          <option className="bg-white dark:bg-gray-800">👥 Friends</option>
-          <option className="bg-white dark:bg-gray-800">🔒 Only me</option>
-        </select>
+        <Select onValueChange={handlePrivacySelect} value={privacy}>
+          <SelectTrigger className="w-[180px] text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-md border border-gray-200 dark:border-gray-600 focus:outline-none focus:ring-1 focus:ring-pink-500 transition-all duration-200">
+            <SelectValue placeholder="Select Privacy" />
+          </SelectTrigger>
+          <SelectContent>
+            {privacyOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                <div className="flex items-center space-x-2">
+                  <option.icon className="w-4 h-4" />
+                  <span>{option.label}</span>
+                </div>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Content Input */}
@@ -510,26 +588,26 @@ const InstagramStylePostCreator = ({
           <Popover>
             <PopoverTrigger asChild>
               <button className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 hover:text-pink-500 transition-colors duration-200">
-                <Smile className="w-5 h-5" />
-                <span className="text-sm font-medium">Feeling</span>
+                <Tag className="w-5 h-5" />
+                <span className="text-sm font-medium">Category</span>
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 shadow-md">
               <ScrollArea className="h-48">
                 <div className="grid grid-cols-1 gap-2 p-2">
-                  {feelings.map((feeling) => (
+                  {postTags.map((tag) => (
                     <button
-                      key={feeling.name}
-                      onClick={() => handleFeelingSelect(feeling.name)}
+                      key={tag.value}
+                      onClick={() => handleCategorySelect(tag.value)}
                       className={`flex items-center space-x-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 ${
-                        selectedFeeling === feeling.name
+                        selectedPostTag === tag.value
                           ? "bg-pink-100 dark:bg-gray-600 text-pink-600 dark:text-pink-400"
                           : "text-gray-700 dark:text-gray-300"
                       }`}
                     >
-                      <span className="text-xl">{feeling.emoji}</span>
+                      <Tag className="w-4 h-4" />
                       <span className="text-sm font-medium">
-                        {feeling.name}
+                        {tag.label}
                       </span>
                     </button>
                   ))}
@@ -566,11 +644,11 @@ const InstagramStylePostCreator = ({
         <DialogContent className="sm:max-w-md max-h-[80vh] overflow-hidden rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md">
           <DialogHeader className="pb-3">
             <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-white">
-              Tag People, Products, or Groups
+              Tag People or Products
             </DialogTitle>
           </DialogHeader>
           <Input
-            placeholder="Search by name..."
+            placeholder="Search by name or username..."
             value={tagSearch}
             onChange={(e) => debouncedSetTagSearch(e.target.value)}
             className="mb-3 w-full text-sm font-medium text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-pink-500 transition-all duration-200 placeholder-gray-400 dark:placeholder-gray-500"
@@ -581,18 +659,12 @@ const InstagramStylePostCreator = ({
             onValueChange={setActiveTab}
             className="w-full"
           >
-            <TabsList className="grid grid-cols-3 mb-3 bg-gray-100 dark:bg-gray-700 rounded-md p-1">
+            <TabsList className="grid grid-cols-2 mb-3 bg-gray-100 dark:bg-gray-700 rounded-md p-1">
               <TabsTrigger
                 value="users"
                 className="rounded-md data-[state=active]:bg-pink-500 data-[state=active]:text-white transition-colors duration-200 py-1.5 text-sm font-medium"
               >
                 <User className="w-4 h-4 mr-1" /> Users
-              </TabsTrigger>
-              <TabsTrigger
-                value="groups"
-                className="rounded-md data-[state=active]:bg-pink-500 data-[state=active]:text-white transition-colors duration-200 py-1.5 text-sm font-medium"
-              >
-                <Users className="w-4 h-4 mr-1" /> Groups
               </TabsTrigger>
               <TabsTrigger
                 value="products"
@@ -617,46 +689,36 @@ const InstagramStylePostCreator = ({
                     {taggableEntities.users.map((entity) => (
                       <button
                         key={`${entity.type}-${entity.id}`}
-                        onClick={() => handleTagSelect(entity)}
-                        className="flex items-center space-x-3 p-2 w-full text-left bg-white dark:bg-gray-800 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
+                        onClick={() => handleUserSelect(entity.id, entity.username || '')}
+                        className={`flex items-center space-x-3 p-2 w-full text-left rounded-md transition-colors duration-200 ${
+                          selectedUsers.includes(entity.id)
+                            ? "bg-pink-100 dark:bg-pink-900/20 border border-pink-200 dark:border-pink-800"
+                            : "bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700"
+                        }`}
                       >
                         <Avatar className="w-10 h-10">
                           <AvatarFallback className="bg-pink-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200">
                             {entity.name.charAt(0)}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-base font-medium text-gray-900 dark:text-white">
-                          {entity.name}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </TabsContent>
-
-              <TabsContent value="groups">
-                {isLoadingTags ? (
-                  <p className="text-center text-gray-500 dark:text-gray-400 py-2 text-sm">
-                    Loading...
-                  </p>
-                ) : taggableEntities.groups.length === 0 ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-400 py-2 text-center">
-                    No groups found
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {taggableEntities.groups.map((entity) => (
-                      <button
-                        key={`${entity.type}-${entity.id}`}
-                        onClick={() => handleTagSelect(entity)}
-                        className="flex items-center space-x-3 p-2 w-full text-left bg-white dark:bg-gray-800 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-pink-200 dark:bg-gray-600 flex items-center justify-center text-gray-800 dark:text-gray-200">
-                          <Users className="w-5 h-5" />
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <span className="text-base font-medium text-gray-900 dark:text-white truncate">
+                            {entity.name}
+                          </span>
+                          <span className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                            {entity.username}
+                          </span>
                         </div>
-                        <span className="text-base font-medium text-gray-900 dark:text-white">
-                          {entity.name}
-                        </span>
+                        <div className="flex items-center space-x-2">
+                          {selectedUsers.includes(entity.id) && (
+                            <span className="text-xs text-pink-600 dark:text-pink-400 font-medium">
+                              Selected
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-400 dark:text-gray-500">
+                            User
+                          </span>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -675,18 +737,18 @@ const InstagramStylePostCreator = ({
                 ) : (
                   <div className="space-y-2">
                     {taggableEntities.products.map((entity) => (
-                      <button
+                      <ProductTagCard
                         key={`${entity.type}-${entity.id}`}
-                        onClick={() => handleTagSelect(entity)}
-                        className="flex items-center space-x-3 p-2 w-full text-left bg-white dark:bg-gray-800 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200"
-                      >
-                        <div className="w-10 h-10 rounded-full bg-pink-200 dark:bg-gray-600 flex items-center justify-center text-gray-800 dark:text-gray-200">
-                          <ShoppingBag className="w-5 h-5" />
-                        </div>
-                        <span className="text-base font-medium text-gray-900 dark:text-white">
-                          {entity.name}
-                        </span>
-                      </button>
+                        product={{
+                          id: entity.id,
+                          name: entity.name,
+                          price: entity.price || 0,
+                          image_url: entity.image_url,
+                          vendor_id: entity.vendor_id || '',
+                        }}
+                        onSelect={() => handleProductSelect(entity.id)}
+                        isSelected={selectedProducts.includes(entity.id)}
+                      />
                     ))}
                   </div>
                 )}

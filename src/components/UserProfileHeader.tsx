@@ -39,7 +39,7 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
       if (!user || isOwnProfile) return false;
       
       const { data, error } = await supabase
-        .from('follows')
+        .from('user_follows')
         .select('id')
         .eq('follower_id', user.id)
         .eq('following_id', profileUserId)
@@ -58,7 +58,7 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
       if (isFollowing) {
         // Unfollow
         const { error } = await supabase
-          .from('follows')
+          .from('user_follows')
           .delete()
           .eq('follower_id', user.id)
           .eq('following_id', profileUserId);
@@ -67,7 +67,7 @@ const UserProfileHeader = ({ profileUserId, profile, isOwnProfile, onEditProfile
       } else {
         // Follow
         const { error } = await supabase
-          .from('follows')
+          .from('user_follows')
           .insert({
             follower_id: user.id,
             following_id: profileUserId

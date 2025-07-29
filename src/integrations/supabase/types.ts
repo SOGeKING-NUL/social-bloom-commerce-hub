@@ -6,7 +6,7 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type Database = {
+export interface Database {
   public: {
     Tables: {
       profiles: {
@@ -560,18 +560,24 @@ export type Database = {
           id: string
           user_id: string
           content: string
+          privacy: 'public' | 'following' | 'draft'
+          status: 'published' | 'draft'
           created_at: string
         }
         Insert: {
           id?: string
           user_id: string
           content: string
+          privacy?: 'public' | 'following' | 'draft'
+          status?: 'published' | 'draft'
           created_at?: string
         }
         Update: {
           id?: string
           user_id?: string
           content?: string
+          privacy?: 'public' | 'following' | 'draft'
+          status?: 'published' | 'draft'
           created_at?: string
         }
         Relationships: [
@@ -855,6 +861,98 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "product_categories"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      post_tags: {
+        Row: {
+          id: string
+          name: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      post_tag_mappings: {
+        Row: {
+          id: string
+          post_id: string
+          tag_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          tag_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          tag_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_tag_mappings_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_tag_mappings_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "post_tags"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      drafts: {
+        Row: {
+          id: string
+          user_id: string
+          content: string | null
+          feeling: string | null
+          privacy: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          content?: string | null
+          feeling?: string | null
+          privacy?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          content?: string | null
+          feeling?: string | null
+          privacy?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "drafts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           }
         ]

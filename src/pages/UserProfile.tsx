@@ -304,7 +304,7 @@ const UserProfile = () => {
         .from("user_follows")
         .delete()
         .eq("follower_id", user.id)
-        .eq("following_id", profileUserId)
+        .eq("following_id", profileUserId);
       
       if (error) throw error;
     },
@@ -344,9 +344,9 @@ const UserProfile = () => {
     }
   };
 
-  // Fetch user's posts
+  // Fetch user's posts with privacy filtering
   const { data: posts = [] } = useQuery({
-    queryKey: ["user-posts", profile?.id],
+    queryKey: ["user-posts", profile?.id, user?.id],
     queryFn: async () => {
       if (!profile?.id) return [];
 
@@ -364,6 +364,11 @@ const UserProfile = () => {
           post_images (
             image_url,
             display_order
+          ),
+          post_tag_mappings (
+            post_tags (
+              name
+            )
           )
         `)
         .eq("user_id", profile.id)
@@ -371,7 +376,8 @@ const UserProfile = () => {
 
       if (error) throw error;
 
-      return data.map((post) => ({
+      // Transform the data
+      const transformedPosts = data.map((post) => ({
         ...post,
         user: {
           id: post.user_id,
@@ -379,11 +385,54 @@ const UserProfile = () => {
           avatar: post.profiles?.avatar_url || null,
           username: `@${post.profiles?.email?.split("@")[0] || "user"}`,
         },
-        liked: false, // Will be updated when we add like functionality
+        liked: user && Array.isArray(post.post_likes) && post.post_likes.some((like) => like.user_id === user?.id) || false,
         likes_count: post.post_likes?.length || 0,
         comments_count: typeof post.comment_count === 'number' ? post.comment_count : 0,
         images: post.post_images || [],
+        post_tags: post.post_tag_mappings?.map((mapping: any) => mapping.post_tags) || [],
       }));
+
+      // Apply privacy filtering based on who is viewing the profile
+      const filteredPosts = await Promise.all(
+        transformedPosts.map(async (post) => {
+          // If viewing own profile, show all posts (including drafts)
+          if (isOwnProfile) {
+            return post;
+          }
+
+          // If not logged in, only show public posts
+          if (!user) {
+            return post.privacy === 'public' && post.status === 'published' ? post : null;
+          }
+
+          // If viewing someone else's profile, apply privacy rules
+          switch (post.privacy) {
+            case 'public':
+              return post.status === 'published' ? post : null;
+            case 'following':
+              // Check if current user follows the profile owner
+              try {
+                const { data: followData } = await supabase
+                  .from('user_follows')
+                  .select('id')
+                  .eq('follower_id', user.id)
+                  .eq('following_id', profile.id)
+                  .single();
+                
+                return followData && post.status === 'published' ? post : null;
+              } catch (error) {
+                return null;
+              }
+            case 'draft':
+              // Draft posts should not be visible to others
+              return null;
+            default:
+              return post.status === 'published' ? post : null;
+          }
+        })
+      );
+
+      return filteredPosts.filter(Boolean);
     },
     enabled: !!profile?.id,
   });

@@ -1,32 +1,24 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Share } from "lucide-react";
+import { Heart, MessageCircle, Share, Globe, Users, FileText, Tag } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-
-// Define feelings (same as in Feed)
-const feelings = [
-  { emoji: "😊", name: "Happy" },
-  { emoji: "😢", name: "Sad" },
-  { emoji: "😍", name: "In Love" },
-  { emoji: "😴", name: "Sleepy" },
-  { emoji: "😃", name: "Excited" },
-  { emoji: "😣", name: "Frustrated" },
-  { emoji: "🥳", name: "Celebrating" },
-  { emoji: "😎", name: "Cool" },
-  { emoji: "🤩", name: "Amazed" },
-  { emoji: "😌", name: "Relaxed" },
-];
+import { Badge } from "@/components/ui/badge";
 
 interface PostCardProps {
   post: {
     id: string;
     content: string;
     feeling?: string;
+    privacy?: 'public' | 'following' | 'draft';
+    status?: 'published' | 'draft';
+    post_tags?: Array<{
+      name: string;
+    }>;
     created_at: string;
     user: {
       id: string;
@@ -109,20 +101,22 @@ const PostCard: React.FC<PostCardProps> = ({
         console.log("Error sharing:", error);
       }
     } else {
-      // Fallback: copy to clipboard
-      navigator.clipboard.writeText(
-        `${post.user.name}'s post: ${post.content}`
-      );
+      // Fallback to clipboard
+      navigator.clipboard.writeText(post.content);
       toast({
         title: "Copied to clipboard",
-        description: "Post link copied to clipboard",
+        description: "Post content has been copied to your clipboard.",
       });
     }
   };
 
   const handleLike = () => {
     if (!user) {
-      toast({ title: "Please log in to like posts" });
+      toast({
+        title: "Please log in",
+        description: "You need to be logged in to like posts.",
+        variant: "destructive",
+      });
       return;
     }
     likePostMutation.mutate();
@@ -155,68 +149,166 @@ const PostCard: React.FC<PostCardProps> = ({
           </span>
         );
       }
+      if (word.startsWith("@")) {
+        return (
+          <span
+            key={index}
+            className="text-blue-500 hover:text-blue-600 cursor-pointer font-medium hover:underline"
+            onClick={async () => {
+              const username = word.slice(1); // Remove @ symbol
+              try {
+                // Look up user ID from database using username
+                // Try multiple approaches to find the user
+                let userData = null;
+                
+                // First try: exact email match
+                const { data: emailMatch } = await supabase
+                  .from("profiles")
+                  .select("id")
+                  .eq("email", `${username}@example.com`)
+                  .single();
+                
+                if (emailMatch) {
+                  userData = emailMatch;
+                } else {
+                  // Second try: email starts with username
+                  const { data: emailStartsWith } = await supabase
+                    .from("profiles")
+                    .select("id")
+                    .ilike("email", `${username}%`)
+                    .single();
+                  
+                  if (emailStartsWith) {
+                    userData = emailStartsWith;
+                  } else {
+                    // Third try: full_name contains username
+                    const { data: nameMatch } = await supabase
+                      .from("profiles")
+                      .select("id")
+                      .ilike("full_name", `%${username}%`)
+                      .single();
+                    
+                    if (nameMatch) {
+                      userData = nameMatch;
+                    }
+                  }
+                }
+                
+                if (userData) {
+                  navigate(`/users/${userData.id}`);
+                } else {
+                  // If no user found, show error toast
+                  toast({
+                    title: "User not found",
+                    description: `Could not find user ${username}`,
+                    variant: "destructive",
+                  });
+                }
+              } catch (error) {
+                console.error("Error looking up user:", error);
+                toast({
+                  title: "Error",
+                  description: "Failed to navigate to user profile",
+                  variant: "destructive",
+                });
+              }
+            }}
+          >
+            {word}{" "}
+          </span>
+        );
+      }
       return <span key={index}>{word} </span>;
     });
   };
 
+  const formatTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const postDate = new Date(dateString);
+    const diffInSeconds = Math.floor((now.getTime() - postDate.getTime()) / 1000);
+
+    if (diffInSeconds < 60) return 'just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h`;
+    return `${Math.floor(diffInSeconds / 86400)}d`;
+  };
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 p-6 hover:shadow-md transition-all duration-300">
+    <article className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
+      {/* Header Section */}
       {showUserInfo && (
-        <div className="flex items-center mb-4">
-          {post.user.avatar ? (
-            <Avatar
-              className="w-12 h-12 mr-4 cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
+        <div className="flex items-center justify-between p-4 pb-3">
+          <div className="flex items-center space-x-3">
+            <Avatar 
+              className="w-10 h-10 cursor-pointer hover:ring-2 hover:ring-pink-200 transition-all"
               onClick={handleUserClick}
             >
-              <AvatarImage
-                src={post.user.avatar}
-                alt={post.user.name}
-              />
-              <AvatarFallback>
+              <AvatarImage src={post.user.avatar} alt={post.user.name} />
+              <AvatarFallback className="bg-gradient-to-br from-pink-400 to-purple-500 text-white font-medium">
                 {post.user.name.charAt(0)}
               </AvatarFallback>
             </Avatar>
-          ) : (
-            <div
-              className="w-12 h-12 mr-4 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center text-white font-medium cursor-pointer hover:ring-2 hover:ring-pink-300 transition-all"
-              onClick={handleUserClick}
-            >
-              {post.user.name.charAt(0)}
-            </div>
-          )}
-          <div>
-            <div className="flex items-center space-x-2">
-              <h3
-                className="font-semibold cursor-pointer hover:text-pink-500 transition-colors dark:text-white dark:hover:text-pink-400"
-                onClick={handleUserClick}
-              >
-                {post.user.name}
-              </h3>
-              {post.feeling && (
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  is feeling{" "}
-                  {
-                    feelings.find((f) => f.name === post.feeling)
-                      ?.emoji
-                  }{" "}
-                  {post.feeling}
+            
+            <div className="flex flex-col">
+              <div className="flex items-center space-x-2">
+                <h3 
+                  className="font-semibold text-gray-900 dark:text-white cursor-pointer hover:text-pink-500 transition-colors"
+                  onClick={handleUserClick}
+                >
+                  {post.user.name}
+                </h3>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {post.user.username}
                 </span>
-              )}
+              </div>
+              <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
+                <span>{formatTimeAgo(post.created_at)}</span>
+                {post.privacy && (
+                  <>
+                    <span>•</span>
+                    <div className="flex items-center space-x-1">
+                      {post.privacy === 'public' && <Globe className="w-3 h-3" />}
+                      {post.privacy === 'following' && <Users className="w-3 h-3" />}
+                      {post.privacy === 'draft' && <FileText className="w-3 h-3" />}
+                      <span className="capitalize">{post.privacy}</span>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              {post.user.username}
-            </p>
           </div>
         </div>
       )}
 
-      <div className="mb-4 text-gray-700 dark:text-gray-300">
-        {renderContentWithTags(post.content)}
+      {/* Content Section */}
+      <div className="px-4 pb-3">
+        <div className="text-gray-900 dark:text-gray-100 leading-relaxed">
+          {renderContentWithTags(post.content)}
+        </div>
       </div>
 
+      {/* Post Tags Section */}
+      {post.post_tags && post.post_tags.length > 0 && (
+        <div className="px-4 pb-3">
+          <div className="flex flex-wrap gap-2">
+            {post.post_tags.map((tag, index) => (
+              <Badge 
+                key={index} 
+                variant="secondary" 
+                className="bg-pink-50 text-pink-700 border-pink-200 hover:bg-pink-100 dark:bg-pink-900/20 dark:text-pink-300 dark:border-pink-800"
+              >
+                <Tag className="w-3 h-3 mr-1" />
+                {tag.name}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Images Section */}
       {post.images && post.images.length > 0 && (
-        <div className="mb-4 rounded-2xl overflow-hidden">
-          <div className={`grid gap-1 ${
+        <div className="px-4 pb-4">
+          <div className={`grid gap-2 ${
             post.images.length === 1 ? 'grid-cols-1' :
             post.images.length === 2 ? 'grid-cols-2' :
             post.images.length === 3 ? 'grid-cols-3' :
@@ -225,7 +317,7 @@ const PostCard: React.FC<PostCardProps> = ({
             {post.images.map((image, index) => (
               <div 
                 key={index} 
-                className={`relative ${
+                className={`relative rounded-xl overflow-hidden ${
                   post.images.length === 3 && index === 2 ? 'col-span-2' :
                   post.images.length === 4 && index === 3 ? 'col-span-2' : ''
                 }`}
@@ -249,45 +341,51 @@ const PostCard: React.FC<PostCardProps> = ({
         </div>
       )}
 
-      <div className="border-t border-pink-100 dark:border-gray-600 pt-4">
+      {/* Action Bar */}
+      <div className="border-t border-gray-100 dark:border-gray-800 px-4 py-3">
         <div className="flex items-center justify-between">
-          <Button
-            variant="ghost"
-            onClick={handleLike}
-            disabled={likePostMutation.isPending}
-            className={`flex items-center space-x-2 rounded-xl ${
-              isLiked
-                ? "text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/20"
-                : "text-gray-600 hover:text-pink-500 hover:bg-pink-50 rounded-xl dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20"
-            }`}
-          >
-            <Heart
-              className={`w-5 h-5 ${
-                isLiked ? "fill-current" : ""
+          <div className="flex items-center space-x-6">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLike}
+              disabled={likePostMutation.isPending}
+              className={`flex items-center space-x-2 h-8 px-3 rounded-full transition-all ${
+                isLiked
+                  ? "text-pink-500 bg-pink-50 hover:bg-pink-100 dark:bg-pink-900/20 dark:hover:bg-pink-900/30"
+                  : "text-gray-600 hover:text-pink-500 hover:bg-pink-50 dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20"
               }`}
-            />
-            <span>{likesCount}</span>
-          </Button>
+            >
+              <Heart
+                className={`w-4 h-4 ${
+                  isLiked ? "fill-current" : ""
+                }`}
+              />
+              <span className="text-sm font-medium">{likesCount}</span>
+            </Button>
 
-          <Button
-            variant="ghost"
-            onClick={handleCommentClick}
-            className="flex items-center space-x-2 rounded-xl text-gray-600 hover:text-pink-500 hover:bg-pink-50 dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20"
-          >
-            <MessageCircle className="w-5 h-5" />
-            <span>{post.comments_count}</span>
-          </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCommentClick}
+              className="flex items-center space-x-2 h-8 px-3 rounded-full text-gray-600 hover:text-pink-500 hover:bg-pink-50 dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20 transition-all"
+            >
+              <MessageCircle className="w-4 h-4" />
+              <span className="text-sm font-medium">{post.comments_count}</span>
+            </Button>
 
-          <Button
-            variant="ghost"
-            onClick={handleShare}
-            className="flex items-center space-x-2 rounded-xl text-gray-600 hover:text-pink-500 hover:bg-pink-50 dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20"
-          >
-            <Share className="w-5 h-5" />
-          </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleShare}
+              className="flex items-center space-x-2 h-8 px-3 rounded-full text-gray-600 hover:text-pink-500 hover:bg-pink-50 dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20 transition-all"
+            >
+              <Share className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </div>
-    </div>
+    </article>
   );
 };
 
