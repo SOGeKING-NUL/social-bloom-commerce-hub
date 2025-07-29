@@ -142,7 +142,7 @@ export default function Header() {
                             className="group-hover:fill-fuchsia-600 transition-colors"
                           />
                           {wishlistCount != null && wishlistCount > 0 && (
-                            <span className="absolute -top-2 -right-2 bg-pink-500 text-pink-600 text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                            <span className="absolute -top-2 -right-2 bg-pink-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">
                               {wishlistCount}
                             </span>
                           )}

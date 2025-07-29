@@ -2,8 +2,10 @@ import { Button } from "@/components/ui/button";
 import { ShoppingCart, Users, Heart } from "@phosphor-icons/react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client"; // Adjust import path as needed
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface HighlightProductCardProps {
   product: {
@@ -24,7 +26,94 @@ interface HighlightProductCardProps {
 
 const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardProps) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const vendorName = vendor.full_name || vendor.email?.split("@")[0] || "Unknown Vendor";
+
+  // Check if product is in wishlist
+  const { data: isInWishlist = false } = useQuery({
+    queryKey: ['wishlist-status', product.id, user?.id],
+    queryFn: async () => {
+      if (!user || !product.id) return false;
+      
+      const { data, error } = await supabase
+        .from('wishlist')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('product_id', product.id)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Wishlist check error:', error);
+        return false;
+      }
+      
+      return !!data;
+    },
+    enabled: !!user && !!product.id,
+  });
+
+  // Wishlist mutations
+  const addToWishlistMutation = useMutation({
+    mutationFn: async () => {
+      if (!user || !product.id) throw new Error('Please login to add to wishlist');
+      
+      const { error } = await supabase
+        .from('wishlist')
+        .insert({
+          user_id: user.id,
+          product_id: product.id
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wishlist-status', product.id, user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['wishlist-count', user?.id] });
+      toast({ title: "Added to wishlist" });
+    },
+    onError: (error: any) => {
+      console.error('Add to wishlist error:', error);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const removeFromWishlistMutation = useMutation({
+    mutationFn: async () => {
+      if (!user || !product.id) throw new Error('Please login to remove from wishlist');
+      
+      const { error } = await supabase
+        .from('wishlist')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('product_id', product.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['wishlist-status', product.id, user?.id] });
+      queryClient.invalidateQueries({ queryKey: ['wishlist-count', user?.id] });
+      toast({ title: "Removed from wishlist" });
+    },
+    onError: (error: any) => {
+      console.error('Remove from wishlist error:', error);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleWishlistToggle = () => {
+    if (!user) {
+      toast({ title: "Please login to add to wishlist" });
+      return;
+    }
+    
+    if (isInWishlist) {
+      removeFromWishlistMutation.mutate();
+    } else {
+      addToWishlistMutation.mutate();
+    }
+  };
 
   // Fetch product images
   const { data: productImages } = useQuery({
@@ -86,8 +175,22 @@ const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardPr
             loading="lazy"
           />
           <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white/30 to-transparent" />
-          <button className="absolute top-3 right-3 p-2 rounded-full bg-white/80 backdrop-blur-sm border border-white/50 transition-all duration-300 hover:bg-white/90 hover:scale-110">
-            <Heart className="w-4 h-4 text-gray-600 hover:text-pink-500" />
+          <button 
+            className="absolute top-3 right-3 p-2 rounded-full bg-white/80 backdrop-blur-sm border border-white/50 transition-all duration-300 hover:bg-white/90 hover:scale-110"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleWishlistToggle();
+            }}
+            disabled={addToWishlistMutation.isPending || removeFromWishlistMutation.isPending}
+          >
+            <Heart 
+              className={`w-4 h-4 transition-colors duration-200 ${
+                isInWishlist 
+                  ? 'text-pink-500 fill-pink-500' 
+                  : 'text-gray-600 hover:text-pink-500'
+              }`} 
+              weight={isInWishlist ? "fill" : "regular"}
+            />
           </button>
         </div>
 
