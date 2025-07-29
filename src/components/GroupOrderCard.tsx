@@ -1,10 +1,13 @@
 import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Lock, Key, Copy, Check, Users, Calendar } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 // Custom type for group with product data
 type GroupWithProduct = {
@@ -30,6 +33,25 @@ const GroupOrderCard: React.FC<GroupOrderCardProps> = ({ group }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [copied, setCopied] = React.useState(false);
+
+  // Fetch product categories
+  const { data: productCategories } = useQuery({
+    queryKey: ['product-categories', group.product_id],
+    queryFn: async () => {
+      if (!group.product_id) return [];
+      
+      const { data, error } = await supabase
+        .from('product_category_mappings')
+        .select(`
+          product_categories!inner(name)
+        `)
+        .eq('product_id', group.product_id);
+
+      if (error) throw error;
+      return data?.map((item: any) => item.product_categories.name) || [];
+    },
+    enabled: !!group.product_id,
+  });
 
   const handleCopyAccessCode = async () => {
     if (!group.access_code) return;
@@ -118,6 +140,21 @@ const GroupOrderCard: React.FC<GroupOrderCardProps> = ({ group }) => {
               <p className="text-gray-600 dark:text-gray-300 leading-relaxed line-clamp-2">
                 {group.description}
               </p>
+            )}
+            
+            {/* Product Categories */}
+            {productCategories && productCategories.length > 0 && (
+              <div className="flex flex-wrap gap-1 pt-2">
+                {productCategories.map((category: string) => (
+                  <Badge
+                    key={category}
+                    variant="secondary"
+                    className="text-xs px-2 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200"
+                  >
+                    {category}
+                  </Badge>
+                ))}
+              </div>
             )}
           </div>
 

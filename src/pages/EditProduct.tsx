@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { motion, AnimatePresence } from "framer-motion";
+import CategoryDropdown from "@/components/CategoryDropdown";
 
 interface ProductFormData {
   name: string;
@@ -60,6 +61,8 @@ const EditProduct = () => {
     group_order_enabled: false,
   });
   
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isUploading, setIsUploading] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -103,6 +106,25 @@ const EditProduct = () => {
 
       if (error) throw error;
       return data;
+    },
+    enabled: !!productId,
+  });
+
+  // Fetch existing product categories
+  const { data: existingCategories } = useQuery({
+    queryKey: ['product-categories', productId],
+    queryFn: async () => {
+      if (!productId) return [];
+      
+      const { data, error } = await supabase
+        .from('product_category_mappings')
+        .select(`
+          product_categories!inner(name)
+        `)
+        .eq('product_id', productId);
+
+      if (error) throw error;
+      return data?.map((item: any) => item.product_categories.name) || [];
     },
     enabled: !!productId,
   });
@@ -153,6 +175,13 @@ const EditProduct = () => {
     }));
   }, [tiers]);
 
+  // Set initial categories when existing categories are loaded
+  useEffect(() => {
+    if (existingCategories) {
+      setSelectedCategories(existingCategories);
+    }
+  }, [existingCategories]);
+
   // Tier management functions
   const addTier = () => {
     setTiers(prev => [...prev, { members_required: 0, discount_percentage: 0 }]);
@@ -192,8 +221,8 @@ const EditProduct = () => {
       newErrors.price = 'Price cannot exceed ₹10,00,000';
     }
 
-    if (!formData.category.trim()) {
-      newErrors.category = 'Category is required';
+    if (selectedCategories.length === 0) {
+      newErrors.category = 'At least one category is required';
     }
 
     if (formData.stock_quantity < 0) {
@@ -253,11 +282,43 @@ const EditProduct = () => {
           if (insertError) throw insertError;
         }
       }
+
+      // Handle categories
+      // First, delete all existing category mappings for this product
+      const { error: deleteCategoriesError } = await supabase
+        .from('product_category_mappings')
+        .delete()
+        .eq('product_id', productId);
+
+      if (deleteCategoriesError) throw deleteCategoriesError;
+
+      // Insert new category mappings if any exist
+      if (selectedCategories.length > 0) {
+        // Get category IDs for selected category names
+        const { data: categoryData, error: categoryError } = await supabase
+          .from('product_categories')
+          .select('id, name')
+          .in('name', selectedCategories);
+
+        if (categoryError) throw categoryError;
+
+        const categoryMappings = categoryData.map(category => ({
+          product_id: productId,
+          category_id: category.id,
+        }));
+
+        const { error: insertCategoriesError } = await supabase
+          .from('product_category_mappings')
+          .insert(categoryMappings);
+
+        if (insertCategoriesError) throw insertCategoriesError;
+      }
     },
     onSuccess: () => {
       toast({ title: "Product updated successfully!" });
       queryClient.invalidateQueries({ queryKey: ['product', productId] });
       queryClient.invalidateQueries({ queryKey: ['product-tiers', productId] });
+      queryClient.invalidateQueries({ queryKey: ['product-categories', productId] });
       queryClient.invalidateQueries({ queryKey: ['vendor-products'] });
       navigate(`/users/${user?.id}`);
     },
@@ -528,15 +589,13 @@ const EditProduct = () => {
                   )}
                 </div>
 
-                {/* Category */}
+                {/* Categories */}
                 <div className="space-y-2">
-                  <Label htmlFor="category">Category *</Label>
-                  <Input
-                    id="category"
-                    value={formData.category}
-                    onChange={(e) => handleInputChange('category', e.target.value)}
-                    placeholder="e.g. Electronics, Clothing, Books"
-                    className={errors.category ? 'border-red-500' : ''}
+                  <Label>Categories</Label>
+                  <CategoryDropdown
+                    selectedCategories={selectedCategories}
+                    onCategoriesChange={setSelectedCategories}
+                    disabled={updateProductMutation.isPending}
                   />
                   {errors.category && (
                     <div className="flex items-center gap-1 text-red-500 text-sm">

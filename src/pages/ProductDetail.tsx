@@ -210,6 +210,25 @@ const ProductDetail = () => {
     enabled: !!id,
   });
 
+  // Fetch product categories
+  const { data: productCategories } = useQuery({
+    queryKey: ['product-categories', id],
+    queryFn: async () => {
+      if (!id) return [];
+      
+      const { data, error } = await supabase
+        .from('product_category_mappings')
+        .select(`
+          product_categories!inner(name)
+        `)
+        .eq('product_id', id);
+
+      if (error) throw error;
+      return data?.map((item: any) => item.product_categories.name) || [];
+    },
+    enabled: !!id,
+  });
+
   // Wishlist mutations
   const addToWishlistMutation = useMutation({
     mutationFn: async () => {
@@ -551,10 +570,26 @@ const ProductDetail = () => {
               <div>
                 <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
                 <p className="text-lg text-pink-600">by {getVendorName()}</p>
-                {product.category && (
-                  <Badge variant="secondary" className="mt-2">
-                    {product.category}
-                  </Badge>
+                {productCategories && productCategories.length > 0 && (
+                  <div className="flex items-center gap-2 mt-2 flex-wrap">
+                    {productCategories.slice(0, 3).map((category: string) => (
+                      <Badge
+                        key={category}
+                        variant="secondary"
+                        className="text-sm px-3 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200"
+                      >
+                        {category}
+                      </Badge>
+                    ))}
+                    {productCategories.length > 3 && (
+                      <Badge
+                        variant="secondary"
+                        className="text-sm px-3 py-1 bg-gray-100 text-gray-600"
+                      >
+                        +{productCategories.length - 3} more
+                      </Badge>
+                    )}
+                  </div>
                 )}
               </div>
 

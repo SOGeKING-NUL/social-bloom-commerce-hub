@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
 import { Trash2 } from 'lucide-react'; // Assuming lucide-react for icons, install if needed
+import CategoryDropdown from './CategoryDropdown';
 
 interface ProductFormProps {
   onClose: () => void;
@@ -40,10 +41,11 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
     name: existingData?.name || '',
     description: existingData?.description || '',
     price: existingData?.price || '',
-    category: existingData?.category || '',
     stock_quantity: existingData?.stock_quantity || 0,
     is_active: existingData ? existingData.is_active : true,
   });
+  
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   
   const [tiers, setTiers] = useState<DiscountTier[]>([]);
   const [productImages, setProductImages] = useState<ProductImage[]>([]);
@@ -101,6 +103,25 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
     enabled: !!existingData?.id,
   });
 
+  // Fetch existing product categories if editing a product
+  const { data: existingCategories } = useQuery({
+    queryKey: ['product-categories', existingData?.id],
+    queryFn: async () => {
+      if (!existingData?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('product_category_mappings')
+        .select(`
+          product_categories!inner(name)
+        `)
+        .eq('product_id', existingData.id);
+
+      if (error) throw error;
+      return data?.map((item: any) => item.product_categories.name) || [];
+    },
+    enabled: !!existingData?.id,
+  });
+
   // Set initial product images from fetched data
   useEffect(() => {
     if (existingImages) {
@@ -127,6 +148,13 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
       );
     }
   }, [discountTiers]);
+
+  // Set initial categories from fetched data
+  useEffect(() => {
+    if (existingCategories) {
+      setSelectedCategories(existingCategories);
+    }
+  }, [existingCategories]);
 
   // Check if vendor is approved to add products
   const isKYCApproved = kycData?.status === 'approved';
@@ -329,6 +357,39 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
         if (error) throw error;
       }
 
+      // Handle categories
+      if (existingData) {
+        // Delete existing category mappings
+        const { error: deleteCategoriesError } = await supabase
+          .from('product_category_mappings')
+          .delete()
+          .eq('product_id', productId);
+
+        if (deleteCategoriesError) throw deleteCategoriesError;
+      }
+
+      // Insert new category mappings
+      if (selectedCategories.length > 0) {
+        // Get category IDs for selected category names
+        const { data: categoryData, error: categoryError } = await supabase
+          .from('product_categories')
+          .select('id, name')
+          .in('name', selectedCategories);
+
+        if (categoryError) throw categoryError;
+
+        const categoryMappings = categoryData.map(category => ({
+          product_id: productId,
+          category_id: category.id,
+        }));
+
+        const { error: insertCategoriesError } = await supabase
+          .from('product_category_mappings')
+          .insert(categoryMappings);
+
+        if (insertCategoriesError) throw insertCategoriesError;
+      }
+
       return productId;
     },
     onSuccess: (productId) => {
@@ -439,13 +500,11 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
           </div>
           
           <div>
-            <Label htmlFor="category">Category</Label>
-            <Input 
-              id="category"
-              name="category"
-              value={form.category}
-              onChange={handleChange}
-              placeholder="Product Category"
+            <Label>Categories</Label>
+            <CategoryDropdown
+              selectedCategories={selectedCategories}
+              onCategoriesChange={setSelectedCategories}
+              disabled={isSubmitting}
             />
           </div>
           
@@ -520,7 +579,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
                       id={`members-${index}`}
                       type="number"
                       min="0"
-                      value={tier.members_required}
+                      value={tier.members_required || ''}
                       onChange={(e) => updateTier(index, 'members_required', parseInt(e.target.value) || 0)}
                       placeholder="e.g. 10"
                       className="mt-1"
@@ -534,7 +593,7 @@ const ProductForm: React.FC<ProductFormProps> = ({ onClose, existingData }) => {
                       min="0"
                       max="100"
                       step="0.01"
-                      value={tier.discount_percentage}
+                      value={tier.discount_percentage || ''}
                       onChange={(e) => updateTier(index, 'discount_percentage', parseFloat(e.target.value) || 0)}
                       placeholder="e.g. 15"
                       className="mt-1"

@@ -84,6 +84,23 @@ const VendorProductCard = ({
     },
   });
 
+  // Fetch product categories
+  const { data: productCategories } = useQuery({
+    queryKey: ['product-categories', product.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_category_mappings')
+        .select(`
+          product_categories!inner(name)
+        `)
+        .eq('product_id', product.id);
+
+      if (error) throw error;
+      return data?.map((item: any) => item.product_categories.name) || [];
+    },
+    enabled: !!product.id,
+  });
+
   const handleEdit = () => {
     // In selection mode, clicking should select instead of navigate
     if (isSelectable) {
@@ -208,32 +225,6 @@ const VendorProductCard = ({
 
         {/* Content Area */}
         <div className={`relative bg-white p-4 space-y-3 ${isSelectable ? 'select-none' : ''}`}>
-          {/* Category and Status Row */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {product.category && (
-                <span className="text-xs text-slate-500 uppercase tracking-wide font-medium bg-gray-100 px-2 py-1 rounded-md">
-                  {product.category}
-                </span>
-              )}
-              {hasTieredDiscount && (
-                <span className="text-xs text-purple-600 font-semibold bg-purple-100 px-2 py-1 rounded-md flex items-center gap-1">
-                  <Target className="w-3 h-3" />
-                  Group Orders
-                </span>
-              )}
-            </div>
-            {/* Selection indicator for mobile */}
-            {isSelectable && isSelected && (
-              <div className="sm:hidden">
-                <Badge className="bg-pink-500 text-white text-xs flex items-center gap-1">
-                  <Check className="w-3 h-3" />
-                  Selected
-                </Badge>
-              </div>
-            )}
-          </div>
-
           {/* Price and Stock */}
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-slate-800 tracking-tight">₹{product.price}</h2>
@@ -251,6 +242,29 @@ const VendorProductCard = ({
             </div>
           </div>
 
+          {/* Categories Row */}
+          {productCategories && productCategories.length > 0 && (
+            <div className="flex items-center gap-1 overflow-hidden">
+              {productCategories.slice(0, 2).map((category: string) => (
+                <Badge
+                  key={category}
+                  variant="secondary"
+                  className="text-xs px-2 py-1 bg-blue-100 text-blue-700 hover:bg-blue-200 flex-shrink-0"
+                >
+                  {category}
+                </Badge>
+              ))}
+              {productCategories.length > 2 && (
+                <Badge
+                  variant="secondary"
+                  className="text-xs px-2 py-1 bg-gray-100 text-gray-600 flex-shrink-0"
+                >
+                  +{productCategories.length - 2} more
+                </Badge>
+              )}
+            </div>
+          )}
+
           {/* Product Name and Description */}
           <div className="space-y-2">
             <h3 
@@ -266,14 +280,15 @@ const VendorProductCard = ({
             </p>
             
             {/* Rating Display */}
-            {averageRating && averageRating > 0 && (
-              <div className="flex items-center gap-2 pt-1">
-                <StarRating rating={Math.round(averageRating)} size="sm" />
-                <span className="text-xs text-slate-500">
-                  {averageRating.toFixed(1)} ({reviewCount || 0} {reviewCount === 1 ? 'review' : 'reviews'})
-                </span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 pt-1">
+              <StarRating rating={Math.round(averageRating || 0)} size="sm" />
+              <span className="text-xs text-slate-500">
+                {averageRating && averageRating > 0 
+                  ? `${averageRating.toFixed(1)} (${reviewCount || 0} ${reviewCount === 1 ? 'review' : 'reviews'})`
+                  : `(0)`
+                }
+              </span>
+            </div>
           </div>
 
           {/* Created Date */}

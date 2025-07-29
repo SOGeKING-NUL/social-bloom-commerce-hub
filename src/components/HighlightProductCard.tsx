@@ -172,6 +172,23 @@ const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardPr
     enabled: !!product.id,
   });
 
+  // Fetch product categories
+  const { data: productCategories } = useQuery({
+    queryKey: ['product-categories', product.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_category_mappings')
+        .select(`
+          product_categories!inner(name)
+        `)
+        .eq('product_id', product.id);
+
+      if (error) throw error;
+      return data?.map((item: any) => item.product_categories.name) || [];
+    },
+    enabled: !!product.id,
+  });
+
   // Determine if tiers exist and calculate max discount
   const hasTiers = tiers && tiers.length > 0;
   const maxDiscount = hasTiers
@@ -221,15 +238,29 @@ const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardPr
 
         {/* Compact Content Area */}
         <div className="relative bg-white p-4 space-y-3">
-          {/* Price and Category */}
+          {/* Price */}
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-slate-800 tracking-tight">₹{product.price}</h2>
-            {product.category && (
-              <span className="text-xs text-slate-500 uppercase tracking-wide font-medium bg-gray-100 px-2 py-1 rounded-md">
-                {product.category}
-              </span>
-            )}
           </div>
+
+          {/* Categories Row */}
+          {productCategories && productCategories.length > 0 && (
+            <div className="flex items-center gap-1 overflow-hidden">
+              {productCategories.slice(0, 2).map((category: string) => (
+                <span
+                  key={category}
+                  className="text-xs text-slate-500 uppercase tracking-wide font-medium bg-gray-100 px-2 py-1 rounded-md flex-shrink-0"
+                >
+                  {category}
+                </span>
+              ))}
+              {productCategories.length > 2 && (
+                <span className="text-xs text-slate-500 uppercase tracking-wide font-medium bg-gray-100 px-2 py-1 rounded-md flex-shrink-0">
+                  +{productCategories.length - 2} more
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Product Title and Description */}
           <div className="space-y-1">
@@ -244,14 +275,15 @@ const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardPr
             </p>
             
             {/* Rating Display */}
-            {averageRating && averageRating > 0 && (
-              <div className="flex items-center gap-2 pt-1">
-                <StarRating rating={Math.round(averageRating)} size="sm" />
-                <span className="text-xs text-slate-500">
-                  {averageRating.toFixed(1)} ({reviewCount || 0} {reviewCount === 1 ? 'review' : 'reviews'})
-                </span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 pt-1">
+              <StarRating rating={Math.round(averageRating || 0)} size="sm" />
+              <span className="text-xs text-slate-500">
+                {averageRating && averageRating > 0 
+                  ? `${averageRating.toFixed(1)} (${reviewCount || 0} ${reviewCount === 1 ? 'review' : 'reviews'})`
+                  : `(0)`
+                }
+              </span>
+            </div>
           </div>
 
           {/* Group Benefits Row - Only show when tiers are available */}

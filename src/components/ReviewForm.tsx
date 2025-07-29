@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import StarRating from './StarRating';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CheckCircle } from 'lucide-react';
 
 interface ReviewFormProps {
   productId: string;
@@ -51,11 +53,21 @@ const ReviewForm: React.FC<ReviewFormProps> = ({ productId, onSuccess }) => {
       onSuccess?.();
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Error submitting review',
-        description: error.message,
-        variant: 'destructive',
-      });
+      // Check if it's a duplicate review error
+      if (error.message.includes('duplicate key value violates unique constraint') || 
+          error.message.includes('product_reviews_product_id_user_id_key')) {
+        toast({
+          title: 'Already reviewed',
+          description: 'You have already submitted a review for this product.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Error submitting review',
+          description: error.message,
+          variant: 'destructive',
+        });
+      }
     },
     onSettled: () => {
       setIsSubmitting(false);
