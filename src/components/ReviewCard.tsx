@@ -1,193 +1,136 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
-import { MessageSquare, Send } from 'lucide-react';
-import StarRating from './StarRating';
+import { Badge } from '@/components/ui/badge';
+import { Star, Tag } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
-interface ReviewResponse {
+interface ReviewPost {
   id: string;
-  response_text: string;
-  created_at: string;
-  vendor: {
-    full_name: string;
-    avatar_url?: string;
-  };
-}
-
-interface Review {
-  id: string;
+  content: string;
   rating: number;
-  review_text: string;
   created_at: string;
-  user: {
+  profiles: {
     full_name: string;
     avatar_url?: string;
   };
-  review_responses?: ReviewResponse[];
+  post_tag_mappings: Array<{
+    post_tags: {
+      name: string;
+    };
+  }>;
+  post_images?: Array<{
+    image_url: string;
+    display_order: number;
+  }>;
 }
 
 interface ReviewCardProps {
-  review: Review;
+  review: ReviewPost;
   productId: string;
-  isVendor: boolean;
 }
 
-const ReviewCard: React.FC<ReviewCardProps> = ({ review, productId, isVendor }) => {
-  const [showResponseForm, setShowResponseForm] = useState(false);
-  const [responseText, setResponseText] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-
-  const submitResponseMutation = useMutation({
-    mutationFn: async () => {
-      if (!user) throw new Error('User not authenticated');
-      if (!responseText.trim()) throw new Error('Please write a response');
-
-      const { error } = await supabase
-        .from('review_responses')
-        .insert({
-          review_id: review.id,
-          vendor_id: user.id,
-          response_text: responseText.trim()
-        });
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast({
-        title: 'Response submitted successfully!',
-        description: 'Your response has been posted.',
-      });
-      setResponseText('');
-      setShowResponseForm(false);
-      queryClient.invalidateQueries({ queryKey: ['product-reviews', productId] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: 'Error submitting response',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-    onSettled: () => {
-      setIsSubmitting(false);
-    }
-  });
-
-  const handleSubmitResponse = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    submitResponseMutation.mutate();
-  };
-
-  const hasVendorResponse = review.review_responses && review.review_responses.length > 0;
-  const vendorResponse = hasVendorResponse ? review.review_responses[0] : null;
+const ReviewCard: React.FC<ReviewCardProps> = ({ review, productId }) => {
+  const userName = review.profiles?.full_name || 'Unknown User';
+  const userAvatar = review.profiles?.avatar_url;
 
   return (
     <Card className="mb-4">
       <CardContent className="pt-6">
         <div className="flex items-start gap-4">
           <Avatar className="w-10 h-10">
-            <AvatarImage src={review.user.avatar_url} />
-            <AvatarFallback>
-              {review.user.full_name?.charAt(0) || 'U'}
+            <AvatarImage src={userAvatar} alt={userName} />
+            <AvatarFallback className="bg-pink-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200">
+              {userName.charAt(0)}
             </AvatarFallback>
           </Avatar>
           
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="font-medium text-gray-900">
-                {review.user.full_name}
-              </span>
-              <span className="text-sm text-gray-500">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center space-x-2">
+                <h4 className="font-semibold text-gray-900 dark:text-white">
+                  {userName}
+                </h4>
+                <Badge variant="secondary" className="bg-pink-50 text-pink-700 border-pink-200">
+                  <Tag className="w-3 h-3 mr-1" />
+                  Review
+                </Badge>
+              </div>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
                 {formatDistanceToNow(new Date(review.created_at), { addSuffix: true })}
               </span>
             </div>
             
-            <div className="mb-3">
-              <StarRating rating={review.rating} size="sm" />
+            {/* Star Rating - Bigger Display */}
+            <div className="flex items-center space-x-3 mb-3">
+              <div className="flex items-center space-x-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <span
+                    key={star}
+                    className={`text-2xl ${
+                      review.rating && review.rating >= star ? 'text-yellow-400' : 'text-gray-300'
+                    }`}
+                  >
+                    ★
+                  </span>
+                ))}
+              </div>
+              <span className="text-lg font-medium text-gray-600 dark:text-gray-400">
+                ({review.rating}/5)
+              </span>
             </div>
             
-            <p className="text-gray-700 mb-4">{review.review_text}</p>
-            
-            {/* Vendor Response */}
-            {hasVendorResponse && vendorResponse && (
-              <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <Avatar className="w-6 h-6">
-                    <AvatarImage src={vendorResponse.vendor.avatar_url} />
-                    <AvatarFallback>
-                      {vendorResponse.vendor.full_name?.charAt(0) || 'V'}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="font-medium text-sm text-gray-900">
-                    {vendorResponse.vendor.full_name} (Vendor)
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {formatDistanceToNow(new Date(vendorResponse.created_at), { addSuffix: true })}
-                  </span>
+            {/* Review Content */}
+            <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-3">
+              {review.content}
+            </p>
+
+            {/* Media Display */}
+            {review.post_images && review.post_images.length > 0 && (
+              <div className="mt-3">
+                <div className={`grid gap-2 ${
+                  review.post_images.length === 1 ? 'grid-cols-1' :
+                  review.post_images.length === 2 ? 'grid-cols-2' :
+                  review.post_images.length === 3 ? 'grid-cols-3' :
+                  'grid-cols-2'
+                }`}>
+                  {review.post_images.map((image, index) => {
+                    const isVideo = image.image_url.match(/\.(mp4|webm|ogg|mov|avi|mkv)$/i);
+                    
+                    return (
+                      <div 
+                        key={index} 
+                        className={`relative rounded-xl overflow-hidden ${
+                          review.post_images.length === 3 && index === 2 ? 'col-span-2' :
+                          review.post_images.length === 4 && index === 3 ? 'col-span-2' : ''
+                        }`}
+                      >
+                        <div className={`${
+                          review.post_images.length === 1 ? 'aspect-[4/3]' :
+                          review.post_images.length === 2 ? 'aspect-square' :
+                          review.post_images.length === 3 && index === 2 ? 'aspect-[2/1]' :
+                          review.post_images.length === 4 && index === 3 ? 'aspect-[2/1]' :
+                          'aspect-square'
+                        }`}>
+                          {isVideo ? (
+                            <video
+                              src={image.image_url}
+                              controls
+                              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
+                              preload="metadata"
+                            />
+                          ) : (
+                            <img
+                              src={image.image_url}
+                              alt={`Review media ${index + 1}`}
+                              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300 cursor-pointer"
+                            />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <p className="text-gray-700 text-sm">{vendorResponse.response_text}</p>
-              </div>
-            )}
-            
-            {/* Vendor Response Form */}
-            {isVendor && !hasVendorResponse && (
-              <div className="mt-4">
-                {!showResponseForm ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowResponseForm(true)}
-                    className="flex items-center gap-2"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    Respond to Review
-                  </Button>
-                ) : (
-                  <form onSubmit={handleSubmitResponse} className="space-y-3">
-                    <Textarea
-                      placeholder="Write your response to this review..."
-                      value={responseText}
-                      onChange={(e) => setResponseText(e.target.value)}
-                      rows={3}
-                      className="resize-none"
-                      required
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        type="submit"
-                        size="sm"
-                        disabled={!responseText.trim() || isSubmitting}
-                        className="flex items-center gap-2"
-                      >
-                        <Send className="w-4 h-4" />
-                        {isSubmitting ? 'Sending...' : 'Send Response'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setShowResponseForm(false);
-                          setResponseText('');
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </form>
-                )}
               </div>
             )}
           </div>

@@ -36,23 +36,34 @@ const ReviewList: React.FC<ReviewListProps> = ({ productId, productVendorId }) =
     queryKey: ['product-reviews', productId, sortBy, filterBy],
     queryFn: async ({ pageParam = 0 }) => {
       let query = supabase
-        .from('product_reviews')
+        .from('posts')
         .select(`
           *,
-          user:profiles!product_reviews_user_id_fkey (
+          profiles:user_id (
             full_name,
             avatar_url
           ),
-          review_responses (
-            *,
-            vendor:profiles!review_responses_vendor_id_fkey (
-              full_name,
-              avatar_url
+          post_tag_mappings (
+            post_tags (
+              name
             )
+          ),
+          post_tagged_products (
+            products (
+              id,
+              name
+            )
+          ),
+          post_images (
+            image_url,
+            display_order
           )
         `)
-        .eq('product_id', productId)
+        .eq('status', 'published')
         .range(pageParam, pageParam + 9);
+
+      // Filter for review posts with this specific product
+      query = query.eq('post_tagged_products.products.id', productId);
 
       // Apply rating filter
       if (filterBy !== 'all') {
@@ -78,7 +89,15 @@ const ReviewList: React.FC<ReviewListProps> = ({ productId, productVendorId }) =
       const { data, error } = await query;
 
       if (error) throw error;
-      return data;
+      
+      // Filter posts that have 'review' tag
+      const reviewPosts = data?.filter(post => 
+        post.post_tag_mappings?.some((mapping: any) => 
+          mapping.post_tags?.name === 'review'
+        )
+      ) || [];
+
+      return reviewPosts;
     },
     getNextPageParam: (lastPage, allPages) => {
       if (lastPage.length < 10) return undefined;
@@ -109,80 +128,71 @@ const ReviewList: React.FC<ReviewListProps> = ({ productId, productVendorId }) =
     );
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Filters and Sorting */}
+  if (reviews.length === 0) {
+    return (
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Star className="w-5 h-5" />
-            Customer Reviews ({reviews.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-4 items-center">
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-500" />
-              <span className="text-sm font-medium text-gray-700">Filter:</span>
-              <Select value={filterBy} onValueChange={(value: FilterOption) => setFilterBy(value)}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Ratings</SelectItem>
-                  <SelectItem value="5">5 Stars</SelectItem>
-                  <SelectItem value="4">4 Stars</SelectItem>
-                  <SelectItem value="3">3 Stars</SelectItem>
-                  <SelectItem value="2">2 Stars</SelectItem>
-                  <SelectItem value="1">1 Star</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <SortAsc className="w-4 h-4 text-gray-500" />
-              <span className="text-sm font-medium text-gray-700">Sort:</span>
-              <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Newest First</SelectItem>
-                  <SelectItem value="oldest">Oldest First</SelectItem>
-                  <SelectItem value="highest">Highest Rated</SelectItem>
-                  <SelectItem value="lowest">Lowest Rated</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        <CardContent className="pt-6">
+          <div className="text-center text-gray-500">
+            No reviews yet. Be the first to review this product!
           </div>
         </CardContent>
       </Card>
+    );
+  }
 
-      {/* Reviews */}
-      {reviews.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center text-gray-500">
-              No reviews yet. Be the first to review this product!
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {reviews.map((review) => (
-            <ReviewCard
-              key={review.id}
-              review={review}
-              productId={productId}
-              isVendor={isVendor}
-            />
-          ))}
+  return (
+    <div>
+      {/* Filter and Sort Controls */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="flex items-center space-x-2">
+          <Filter className="w-4 h-4 text-gray-500" />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Filter:</span>
+          <Select value={filterBy} onValueChange={(value: FilterOption) => setFilterBy(value)}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Ratings</SelectItem>
+              <SelectItem value="5">5 Stars</SelectItem>
+              <SelectItem value="4">4 Stars</SelectItem>
+              <SelectItem value="3">3 Stars</SelectItem>
+              <SelectItem value="2">2 Stars</SelectItem>
+              <SelectItem value="1">1 Star</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
-      )}
+        
+        <div className="flex items-center space-x-2">
+          <SortAsc className="w-4 h-4 text-gray-500" />
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Sort:</span>
+          <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+            <SelectTrigger className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Newest First</SelectItem>
+              <SelectItem value="oldest">Oldest First</SelectItem>
+              <SelectItem value="highest">Highest Rated</SelectItem>
+              <SelectItem value="lowest">Lowest Rated</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      {/* Reviews List */}
+      <div className="space-y-4">
+        {reviews.map((review) => (
+          <ReviewCard
+            key={review.id}
+            review={review}
+            productId={productId}
+          />
+        ))}
+      </div>
 
       {/* Load More Button */}
       {hasNextPage && (
-        <div className="text-center">
+        <div className="mt-6 text-center">
           <Button
             onClick={() => fetchNextPage()}
             disabled={isFetchingNextPage}

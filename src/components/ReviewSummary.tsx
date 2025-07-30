@@ -11,27 +11,51 @@ interface ReviewSummaryProps {
 }
 
 const ReviewSummary: React.FC<ReviewSummaryProps> = ({ productId }) => {
-  const { data: averageRating } = useQuery({
-    queryKey: ['product-rating', productId],
+  const { data: reviewStats } = useQuery({
+    queryKey: ['product-review-stats', productId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .rpc('get_product_average_rating', { product_uuid: productId });
-      
+        .from('posts')
+        .select(`
+          rating,
+          post_tag_mappings (
+            post_tags (
+              name
+            )
+          ),
+          post_tagged_products (
+            products (
+              id
+            )
+          )
+        `)
+        .eq('status', 'published')
+        .not('rating', 'is', null);
+
       if (error) throw error;
-      return data;
+
+      // Filter for review posts with this specific product
+      const reviewPosts = data?.filter(post => 
+        post.post_tag_mappings?.some((mapping: any) => 
+          mapping.post_tags?.name === 'review'
+        ) &&
+        post.post_tagged_products?.some((mapping: any) => 
+          mapping.products?.id === productId
+        )
+      ) || [];
+
+      const ratings = reviewPosts.map(post => post.rating).filter(Boolean) as number[];
+      const averageRating = ratings.length > 0 ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
+      const reviewCount = ratings.length;
+
+      return {
+        averageRating,
+        reviewCount,
+      };
     },
   });
 
-  const { data: reviewCount } = useQuery({
-    queryKey: ['product-review-count', productId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .rpc('get_product_review_count', { product_uuid: productId });
-      
-      if (error) throw error;
-      return data;
-    },
-  });
+  const { averageRating = 0, reviewCount = 0 } = reviewStats || {};
 
   if (reviewCount === 0) {
     return (
@@ -52,9 +76,20 @@ const ReviewSummary: React.FC<ReviewSummaryProps> = ({ productId }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <StarRating rating={Math.round(averageRating || 0)} size="lg" />
+              <div className="flex items-center space-x-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <span
+                    key={star}
+                    className={`text-2xl ${
+                      Math.round(averageRating) >= star ? 'text-yellow-400' : 'text-gray-300'
+                    }`}
+                  >
+                    ★
+                  </span>
+                ))}
+              </div>
               <span className="text-2xl font-bold text-gray-900">
-                {averageRating?.toFixed(1) || '0.0'}
+                {averageRating.toFixed(1)}
               </span>
             </div>
             

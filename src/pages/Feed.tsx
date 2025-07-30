@@ -124,6 +124,7 @@ const Feed = () => {
           product_price: mapping.products.price,
           product_image: mapping.products.image_url,
         })) || [],
+        rating: post.rating,
       }));
 
       // Additional client-side filtering for better UX

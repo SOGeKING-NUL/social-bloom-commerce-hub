@@ -13,7 +13,7 @@ import ImageGallery from "@/components/ImageGallery";
 import CreateGroupModal from "@/components/CreateGroupModal";
 import ReviewSummary from "@/components/ReviewSummary";
 import ReviewList from "@/components/ReviewList";
-import ReviewForm from "@/components/ReviewForm";
+import ReviewPostCreator from "@/components/ReviewPostCreator";
 import {
   Dialog,
   DialogContent,
@@ -710,7 +710,14 @@ const ProductDetail = () => {
           
           {/* Review Form */}
           <div className="mb-8">
-            <ReviewForm productId={product?.id || ''} />
+            <ReviewPostCreator 
+              productId={product?.id || ''} 
+              productName={product?.name || ''}
+              onPostCreated={() => {
+                // Refresh review data
+                queryClient.invalidateQueries({ queryKey: ["posts"] });
+              }}
+            />
           </div>
           
           {/* Review List */}

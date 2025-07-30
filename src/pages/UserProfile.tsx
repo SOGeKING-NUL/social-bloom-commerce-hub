@@ -404,6 +404,7 @@ const UserProfile = () => {
           product_price: mapping.products.price,
           product_image: mapping.products.image_url,
         })) || [],
+        rating: post.rating,
       }));
 
       // Apply privacy filtering based on who is viewing the profile

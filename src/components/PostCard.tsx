@@ -35,6 +35,7 @@ interface PostCardProps {
     liked: boolean;
     likes_count: number;
     comments_count: number;
+    rating?: number | null;
     tagged_products?: Array<{
       product_id: string;
       product_name: string;
@@ -342,6 +343,30 @@ const PostCard: React.FC<PostCardProps> = ({
                 {tag.name}
               </Badge>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Star Rating for Review Posts */}
+      {post.rating && post.post_tags?.some(tag => tag.name === 'review') && (
+        <div className="px-4 pb-3">
+          <div className="flex items-center space-x-3">
+            <span className="text-base font-medium text-gray-700 dark:text-gray-300">Rating:</span>
+            <div className="flex items-center space-x-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <span
+                  key={star}
+                  className={`text-2xl ${
+                    post.rating && post.rating >= star ? 'text-yellow-400' : 'text-gray-300'
+                  }`}
+                >
+                  ★
+                </span>
+              ))}
+            </div>
+            <span className="text-lg font-medium text-gray-600 dark:text-gray-400">
+              ({post.rating}/5)
+            </span>
           </div>
         </div>
       )}

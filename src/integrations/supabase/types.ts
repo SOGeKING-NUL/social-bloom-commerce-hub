@@ -562,6 +562,7 @@ export interface Database {
           content: string
           privacy: 'public' | 'following' | 'draft'
           status: 'published' | 'draft'
+          rating: number | null
           created_at: string
         }
         Insert: {
@@ -570,6 +571,7 @@ export interface Database {
           content: string
           privacy?: 'public' | 'following' | 'draft'
           status?: 'published' | 'draft'
+          rating?: number | null
           created_at?: string
         }
         Update: {
@@ -578,6 +580,7 @@ export interface Database {
           content?: string
           privacy?: 'public' | 'following' | 'draft'
           status?: 'published' | 'draft'
+          rating?: number | null
           created_at?: string
         }
         Relationships: [
@@ -681,93 +684,6 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "vendor_kyc_vendor_id_fkey"
-            columns: ["vendor_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      product_reviews: {
-        Row: {
-          id: string
-          product_id: string
-          user_id: string
-          rating: number
-          review_text: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          product_id: string
-          user_id: string
-          rating: number
-          review_text: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          product_id?: string
-          user_id?: string
-          rating?: number
-          review_text?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_reviews_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "product_reviews_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      review_responses: {
-        Row: {
-          id: string
-          review_id: string
-          vendor_id: string
-          response_text: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          review_id: string
-          vendor_id: string
-          response_text: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          review_id?: string
-          vendor_id?: string
-          response_text?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "review_responses_review_id_fkey"
-            columns: ["review_id"]
-            isOneToOne: false
-            referencedRelation: "product_reviews"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "review_responses_vendor_id_fkey"
             columns: ["vendor_id"]
             isOneToOne: false
             referencedRelation: "profiles"

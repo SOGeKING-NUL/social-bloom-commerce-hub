@@ -52,6 +52,7 @@ interface PostData {
   status: 'published' | 'draft';
   selectedProducts: string[];
   selectedUsers: string[];
+  rating?: number | null;
 }
 
 interface MediaState {
@@ -112,6 +113,7 @@ const InstagramStylePostCreator = ({
   const [activeTab, setActiveTab] = useState("users");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [rating, setRating] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -168,7 +170,7 @@ const InstagramStylePostCreator = ({
 
   // Post creation mutation
   const createPostMutation = useMutation({
-    mutationFn: async ({ content, imageUrls, postTag, privacy, status, selectedProducts, selectedUsers }: PostData) => {
+    mutationFn: async ({ content, imageUrls, postTag, privacy, status, selectedProducts, selectedUsers, rating }: PostData) => {
       if (!user) throw new Error("Please log in to create a post");
 
       if (status === 'draft') {
@@ -194,6 +196,7 @@ const InstagramStylePostCreator = ({
           content,
           privacy,
           status: 'published',
+          rating: postTag === 'review' ? rating : null,
         };
 
         const { data: post, error } = await supabase
@@ -375,12 +378,13 @@ const InstagramStylePostCreator = ({
 
     createPostMutation.mutate({
       content,
-      imageUrls,
+      imageUrls: media.previewUrls,
       postTag: selectedPostTag,
       privacy,
-      status: 'published', // Always publish for now
+      status: 'published',
       selectedProducts,
       selectedUsers,
+      rating,
     });
   }, [
     content,
@@ -392,6 +396,7 @@ const InstagramStylePostCreator = ({
     uploadFileToSupabase,
     selectedProducts,
     selectedUsers,
+    rating,
   ]);
 
   // Category and privacy handlers
@@ -515,16 +520,42 @@ const InstagramStylePostCreator = ({
         </Select>
       </div>
 
-      {/* Content Input */}
-      <div className="px-4 py-3">
+      {/* Star Rating for Review Posts */}
+      {selectedPostTag === 'review' && (
+        <div className="px-4 pb-3">
+          <div className="flex items-center space-x-3">
+            <span className="text-base font-medium text-gray-700 dark:text-gray-300">Rating:</span>
+            <div className="flex items-center space-x-2">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setRating(star)}
+                  className={`text-4xl transition-colors duration-200 ${
+                    rating && rating >= star ? 'text-yellow-400' : 'text-gray-300'
+                  } hover:text-yellow-400 hover:scale-110 transform`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+            {rating && (
+              <span className="text-lg font-medium text-gray-600 dark:text-gray-400">
+                ({rating}/5)
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Content */}
+      <div className="px-4 pb-4">
         <textarea
           ref={textareaRef}
           value={content}
           onChange={(e) => setContent(e.target.value)}
           placeholder="What's on your mind?"
-          className="w-full p-3 text-base text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-1 focus:ring-pink-500 transition-all duration-200"
-          rows={3}
-          style={{ minHeight: "70px" }}
+          className="w-full min-h-[120px] p-3 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent"
         />
       </div>
 
