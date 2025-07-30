@@ -237,6 +237,20 @@ const InstagramStylePostCreator = ({
           if (imageError) throw imageError;
         }
 
+        // Save tagged products if any
+        if (selectedProducts && selectedProducts.length > 0) {
+          const taggedProductsData = selectedProducts.map((productId) => ({
+            post_id: post.id,
+            product_id: productId,
+          }));
+
+          const { error: taggedProductsError } = await supabase
+            .from("post_tagged_products")
+            .insert(taggedProductsData);
+
+          if (taggedProductsError) throw taggedProductsError;
+        }
+
         return post;
       }
     },
@@ -390,13 +404,11 @@ const InstagramStylePostCreator = ({
   }, []);
 
   const handleProductSelect = useCallback((productId: string) => {
-    setSelectedProducts(prev => {
-      if (prev.includes(productId)) {
-        return prev.filter(id => id !== productId);
-      } else {
-        return [...prev, productId];
-      }
-    });
+    console.log('Product selected:', productId);
+    // Select only one product at a time
+    setSelectedProducts([productId]);
+    // Close the modal automatically
+    setIsTagModalOpen(false);
   }, []);
 
   const handleUserSelect = useCallback((userId: string, username: string) => {
@@ -477,6 +489,12 @@ const InstagramStylePostCreator = ({
             <span className="text-sm font-medium text-pink-600 dark:text-pink-400 flex items-center space-x-1 ml-2">
               <Tag className="w-4 h-4" />
               <span>{selectedPostTag}</span>
+            </span>
+          )}
+          {selectedProducts.length > 0 && (
+            <span className="text-sm font-medium text-blue-600 dark:text-blue-400 flex items-center space-x-1 ml-2">
+              <ShoppingBag className="w-4 h-4" />
+              <span>1 product tagged</span>
             </span>
           )}
         </div>

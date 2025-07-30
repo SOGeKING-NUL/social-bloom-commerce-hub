@@ -84,6 +84,14 @@ const Feed = () => {
             post_tags (
               name
             )
+          ),
+          post_tagged_products (
+            products (
+              id,
+              name,
+              price,
+              image_url
+            )
           )
         `
         )
@@ -110,6 +118,12 @@ const Feed = () => {
         comments_count: post.comment_count?.[0]?.count || 0,
         images: post.post_images?.sort((a, b) => a.display_order - b.display_order) || [],
         post_tags: post.post_tag_mappings?.map((mapping: any) => mapping.post_tags) || [],
+        tagged_products: post.post_tagged_products?.map((mapping: any) => ({
+          product_id: mapping.products.id,
+          product_name: mapping.products.name,
+          product_price: mapping.products.price,
+          product_image: mapping.products.image_url,
+        })) || [],
       }));
 
       // Additional client-side filtering for better UX

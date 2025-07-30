@@ -1,13 +1,14 @@
 import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Heart, MessageCircle, Share, Globe, Users, FileText, Tag } from "lucide-react";
+import { Heart, MessageCircle, Share, Globe, Users, FileText, Tag, ShoppingBag } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
+import StarRating from "@/components/StarRating";
 import { debounce } from "lodash";
 
 interface PostCardProps {
@@ -34,6 +35,12 @@ interface PostCardProps {
     liked: boolean;
     likes_count: number;
     comments_count: number;
+    tagged_products?: Array<{
+      product_id: string;
+      product_name: string;
+      product_price: number;
+      product_image: string;
+    }>;
   };
   onUserClick?: (userId: string) => void;
   onCommentClick?: (postId: string) => void;
@@ -384,6 +391,46 @@ const PostCard: React.FC<PostCardProps> = ({
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Tagged Products Section */}
+      {post.tagged_products && post.tagged_products.length > 0 && (
+        <div className="px-4 pb-4">
+          <div className="space-y-3">
+            {post.tagged_products.map((product, index) => (
+              <div
+                key={index}
+                className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                onClick={() => navigate(`/products/${product.product_id}`)}
+              >
+                {/* Product Image */}
+                <div className="flex-shrink-0">
+                  <img
+                    src={product.product_image || "/placeholder.svg"}
+                    alt={product.product_name}
+                    className="w-16 h-16 object-cover rounded-lg"
+                    onError={(e) => {
+                      e.currentTarget.src = "/placeholder.svg";
+                    }}
+                  />
+                </div>
+                
+                {/* Product Details */}
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 text-sm line-clamp-2">
+                    {product.product_name}
+                  </h4>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                      ₹{product.product_price.toLocaleString()}
+                    </span>
+                    <ShoppingBag className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
