@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useProductRating } from "@/hooks/useProductRating";
 import StarRating from "./StarRating";
 
 interface HighlightProductCardProps {
@@ -116,29 +117,8 @@ const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardPr
     }
   };
 
-  // Fetch average rating
-  const { data: averageRating } = useQuery({
-    queryKey: ['product-rating', product.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .rpc('get_product_average_rating', { product_uuid: product.id });
-      
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Fetch review count
-  const { data: reviewCount } = useQuery({
-    queryKey: ['product-review-count', product.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .rpc('get_product_review_count', { product_uuid: product.id });
-      
-      if (error) throw error;
-      return data;
-    },
-  });
+  // Fetch product rating and review count
+  const { data: ratingData } = useProductRating(product.id);
 
   // Fetch product images
   const { data: productImages } = useQuery({
@@ -276,10 +256,10 @@ const HighlightProductCard = ({ product, vendor, index }: HighlightProductCardPr
             
             {/* Rating Display */}
             <div className="flex items-center gap-2 pt-1">
-              <StarRating rating={Math.round(averageRating || 0)} size="sm" />
+              <StarRating rating={Math.round(ratingData?.averageRating || 0)} size="sm" />
               <span className="text-xs text-slate-500">
-                {averageRating && averageRating > 0 
-                  ? `${averageRating.toFixed(1)} (${reviewCount || 0} ${reviewCount === 1 ? 'review' : 'reviews'})`
+                {ratingData?.averageRating && ratingData.averageRating > 0 
+                  ? `${ratingData.averageRating.toFixed(1)} (${ratingData.reviewCount || 0} ${ratingData.reviewCount === 1 ? 'review' : 'reviews'})`
                   : `(0)`
                 }
               </span>

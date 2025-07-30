@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useProductRating } from "@/hooks/useProductRating";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -184,31 +185,8 @@ const ProductDetail = () => {
     enabled: !!user && !!id,
   });
 
-  // Fetch average rating
-  const { data: averageRating } = useQuery({
-    queryKey: ['product-rating', id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .rpc('get_product_average_rating', { product_uuid: id });
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id,
-  });
-
-  // Fetch review count
-  const { data: reviewCount } = useQuery({
-    queryKey: ['product-review-count', id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .rpc('get_product_review_count', { product_uuid: id });
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id,
-  });
+  // Fetch average rating and review count
+  const { data: ratingData } = useProductRating(id || '');
 
   // Fetch product categories
   const { data: productCategories } = useQuery({
@@ -361,7 +339,7 @@ const ProductDetail = () => {
           .from('cart_items')
           .delete()
           .eq('id', cartItem.id);
-        
+      
         if (error) throw error;
       } else {
         // Decrease quantity
@@ -587,7 +565,7 @@ const ProductDetail = () => {
                         className="text-sm px-3 py-1 bg-gray-100 text-gray-600"
                       >
                         +{productCategories.length - 3} more
-                      </Badge>
+                  </Badge>
                     )}
                   </div>
                 )}
@@ -599,9 +577,9 @@ const ProductDetail = () => {
 
               {/* Review Summary */}
               <div className="flex items-center gap-2">
-                <StarRating rating={Math.round(averageRating || 0)} size="sm" />
+                <StarRating rating={Math.round(ratingData.averageRating || 0)} size="sm" />
                 <span className="text-sm text-gray-600">
-                  {averageRating?.toFixed(1) || '0.0'} ({reviewCount || 0} {reviewCount === 1 ? 'review' : 'reviews'})
+                  {ratingData.averageRating?.toFixed(1) || '0.0'} ({ratingData.reviewCount || 0} {ratingData.reviewCount === 1 ? 'review' : 'reviews'})
                 </span>
               </div>
 
@@ -657,28 +635,28 @@ const ProductDetail = () => {
                   </div>
                 ) : (
                   // Item not in cart - show add to cart button
-                  <Button
-                    onClick={() => addToCartMutation.mutate()}
-                    className="w-full bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
-                    disabled={addToCartMutation.isPending}
-                    size="lg"
-                  >
-                    <ShoppingCart className="w-5 h-5 mr-2" />
-                    {addToCartMutation.isPending ? 'Adding...' : 'Add to Cart'}
-                  </Button>
+                <Button
+                  onClick={() => addToCartMutation.mutate()}
+                  className="w-full bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
+                  disabled={addToCartMutation.isPending}
+                  size="lg"
+                >
+                  <ShoppingCart className="w-5 h-5 mr-2" />
+                  {addToCartMutation.isPending ? 'Adding...' : 'Add to Cart'}
+                </Button>
                 )}
                 
                 {hasTiers && (
-                  <Button
-                    variant="outline"
-                    className="w-full border-pink-200 text-pink-600 hover:bg-pink-50"
-                    size="lg"
-                    disabled={!user} // Disable if user not logged in
+                      <Button
+                        variant="outline"
+                        className="w-full border-pink-200 text-pink-600 hover:bg-pink-50"
+                        size="lg"
+                        disabled={!user} // Disable if user not logged in
                     onClick={() => setShowCreateGroupModal(true)}
-                  >
-                    <Users className="w-5 h-5 mr-2" />
-                    Create Group for this Product
-                  </Button>
+                      >
+                        <Users className="w-5 h-5 mr-2" />
+                        Create Group for this Product
+                      </Button>
                 )}
               </div>
             </div>

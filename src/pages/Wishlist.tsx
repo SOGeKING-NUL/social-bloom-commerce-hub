@@ -8,47 +8,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Heart, ShoppingCart, Trash2, ArrowLeft, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useProductRating } from "@/hooks/useProductRating";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import StarRating from "@/components/StarRating";
 
 // Component to display product rating in wishlist
 const WishlistProductRating = ({ productId }: { productId?: string }) => {
-  // Fetch average rating
-  const { data: averageRating } = useQuery({
-    queryKey: ['product-rating', productId],
-    queryFn: async () => {
-      if (!productId) return null;
-      const { data, error } = await supabase
-        .rpc('get_product_average_rating', { product_uuid: productId });
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!productId,
-  });
+  const { data: ratingData } = useProductRating(productId || '');
 
-  // Fetch review count
-  const { data: reviewCount } = useQuery({
-    queryKey: ['product-review-count', productId],
-    queryFn: async () => {
-      if (!productId) return null;
-      const { data, error } = await supabase
-        .rpc('get_product_review_count', { product_uuid: productId });
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!productId,
-  });
-
-  if (!averageRating || averageRating <= 0) return null;
+  if (!ratingData?.averageRating || ratingData.averageRating <= 0) return null;
 
   return (
     <div className="flex items-center gap-2 mt-1">
-      <StarRating rating={Math.round(averageRating)} size="sm" />
+      <StarRating rating={Math.round(ratingData.averageRating)} size="sm" />
       <span className="text-xs text-gray-500">
-        {averageRating.toFixed(1)} ({reviewCount || 0} {reviewCount === 1 ? 'review' : 'reviews'})
+        {ratingData.averageRating.toFixed(1)} ({ratingData.reviewCount || 0} {ratingData.reviewCount === 1 ? 'review' : 'reviews'})
       </span>
     </div>
   );

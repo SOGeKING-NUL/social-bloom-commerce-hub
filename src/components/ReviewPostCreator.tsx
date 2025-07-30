@@ -205,6 +205,7 @@ const ReviewPostCreator: React.FC<ReviewPostCreatorProps> = ({
       queryClient.invalidateQueries({ queryKey: ["posts"] });
       queryClient.invalidateQueries({ queryKey: ["product-reviews", productId] });
       queryClient.invalidateQueries({ queryKey: ["product-review-stats", productId] });
+      queryClient.invalidateQueries({ queryKey: ["product-rating", productId] });
       // Invalidate all product-reviews queries for this product (with different sort/filter options)
       queryClient.invalidateQueries({ 
         predicate: (query) => 

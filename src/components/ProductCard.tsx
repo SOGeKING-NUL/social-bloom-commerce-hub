@@ -5,8 +5,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Heart, ShoppingCart, Users } from "lucide-react";
+import { Heart, ShoppingCart, Users, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useProductRating } from "@/hooks/useProductRating";
 import {
   Dialog,
   DialogContent,
@@ -72,6 +73,9 @@ const ProductCard = ({ product }: ProductCardProps) => {
     },
     enabled: !!user,
   });
+
+  // Fetch product rating and review count
+  const { data: ratingData } = useProductRating(product.id);
 
   // Wishlist mutations
   const addToWishlistMutation = useMutation({
@@ -269,6 +273,21 @@ const ProductCard = ({ product }: ProductCardProps) => {
         
         <div className="flex items-center justify-between mb-3">
           <span className="text-lg font-bold text-gray-800">${product.price}</span>
+          <div className="flex items-center space-x-1">
+            {[1, 2, 3, 4, 5].map((star) => (
+              <Star
+                key={star}
+                className={`w-4 h-4 ${
+                  Math.round(ratingData?.averageRating || 0) >= star 
+                    ? 'text-yellow-400 fill-current' 
+                    : 'text-gray-300'
+                }`}
+              />
+            ))}
+            <span className="text-sm text-gray-600 ml-1">
+              {ratingData?.averageRating?.toFixed(1) || '0.0'} ({ratingData?.reviewCount || 0})
+            </span>
+          </div>
         </div>
         
         <div className="space-y-2">
