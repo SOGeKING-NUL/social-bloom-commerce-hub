@@ -38,7 +38,6 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { debounce } from "lodash";
 import { Database } from "@/integrations/supabase/types";
 import ProductTagCard from "./ProductTagCard";
 
@@ -166,12 +165,6 @@ const InstagramStylePostCreator = ({
     queryFn: () => fetchTaggableEntities(tagSearch),
     enabled: isTagModalOpen,
   });
-
-  // Debounced search handler
-  const debouncedSetTagSearch = useMemo(
-    () => debounce((value: string) => setTagSearch(value), 300),
-    []
-  );
 
   // Post creation mutation
   const createPostMutation = useMutation({
@@ -650,7 +643,7 @@ const InstagramStylePostCreator = ({
           <Input
             placeholder="Search by name or username..."
             value={tagSearch}
-            onChange={(e) => debouncedSetTagSearch(e.target.value)}
+            onChange={(e) => setTagSearch(e.target.value)}
             className="mb-3 w-full text-sm font-medium text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-pink-500 transition-all duration-200 placeholder-gray-400 dark:placeholder-gray-500"
           />
           <Tabs
@@ -735,7 +728,7 @@ const InstagramStylePostCreator = ({
                     No products found
                   </p>
                 ) : (
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-3">
                     {taggableEntities.products.map((entity) => (
                       <ProductTagCard
                         key={`${entity.type}-${entity.id}`}
