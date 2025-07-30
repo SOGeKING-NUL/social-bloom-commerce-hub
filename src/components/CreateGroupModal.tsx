@@ -107,28 +107,66 @@ const CreateGroupModal = ({ isOpen, onOpenChange, onSuccess, preSelectedProductI
   });
 
   // Fetch discount tiers for the selected product
-  const { data: productTiers = [], isLoading: tiersLoading } = useQuery({
+  const { data: productTiers = [], isLoading: tiersLoading, error: tiersError } = useQuery({
     queryKey: ["product-tiers", formData.product_id],
     queryFn: async () => {
       if (!formData.product_id) return [];
 
       console.log("Fetching tiers for product:", formData.product_id);
+      console.log("Current user:", user?.id, "User role:", user?.role);
 
-      const { data, error } = await supabase
-        .from("product_discount_tiers")
-        .select("*")
-        .eq("product_id", formData.product_id)
-        .order("tier_number");
+      try {
+        // First, test access to the tiers table
+        const { data: testData, error: testError } = await supabase
+          .rpc('test_tier_access', { product_uuid: formData.product_id });
 
-      if (error) {
-        console.error("Error fetching tiers:", error);
-        throw error;
+        console.log("Tier access test result:", testData, testError);
+
+        // Now fetch the actual tiers
+        const { data, error } = await supabase
+          .from("product_discount_tiers")
+          .select("*")
+          .eq("product_id", formData.product_id)
+          .order("tier_number");
+
+        if (error) {
+          console.error("Error fetching tiers:", error);
+          console.error("Error details:", {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
+          
+          // Fallback: Try using a different approach
+          console.log("Trying fallback query...");
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from("product_discount_tiers")
+            .select("id, tier_number, members_required, discount_percentage")
+            .eq("product_id", formData.product_id)
+            .order("tier_number");
+
+          if (fallbackError) {
+            console.error("Fallback query also failed:", fallbackError);
+            throw error; // Throw the original error
+          }
+
+          console.log("Fallback query successful:", fallbackData);
+          return fallbackData || [];
+        }
+
+        console.log("Fetched tiers:", data);
+        console.log("Number of tiers found:", data?.length || 0);
+        
+        return data || [];
+      } catch (error) {
+        console.error("Error in tiers query:", error);
+        return [];
       }
-
-      console.log("Fetched tiers:", data);
-      return data || [];
     },
     enabled: !!formData.product_id && isOpen,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const selectedProduct = products.find(p => p.id === formData.product_id);
@@ -322,9 +360,14 @@ const CreateGroupModal = ({ isOpen, onOpenChange, onSuccess, preSelectedProductI
               </div>
               
               {/* Debug info - remove in production */}
-              <div className="mt-2 text-xs text-gray-500">
+              {/* <div className="mt-2 text-xs text-gray-500">
                 Product ID: {selectedProduct.id} | Tiers: {productTiers.length} | Loading: {tiersLoading ? 'Yes' : 'No'}
-              </div>
+                {tiersError && (
+                  <div className="text-red-500 mt-1">
+                    Error: {tiersError.message}
+                  </div>
+                )}
+              </div> */}
             </div>
           )}
 
@@ -359,10 +402,14 @@ const CreateGroupModal = ({ isOpen, onOpenChange, onSuccess, preSelectedProductI
               <div className="flex items-start gap-2">
                 <Package className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
                 <div className="text-sm text-yellow-700 dark:text-yellow-300">
-                  <p className="font-medium">No Discount Tiers Available</p>
+                  <p className="font-medium">
+                    {tiersError ? "Error Loading Discount Tiers" : "No Discount Tiers Available"}
+                  </p>
                   <p className="text-xs mt-1">
-                    This product doesn't have any discount tiers set up yet. 
-                    The group will use the standard price of ₹{selectedProduct.price}.
+                    {tiersError 
+                      ? `Unable to load discount tiers. Please try again later. (${tiersError.message})`
+                      : "This product doesn't have any discount tiers set up yet. The group will use the standard price of ₹" + selectedProduct.price + "."
+                    }
                   </p>
                 </div>
               </div>
