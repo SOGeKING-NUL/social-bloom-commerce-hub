@@ -58,29 +58,46 @@ const CreateGroupModal = ({ isOpen, onOpenChange, onSuccess, preSelectedProductI
   const { data: products = [] } = useQuery({
     queryKey: ["available-products"],
     queryFn: async () => {
-      // First get all active products
+      // First get all active products - removed the group_order_enabled filter for now
       const { data: productsData, error: productsError } = await supabase
         .from("products")
-        .select("id, name, price")
+        .select("id, name, price, group_order_enabled")
         .eq("is_active", true)
         .order("created_at", { ascending: false });
 
       if (productsError) throw productsError;
 
+      console.log("Fetched products:", productsData);
+
       // Then get the first image for each product
       const productsWithImages = await Promise.all(
         (productsData || []).map(async (product) => {
-          const { data: images } = await supabase
-            .from("product_images")
-            .select("image_url")
-            .eq("product_id", product.id)
-            .order("display_order", { ascending: true })
-            .limit(1);
+          try {
+            const { data: images, error: imageError } = await supabase
+              .from("product_images")
+              .select("image_url")
+              .eq("product_id", product.id)
+              .order("display_order", { ascending: true })
+              .limit(1);
 
-          return {
-            ...product,
-            image_url: images?.[0]?.image_url || null,
-          };
+            if (imageError) {
+              console.error("Error fetching images for product:", product.id, imageError);
+            }
+
+            const imageUrl = images?.[0]?.image_url || null;
+            console.log(`Product ${product.name} (${product.id}): image_url = ${imageUrl}`);
+
+            return {
+              ...product,
+              image_url: imageUrl,
+            };
+          } catch (error) {
+            console.error("Error processing product:", product.id, error);
+            return {
+              ...product,
+              image_url: null,
+            };
+          }
         })
       );
 
@@ -88,6 +105,33 @@ const CreateGroupModal = ({ isOpen, onOpenChange, onSuccess, preSelectedProductI
     },
     enabled: isOpen,
   });
+
+  // Fetch discount tiers for the selected product
+  const { data: productTiers = [], isLoading: tiersLoading } = useQuery({
+    queryKey: ["product-tiers", formData.product_id],
+    queryFn: async () => {
+      if (!formData.product_id) return [];
+
+      console.log("Fetching tiers for product:", formData.product_id);
+
+      const { data, error } = await supabase
+        .from("product_discount_tiers")
+        .select("*")
+        .eq("product_id", formData.product_id)
+        .order("tier_number");
+
+      if (error) {
+        console.error("Error fetching tiers:", error);
+        throw error;
+      }
+
+      console.log("Fetched tiers:", data);
+      return data || [];
+    },
+    enabled: !!formData.product_id && isOpen,
+  });
+
+  const selectedProduct = products.find(p => p.id === formData.product_id);
 
   const createGroupMutation = useMutation({
     mutationFn: async (groupData: typeof formData) => {
@@ -201,8 +245,6 @@ const CreateGroupModal = ({ isOpen, onOpenChange, onSuccess, preSelectedProductI
     });
   };
 
-  const selectedProduct = products.find(p => p.id === formData.product_id);
-
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -276,6 +318,52 @@ const CreateGroupModal = ({ isOpen, onOpenChange, onSuccess, preSelectedProductI
                 <div>
                   <p className="font-medium">{selectedProduct.name}</p>
                   <p className="text-sm text-gray-600">₹{selectedProduct.price}</p>
+                </div>
+              </div>
+              
+              {/* Debug info - remove in production */}
+              <div className="mt-2 text-xs text-gray-500">
+                Product ID: {selectedProduct.id} | Tiers: {productTiers.length} | Loading: {tiersLoading ? 'Yes' : 'No'}
+              </div>
+            </div>
+          )}
+
+          {productTiers.length > 0 && (
+            <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <h3 className="font-medium mb-2 text-green-800 dark:text-green-200">Discount Tiers</h3>
+              <div className="space-y-2">
+                {productTiers.map((tier) => (
+                  <div key={tier.id} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-green-700 dark:text-green-300">
+                        Tier {tier.tier_number}:
+                      </span>
+                      <span className="text-gray-600 dark:text-gray-400">
+                        {tier.members_required}+ members
+                      </span>
+                    </div>
+                    <span className="font-semibold text-green-700 dark:text-green-300">
+                      {tier.discount_percentage}% off
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-green-600 dark:text-green-400 mt-2">
+                * Discounts apply when group reaches the required member count
+              </p>
+            </div>
+          )}
+
+          {selectedProduct && productTiers.length === 0 && !tiersLoading && (
+            <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Package className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm text-yellow-700 dark:text-yellow-300">
+                  <p className="font-medium">No Discount Tiers Available</p>
+                  <p className="text-xs mt-1">
+                    This product doesn't have any discount tiers set up yet. 
+                    The group will use the standard price of ₹{selectedProduct.price}.
+                  </p>
                 </div>
               </div>
             </div>

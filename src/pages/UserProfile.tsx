@@ -881,7 +881,7 @@ const UserProfile = () => {
         </CardContent>
       </Card>
       </div>
-  );
+    );
 
   const renderPosts = () => (
     <div className="space-y-4">
