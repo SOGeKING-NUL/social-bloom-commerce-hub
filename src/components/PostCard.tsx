@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Heart, MessageCircle, Share, Globe, Users, FileText, Tag } from "lucide-react";
@@ -8,6 +8,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
+import { debounce } from "lodash";
 
 interface PostCardProps {
   post: {
@@ -51,42 +52,87 @@ const PostCard: React.FC<PostCardProps> = ({
   const navigate = useNavigate();
   const [isLiked, setIsLiked] = useState(post.liked);
   const [likesCount, setLikesCount] = useState(post.likes_count);
+  const [isLikeLoading, setIsLikeLoading] = useState(false);
+  const debouncedLikeRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Like/Unlike mutation
-  const likePostMutation = useMutation({
-    mutationFn: async () => {
-      if (!user) throw new Error("Please log in to like posts");
-
-      if (isLiked) {
-        const { error } = await supabase
-          .from("post_likes")
-          .delete()
-          .eq("post_id", post.id)
-          .eq("user_id", user.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from("post_likes")
-          .insert({
-            post_id: post.id,
-            user_id: user.id,
-          });
-        if (error) throw error;
+  // Debounced like/unlike function
+  const debouncedLikeAction = useCallback(
+    debounce(async (shouldLike: boolean) => {
+      if (!user) {
+        toast({
+          title: "Please log in",
+          description: "You need to be logged in to like posts.",
+          variant: "destructive",
+        });
+        return;
       }
-    },
-    onSuccess: () => {
-      setIsLiked(!isLiked);
-      setLikesCount(isLiked ? likesCount - 1 : likesCount + 1);
-      queryClient.invalidateQueries({ queryKey: ["posts"] });
-    },
-    onError: (error: any) => {
+
+      try {
+        if (shouldLike) {
+          const { error } = await supabase
+            .from("post_likes")
+            .insert({
+              post_id: post.id,
+              user_id: user.id,
+            });
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("post_likes")
+            .delete()
+            .eq("post_id", post.id)
+            .eq("user_id", user.id);
+          if (error) throw error;
+        }
+        
+        // Success - invalidate queries to refresh data
+        queryClient.invalidateQueries({ queryKey: ["posts"] });
+      } catch (error: any) {
+        // Revert optimistic update on error
+        setIsLiked(!shouldLike);
+        setLikesCount(shouldLike ? likesCount - 1 : likesCount + 1);
+        toast({
+          title: "Error",
+          description: error.message || "Failed to update like",
+          variant: "destructive",
+        });
+      }
+    }, 1000), // 1 second delay
+    [user, post.id, likesCount, queryClient, toast]
+  );
+
+  // Handle like button click with optimistic updates
+  const handleLike = () => {
+    if (!user) {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update like",
+        title: "Please log in",
+        description: "You need to be logged in to like posts.",
         variant: "destructive",
       });
-    },
-  });
+      return;
+    }
+
+    // Clear any existing timeout
+    if (debouncedLikeRef.current) {
+      clearTimeout(debouncedLikeRef.current);
+    }
+
+    // Optimistic update - immediate UI feedback
+    const newLikeState = !isLiked;
+    setIsLiked(newLikeState);
+    setLikesCount(newLikeState ? likesCount + 1 : likesCount - 1);
+
+    // Set loading state
+    setIsLikeLoading(true);
+
+    // Debounce the actual API call
+    debouncedLikeAction(newLikeState);
+
+    // Clear loading state after 1 second
+    debouncedLikeRef.current = setTimeout(() => {
+      setIsLikeLoading(false);
+    }, 1000);
+  };
 
   // Share post
   const handleShare = async () => {
@@ -108,18 +154,6 @@ const PostCard: React.FC<PostCardProps> = ({
         description: "Post content has been copied to your clipboard.",
       });
     }
-  };
-
-  const handleLike = () => {
-    if (!user) {
-      toast({
-        title: "Please log in",
-        description: "You need to be logged in to like posts.",
-        variant: "destructive",
-      });
-      return;
-    }
-    likePostMutation.mutate();
   };
 
   const handleUserClick = () => {
@@ -362,17 +396,17 @@ const PostCard: React.FC<PostCardProps> = ({
               variant="ghost"
               size="sm"
               onClick={handleLike}
-              disabled={likePostMutation.isPending}
+              disabled={isLikeLoading}
               className={`flex items-center space-x-2 h-8 px-3 rounded-full transition-all ${
                 isLiked
                   ? "text-pink-500 bg-pink-50 hover:bg-pink-100 dark:bg-pink-900/20 dark:hover:bg-pink-900/30"
                   : "text-gray-600 hover:text-pink-500 hover:bg-pink-50 dark:text-gray-400 dark:hover:text-pink-400 dark:hover:bg-pink-900/20"
-              }`}
+              } ${isLikeLoading ? "opacity-50 cursor-not-allowed" : ""}`}
             >
               <Heart
                 className={`w-4 h-4 ${
                   isLiked ? "fill-current" : ""
-                }`}
+                } ${isLikeLoading ? "animate-pulse" : ""}`}
               />
               <span className="text-sm font-medium">{likesCount}</span>
             </Button>
