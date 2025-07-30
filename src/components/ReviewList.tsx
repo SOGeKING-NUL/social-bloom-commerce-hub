@@ -60,15 +60,8 @@ const ReviewList: React.FC<ReviewListProps> = ({ productId, productVendorId }) =
           )
         `)
         .eq('status', 'published')
+        .not('rating', 'is', null)
         .range(pageParam, pageParam + 9);
-
-      // Filter for review posts with this specific product
-      query = query.eq('post_tagged_products.products.id', productId);
-
-      // Apply rating filter
-      if (filterBy !== 'all') {
-        query = query.eq('rating', parseInt(filterBy));
-      }
 
       // Apply sorting
       switch (sortBy) {
@@ -90,14 +83,22 @@ const ReviewList: React.FC<ReviewListProps> = ({ productId, productVendorId }) =
 
       if (error) throw error;
       
-      // Filter posts that have 'review' tag
+      // Filter for review posts with this specific product (client-side filtering)
       const reviewPosts = data?.filter(post => 
         post.post_tag_mappings?.some((mapping: any) => 
           mapping.post_tags?.name === 'review'
+        ) &&
+        post.post_tagged_products?.some((mapping: any) => 
+          mapping.products?.id === productId
         )
       ) || [];
 
-      return reviewPosts;
+      // Apply rating filter (client-side)
+      const filteredPosts = filterBy !== 'all' 
+        ? reviewPosts.filter(post => post.rating === parseInt(filterBy))
+        : reviewPosts;
+
+      return filteredPosts;
     },
     getNextPageParam: (lastPage, allPages) => {
       if (lastPage.length < 10) return undefined;
