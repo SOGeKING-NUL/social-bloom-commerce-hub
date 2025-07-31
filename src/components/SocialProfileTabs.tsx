@@ -58,7 +58,7 @@ const SocialProfileTabs = ({ profileUserId, isOwnProfile }: SocialProfileTabsPro
           *,
           order_items (
             *,
-            products (
+            product:products (
               name,
               image_url
             )

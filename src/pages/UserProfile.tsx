@@ -617,7 +617,7 @@ const UserProfile = () => {
           *,
           order_items (
             *,
-            products (
+            product:products (
               name,
               image_url
             )
@@ -644,7 +644,7 @@ const UserProfile = () => {
         .select(
           `
           *,
-          products (
+          product:products (
             name,
             image_url,
             price

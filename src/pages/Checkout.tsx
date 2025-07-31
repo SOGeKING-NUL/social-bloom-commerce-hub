@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, MapPin, Plus, Edit, Trash2, CreditCard, Truck, CheckCircle } from "lucide-react";
+import { ArrowLeft, MapPin, Plus, Edit, Trash2, CreditCard, Truck, CheckCircle, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -21,9 +21,15 @@ type CheckoutStep = "address" | "review" | "payment";
 
 const Checkout = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Check if this is a group order checkout
+  const isGroupOrder = searchParams.get('type') === 'group';
+  const groupId = searchParams.get('groupId');
+  
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("address");
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [showAddAddress, setShowAddAddress] = useState(false);
@@ -40,8 +46,8 @@ const Checkout = () => {
     is_default: false,
   });
 
-  // Fetch cart items
-  const { data: cartItems = [] } = useQuery({
+  // Fetch cart items or group order data
+  const { data: cartItems = [], isLoading: cartLoading } = useQuery({
     queryKey: ["cart-items", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -63,8 +69,59 @@ const Checkout = () => {
       if (error) throw error;
       return data || [];
     },
-    enabled: !!user?.id,
+    enabled: !!user?.id && !isGroupOrder,
   });
+
+  // Fetch group order data
+  const { data: groupOrder, isLoading: groupLoading } = useQuery({
+    queryKey: ["group-order", groupId],
+    queryFn: async () => {
+      if (!groupId) return null;
+
+      const { data, error } = await supabase
+        .from("groups")
+        .select(`
+          *,
+          products (
+            id,
+            name,
+            price,
+            image_url
+          ),
+          group_order_status (
+            current_discount_percentage,
+            paid_participants,
+            total_quantity,
+            total_amount
+          )
+        `)
+        .eq("id", groupId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!groupId && isGroupOrder,
+  });
+
+  // Determine which data to use
+  const checkoutItems = isGroupOrder ? (groupOrder ? [{
+    id: groupOrder.id,
+    quantity: 1, // Individual participants always pay for 1 item
+    products: groupOrder.products
+  }] : []) : cartItems;
+  
+  const isLoading = isGroupOrder ? groupLoading : cartLoading;
+  
+  // Debug: Log group order data
+  if (isGroupOrder && groupOrder) {
+    console.log('Group Order Data:', {
+      id: groupOrder.id,
+      order_number: groupOrder.order_number,
+      creator_id: groupOrder.creator_id,
+      group_order_status: groupOrder.group_order_status
+    });
+  }
 
   // Fetch user addresses
   const { data: addresses = [], refetch: refetchAddresses } = useQuery({
@@ -137,66 +194,144 @@ const Checkout = () => {
       const selectedAddress = addresses.find(addr => addr.id === selectedAddressId);
       if (!selectedAddress) throw new Error("Selected address not found");
 
-      // Calculate totals
-      const subtotal = cartItems.reduce((sum, item) => sum + (item.products.price * item.quantity), 0);
-      const shipping = 50; // Fixed shipping cost for now
-      const total = subtotal + shipping;
+      if (isGroupOrder && groupId) {
+        // Check if this is admin finalizing or participant paying
+        const isAdmin = groupOrder?.creator_id === user.id;
+        
+        if (isAdmin) {
+          // Handle group order finalization (admin)
+          const { data, error } = await supabase.rpc('finalize_group_order', {
+            group_uuid: groupId
+          });
+          
+          if (error) throw error;
+          
+          // Debug: Log the raw response
+          console.log('Raw RPC response:', { data, error });
+          
+          return data;
+        } else {
+          // Handle individual participant payment
+          console.log('Making individual participant payment with:', {
+            group_uuid: groupId,
+            user_uuid: user.id,
+            quantity: checkoutItems[0]?.quantity || 1,
+            shipping_address_id: selectedAddressId,
+            shipping_address_text: `${selectedAddress.full_name}, ${selectedAddress.address_line1}, ${selectedAddress.city}, ${selectedAddress.state} ${selectedAddress.postal_code}`
+          });
+          
+          const { data, error } = await supabase.rpc('create_individual_participant_payment', {
+            group_uuid: groupId,
+            user_uuid: user.id,
+            quantity: checkoutItems[0]?.quantity || 1,
+            shipping_address_id: selectedAddressId,
+            shipping_address_text: `${selectedAddress.full_name}, ${selectedAddress.address_line1}, ${selectedAddress.city}, ${selectedAddress.state} ${selectedAddress.postal_code}`
+          });
+          
+          if (error) throw error;
+          
+          // Debug: Log the raw response
+          console.log('Raw individual payment RPC response:', { data, error });
+          
+          return data;
+        }
+      } else {
+        // Handle regular cart order
+        // Calculate totals
+        const subtotal = cartItems.reduce((sum, item) => sum + (item.products.price * item.quantity), 0);
+        const shipping = 50; // Fixed shipping cost for now
+        const total = subtotal + shipping;
 
-      // Generate order number
-      const { data: orderNumber } = await supabase.rpc('generate_order_number');
-      if (!orderNumber) throw new Error("Failed to generate order number");
+        // Generate order number
+        const { data: orderNumber } = await supabase.rpc('generate_order_number');
+        if (!orderNumber) throw new Error("Failed to generate order number");
 
-      // Create order
-      const { data: order, error: orderError } = await supabase
-        .from("orders")
-        .insert({
-          user_id: user.id,
-          order_number: orderNumber,
-          total_amount: total,
-          shipping_amount: shipping,
-          shipping_address_id: selectedAddressId,
-          shipping_address_text: `${selectedAddress.full_name}, ${selectedAddress.address_line1}, ${selectedAddress.city}, ${selectedAddress.state} ${selectedAddress.postal_code}`,
-          payment_method: "razorpay",
-          payment_status: "paid", // For testing purposes
-          status: "paid", // For testing purposes
-        })
-        .select()
-        .single();
+        // Create order
+        const { data: order, error: orderError } = await supabase
+          .from("orders")
+          .insert({
+            user_id: user.id,
+            order_number: orderNumber,
+            total_amount: total,
+            shipping_amount: shipping,
+            shipping_address_id: selectedAddressId,
+            shipping_address_text: `${selectedAddress.full_name}, ${selectedAddress.address_line1}, ${selectedAddress.city}, ${selectedAddress.state} ${selectedAddress.postal_code}`,
+            payment_method: "razorpay",
+            payment_status: "paid", // For testing purposes
+            status: "paid", // For testing purposes
+          })
+          .select()
+          .single();
 
-      if (orderError) throw orderError;
+        if (orderError) throw orderError;
 
-      // Create order items
-      const orderItems = cartItems.map(item => ({
-        order_id: order.id,
-        product_id: item.products.id,
-        product_name: item.products.name,
-        product_image_url: item.products.image_url,
-        quantity: item.quantity,
-        unit_price: item.products.price,
-        total_price: item.products.price * item.quantity,
-      }));
+        // Create order items
+        const orderItems = cartItems.map(item => ({
+          order_id: order.id,
+          product_id: item.products.id,
+          product_name: item.products.name,
+          product_image_url: item.products.image_url,
+          quantity: item.quantity,
+          unit_price: item.products.price,
+          total_price: item.products.price * item.quantity,
+        }));
 
-      const { error: itemsError } = await supabase
-        .from("order_items")
-        .insert(orderItems);
+        const { error: itemsError } = await supabase
+          .from("order_items")
+          .insert(orderItems);
 
-      if (itemsError) throw itemsError;
+        if (itemsError) throw itemsError;
 
-      // Clear cart
-      const { error: clearCartError } = await supabase
-        .from("cart_items")
-        .delete()
-        .eq("user_id", user.id);
+        // Clear cart
+        const { error: clearCartError } = await supabase
+          .from("cart_items")
+          .delete()
+          .eq("user_id", user.id);
 
-      if (clearCartError) throw clearCartError;
+        if (clearCartError) throw clearCartError;
 
-      return order;
+        return order;
+      }
     },
-    onSuccess: (order) => {
-      queryClient.invalidateQueries({ queryKey: ["cart-items"] });
-      queryClient.invalidateQueries({ queryKey: ["cart-count"] });
-      toast({ title: "Order placed successfully!" });
-      navigate(`/orders/${order.id}`);
+    onSuccess: (result) => {
+      if (isGroupOrder) {
+        // Invalidate the correct query key used by GroupDetail page
+        queryClient.invalidateQueries({ queryKey: ["group", groupId] });
+        
+        // Check if this was admin finalizing or participant paying
+        const isAdmin = groupOrder?.creator_id === user.id;
+        
+        if (isAdmin) {
+          // Debug: Log the result to see its structure
+          console.log('Finalize group order result:', result);
+          
+          // The RPC function returns a JSON object, so we need to access the data property
+          const orderNumber = result?.order_number || result?.data?.order_number || groupOrder?.order_number;
+          const participantCount = result?.participant_count || result?.data?.participant_count || 0;
+          
+          toast({ 
+            title: "Group Order Finalized!", 
+            description: `Order #${orderNumber} has been placed with ${participantCount} participants.`
+          });
+          navigate(`/groups/${groupId}`);
+        } else {
+          // Debug: Log the result to see its structure
+          console.log('Individual payment result:', result);
+          
+          const orderNumber = result?.order_number || result?.data?.order_number || groupOrder?.order_number;
+          
+          toast({ 
+            title: "Payment Successful!", 
+            description: `Your payment has been processed. You can track the group order progress.`
+          });
+          navigate(`/groups/${groupId}`);
+        }
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["cart-items"] });
+        queryClient.invalidateQueries({ queryKey: ["cart-count"] });
+        toast({ title: "Order placed successfully!" });
+        navigate(`/orders/${result.id}`);
+      }
     },
     onError: (error: any) => {
       toast({
@@ -208,6 +343,32 @@ const Checkout = () => {
   });
 
   const calculateSubtotal = () => {
+    if (isGroupOrder && groupOrder) {
+      // For group orders, calculate individual participant price
+      const isAdmin = groupOrder.creator_id === user?.id;
+      if (isAdmin) {
+        // Admin sees the total group amount
+        return groupOrder.group_order_status?.total_amount || 0;
+      } else {
+        // Individual participant sees their own price
+        const quantity = checkoutItems[0]?.quantity || 1;
+        const productPrice = groupOrder.products?.price || 0;
+        const discount = groupOrder.group_order_status?.current_discount_percentage || 0;
+        const discountedPrice = productPrice * (1 - discount / 100);
+        const finalPrice = discountedPrice * quantity;
+        
+        // Debug: Log the price calculation
+        console.log('Price calculation:', {
+          quantity,
+          productPrice,
+          discount,
+          discountedPrice,
+          finalPrice
+        });
+        
+        return finalPrice;
+      }
+    }
     return cartItems.reduce((sum, item) => sum + (item.products.price * item.quantity), 0);
   };
 
@@ -254,7 +415,21 @@ const Checkout = () => {
     );
   }
 
-  if (cartItems.length === 0) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Header />
+        <div className="container mx-auto px-4 py-8 mt-20">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Loading...</h2>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!isGroupOrder && cartItems.length === 0) {
     return (
       <div className="min-h-screen bg-white">
         <Header />
@@ -262,6 +437,22 @@ const Checkout = () => {
           <div className="text-center">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Your cart is empty</h2>
             <Button onClick={() => navigate("/products")}>Continue Shopping</Button>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (isGroupOrder && !groupOrder) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Header />
+        <div className="container mx-auto px-4 py-8 mt-20">
+          <div className="text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Group Order Not Found</h2>
+            <p className="text-gray-600 mb-4">The group order you're looking for doesn't exist or you don't have access to it.</p>
+            <Button onClick={() => navigate("/groups")}>Back to Groups</Button>
           </div>
         </div>
         <Footer />
@@ -284,7 +475,17 @@ const Checkout = () => {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
-            <h1 className="text-3xl font-bold text-gray-800">Checkout</h1>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold text-gray-800">
+                {isGroupOrder ? "Group Order Checkout" : "Checkout"}
+              </h1>
+              {isGroupOrder && groupOrder && (
+                <Badge variant="outline" className="border-pink-200 text-pink-600">
+                  <Users className="w-3 h-3 mr-1" />
+                  Group Order
+                </Badge>
+              )}
+            </div>
           </div>
 
           {/* Progress Steps */}
@@ -341,16 +542,18 @@ const Checkout = () => {
 
               {currentStep === "review" && (
                 <ReviewStep
-                  cartItems={cartItems}
+                  cartItems={checkoutItems}
                   selectedAddress={addresses.find(addr => addr.id === selectedAddressId)}
                   onBack={() => setCurrentStep("address")}
                   onProceed={handleProceedToPayment}
+                  isGroupOrder={isGroupOrder}
+                  groupOrder={groupOrder}
                 />
               )}
 
               {currentStep === "payment" && (
                 <PaymentStep
-                  cartItems={cartItems}
+                  cartItems={checkoutItems}
                   selectedAddress={addresses.find(addr => addr.id === selectedAddressId)}
                   subtotal={calculateSubtotal()}
                   shipping={calculateShipping()}
@@ -358,6 +561,9 @@ const Checkout = () => {
                   onBack={() => setCurrentStep("review")}
                   onPlaceOrder={handlePlaceOrder}
                   createOrderMutation={createOrderMutation}
+                  isGroupOrder={isGroupOrder}
+                  groupOrder={groupOrder}
+                  user={user}
                 />
               )}
             </div>
@@ -365,10 +571,12 @@ const Checkout = () => {
             {/* Order Summary Sidebar */}
             <div className="lg:col-span-1">
               <OrderSummary
-                cartItems={cartItems}
+                cartItems={checkoutItems}
                 subtotal={calculateSubtotal()}
                 shipping={calculateShipping()}
                 total={calculateTotal()}
+                isGroupOrder={isGroupOrder}
+                groupOrder={groupOrder}
               />
             </div>
           </div>
@@ -593,11 +801,15 @@ const ReviewStep = ({
   selectedAddress,
   onBack,
   onProceed,
+  isGroupOrder,
+  groupOrder,
 }: {
   cartItems: any[];
   selectedAddress: any;
   onBack: () => void;
   onProceed: () => void;
+  isGroupOrder?: boolean;
+  groupOrder?: any;
 }) => (
   <Card>
     <CardHeader>
@@ -623,6 +835,36 @@ const ReviewStep = ({
         </div>
       </div>
 
+      {/* Group Order Info */}
+      {isGroupOrder && groupOrder && (
+        <div>
+          <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            Group Order Details
+          </h3>
+          <div className="p-4 border rounded-lg bg-pink-50 border-pink-200">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <p className="text-gray-600">Group Name:</p>
+                <p className="font-medium text-gray-800">{groupOrder.name}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Participants:</p>
+                <p className="font-medium text-gray-800">{groupOrder.group_order_status?.paid_participants || 0} paid</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Total Quantity:</p>
+                <p className="font-medium text-gray-800">{groupOrder.group_order_status?.total_quantity || 0}</p>
+              </div>
+              <div>
+                <p className="text-gray-600">Discount Applied:</p>
+                <p className="font-medium text-green-600">{groupOrder.group_order_status?.current_discount_percentage || 0}%</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Order Items */}
       <div>
         <h3 className="font-semibold text-gray-800 mb-3">Order Items</h3>
@@ -637,6 +879,11 @@ const ReviewStep = ({
               <div className="flex-1">
                 <h4 className="font-medium text-gray-800">{item.products.name}</h4>
                 <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
+                {isGroupOrder && groupOrder?.group_order_status?.current_discount_percentage > 0 && (
+                  <p className="text-sm text-green-600">
+                    Group discount: {groupOrder.group_order_status.current_discount_percentage}% off
+                  </p>
+                )}
               </div>
               <div className="text-right">
                 <p className="font-medium text-gray-800">₹{(item.products.price * item.quantity).toFixed(2)}</p>
@@ -670,6 +917,9 @@ const PaymentStep = ({
   onBack,
   onPlaceOrder,
   createOrderMutation,
+  isGroupOrder,
+  groupOrder,
+  user,
 }: {
   cartItems: any[];
   selectedAddress: any;
@@ -679,6 +929,9 @@ const PaymentStep = ({
   onBack: () => void;
   onPlaceOrder: () => void;
   createOrderMutation: any;
+  isGroupOrder?: boolean;
+  groupOrder?: any;
+  user?: any;
 }) => (
   <Card>
     <CardHeader>
@@ -701,6 +954,50 @@ const PaymentStep = ({
           </div>
         </div>
       </div>
+
+      {/* Group Order Payment Info */}
+      {isGroupOrder && groupOrder && (
+        <div>
+          <h3 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            {groupOrder.creator_id === user?.id ? "Group Order Finalization" : "Individual Payment"}
+          </h3>
+          <div className="p-4 border rounded-lg bg-pink-50 border-pink-200">
+            {groupOrder.creator_id === user?.id ? (
+              <>
+                <p className="text-sm text-gray-600 mb-2">
+                  You are finalizing the group order for all participants. This will:
+                </p>
+                <ul className="text-sm text-gray-600 space-y-1 mb-3">
+                  <li>• Create a master order with all participant addresses</li>
+                  <li>• Apply the group discount to the total amount</li>
+                  <li>• Send the order to the vendor</li>
+                </ul>
+                <div className="text-sm">
+                  <p className="text-gray-600">Group Order #: <span className="font-medium font-mono">{groupOrder.order_number}</span></p>
+                  <p className="text-gray-600">Total participants: <span className="font-medium">{groupOrder.group_order_status?.paid_participants || 0}</span></p>
+                  <p className="text-gray-600">Group discount: <span className="font-medium text-green-600">{groupOrder.group_order_status?.current_discount_percentage || 0}%</span></p>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-gray-600 mb-2">
+                  You are making an individual payment for this group order. This will:
+                </p>
+                <ul className="text-sm text-gray-600 space-y-1 mb-3">
+                  <li>• Create your individual order with order number</li>
+                  <li>• Apply the current group discount to your payment</li>
+                  <li>• Update the group order status</li>
+                </ul>
+                <div className="text-sm">
+                  <p className="text-gray-600">Your quantity: <span className="font-medium">{cartItems[0]?.quantity || 1}</span></p>
+                  <p className="text-gray-600">Group discount: <span className="font-medium text-green-600">{groupOrder.group_order_status?.current_discount_percentage || 0}%</span></p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Order Summary */}
       <div>
@@ -731,9 +1028,11 @@ const PaymentStep = ({
         <Button
           onClick={onPlaceOrder}
           disabled={createOrderMutation.isPending}
-          className="bg-green-600 hover:bg-green-700"
+          className={isGroupOrder ? "bg-pink-600 hover:bg-pink-700" : "bg-green-600 hover:bg-green-700"}
         >
-          {createOrderMutation.isPending ? "Processing..." : "Pay Now"}
+          {createOrderMutation.isPending ? "Processing..." : 
+           isGroupOrder && groupOrder?.creator_id === user?.id ? "Finalize Group Order" : 
+           isGroupOrder ? "Pay Now" : "Pay Now"}
         </Button>
       </div>
     </CardContent>
@@ -746,17 +1045,39 @@ const OrderSummary = ({
   subtotal,
   shipping,
   total,
+  isGroupOrder,
+  groupOrder,
 }: {
   cartItems: any[];
   subtotal: number;
   shipping: number;
   total: number;
+  isGroupOrder?: boolean;
+  groupOrder?: any;
 }) => (
   <Card className="sticky top-24">
     <CardHeader>
-      <CardTitle>Order Summary</CardTitle>
+      <CardTitle className="flex items-center gap-2">
+        {isGroupOrder && <Users className="w-4 h-4" />}
+        {isGroupOrder ? "Group Order Summary" : "Order Summary"}
+      </CardTitle>
     </CardHeader>
     <CardContent className="space-y-4">
+      {/* Group Order Info */}
+      {isGroupOrder && groupOrder && (
+        <div className="p-3 bg-pink-50 border border-pink-200 rounded-lg">
+          <div className="text-sm space-y-1">
+            <p className="font-medium text-gray-800">{groupOrder.name}</p>
+            <p className="text-gray-600">
+              {groupOrder.group_order_status?.paid_participants || 0} participants
+            </p>
+            <p className="text-green-600 font-medium">
+              {groupOrder.group_order_status?.current_discount_percentage || 0}% group discount
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Items */}
       <div className="space-y-3">
         {cartItems.map((item) => (
@@ -769,6 +1090,11 @@ const OrderSummary = ({
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-800 truncate">{item.products.name}</p>
               <p className="text-xs text-gray-600">Qty: {item.quantity}</p>
+              {isGroupOrder && groupOrder?.group_order_status?.current_discount_percentage > 0 && (
+                <p className="text-xs text-green-600">
+                  {groupOrder.group_order_status.current_discount_percentage}% off
+                </p>
+              )}
             </div>
             <p className="text-sm font-medium text-gray-800">₹{(item.products.price * item.quantity).toFixed(2)}</p>
           </div>

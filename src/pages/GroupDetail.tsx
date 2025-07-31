@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Users, Lock, ArrowLeft, ShoppingBag, UserPlus, Settings, Key, Copy, Clock, CreditCard, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Users, Lock, ArrowLeft, ShoppingBag, UserPlus, Settings, Key, Copy, Clock, CreditCard, CheckCircle, XCircle, AlertCircle, RefreshCw } from "lucide-react";
 import Layout from "@/components/Layout";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,17 +27,13 @@ const GroupDetail = () => {
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [accessCode, setAccessCode] = useState("");
-  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
-  const [paymentForm, setPaymentForm] = useState({
-    quantity: 1,
-    shippingAddressId: "",
-  });
 
   console.log('GroupDetail: Component loading with groupId:', groupId, 'user:', user?.id);
 
   // Fetch group details with proper error handling and separate queries
-  const { data: group, isLoading, error } = useQuery({
+  const { data: group, isLoading, error, refetch } = useQuery({
     queryKey: ['group', groupId],
+    refetchInterval: 5000, // Refetch every 5 seconds for real-time updates
     queryFn: async () => {
       console.log('GroupDetail: Fetching group details for:', groupId);
       
@@ -113,6 +109,15 @@ const GroupDetail = () => {
         paymentsResult
       });
       
+      // Debug: Log the status and payments data specifically
+      if (statusResult.status === 'fulfilled' && statusResult.value.data) {
+        console.log('GroupDetail: Status data:', statusResult.value.data);
+      }
+      
+      if (paymentsResult.status === 'fulfilled' && paymentsResult.value.data) {
+        console.log('GroupDetail: Payments data:', paymentsResult.value.data);
+      }
+      
       let creatorProfile = null;
       let product = null;
       let members = [];
@@ -164,22 +169,7 @@ const GroupDetail = () => {
   });
 
   // Fetch user addresses for payment
-  const { data: userAddresses = [] } = useQuery({
-    queryKey: ['user-addresses', user?.id],
-    queryFn: async () => {
-      if (!user?.id) return [];
-      
-      const { data, error } = await supabase
-        .from('user_addresses')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('is_default', { ascending: false });
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user?.id && showPaymentDialog
-  });
+
 
   // Fetch discount tiers for the product
   const { data: discountTiers = [] } = useQuery({
@@ -316,61 +306,7 @@ const GroupDetail = () => {
     }
   });
 
-  // Process payment mutation
-  const processPaymentMutation = useMutation({
-    mutationFn: async () => {
-      if (!user || !groupId || !group?.product) {
-        throw new Error('Missing required data');
-      }
-      
-      const { quantity, shippingAddressId } = paymentForm;
-      const selectedAddress = userAddresses.find(addr => addr.id === shippingAddressId);
-      
-      if (!selectedAddress) {
-        throw new Error('Please select a shipping address');
-      }
-      
-      // Calculate price with current discount
-      const currentDiscount = group.status?.current_discount_percentage || 0;
-      const unitPrice = group.product.price;
-      const discountedPrice = unitPrice * (1 - currentDiscount / 100);
-      const finalPrice = discountedPrice * quantity;
-      
-      // Create payment record
-      const { error } = await supabase
-        .from('group_order_payments')
-        .insert({
-          group_id: groupId,
-          user_id: user.id,
-          quantity,
-          unit_price: unitPrice,
-          discount_percentage: currentDiscount,
-          final_price: finalPrice,
-          payment_status: 'paid', // For now, assume payment is successful
-          shipping_address_id: shippingAddressId,
-          shipping_address_text: `${selectedAddress.full_name}, ${selectedAddress.address_line1}, ${selectedAddress.city}, ${selectedAddress.state} ${selectedAddress.postal_code}`,
-          paid_at: new Date().toISOString()
-        });
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['group', groupId] });
-      toast({
-        title: "Payment Successful!",
-        description: "Your payment has been processed successfully.",
-      });
-      setShowPaymentDialog(false);
-      setPaymentForm({ quantity: 1, shippingAddressId: "" });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Payment Failed",
-        description: error.message || "Failed to process payment",
-        variant: "destructive"
-      });
-    }
-  });
+
 
   // Finalize group order mutation
   const finalizeGroupOrderMutation = useMutation({
@@ -473,20 +409,10 @@ const GroupDetail = () => {
     }
   };
 
-  const handleProcessPayment = () => {
-    if (!paymentForm.shippingAddressId) {
-      toast({
-        title: "Address Required",
-        description: "Please select a shipping address",
-        variant: "destructive"
-      });
-      return;
-    }
-    processPaymentMutation.mutate();
-  };
+
 
   const handleFinalizeOrder = () => {
-    finalizeGroupOrderMutation.mutate();
+    navigate(`/checkout?type=group&groupId=${groupId}`);
   };
 
   const handleCancelOrder = () => {
@@ -638,10 +564,27 @@ const GroupDetail = () => {
                       <Clock className="w-4 h-4" />
                       <span>Created {new Date(group.created_at).toLocaleDateString()}</span>
                     </div>
+                    {group.order_number && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-gray-600">Order #:</span>
+                        <span className="text-sm font-medium font-mono text-blue-600">{group.order_number}</span>
+                      </div>
+                    )}
                   </div>
                   </div>
 
                 <div className="flex gap-2">
+                  {/* Refresh button for all users */}
+                  <Button 
+                    onClick={() => refetch()}
+                    variant="outline"
+                    size="sm"
+                    className="mr-2"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Refresh
+                  </Button>
+                  
                   {isCreator && isGroupActive && (
                     <>
                       <Button 
@@ -790,7 +733,7 @@ const GroupDetail = () => {
                           Add to Cart
                         </Button>
                         {isMember && !hasPaid && isGroupActive && (
-                          <Button onClick={() => setShowPaymentDialog(true)}>
+                          <Button onClick={() => navigate(`/checkout?type=group&groupId=${groupId}`)}>
                             <CreditCard className="w-4 h-4 mr-2" />
                             Pay Now
                           </Button>
@@ -822,6 +765,11 @@ const GroupDetail = () => {
                               <p className="text-sm text-gray-500">
                                 Qty: {payment.quantity} × ₹{payment.unit_price}
                               </p>
+                              {payment.order_number && (
+                                <p className="text-xs text-blue-600 font-mono">
+                                  Order: {payment.order_number}
+                                </p>
+                              )}
                             </div>
                           </div>
                           <div className="text-right">
@@ -832,6 +780,11 @@ const GroupDetail = () => {
                             >
                               {payment.payment_status === 'paid' ? 'Paid' : 'Pending'}
                             </Badge>
+                            {payment.discount_percentage > 0 && (
+                              <p className="text-xs text-green-600 mt-1">
+                                {payment.discount_percentage}% off
+                              </p>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -879,86 +832,7 @@ const GroupDetail = () => {
         </DialogContent>
       </Dialog>
 
-            {/* Payment Dialog */}
-            <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Make Payment</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="quantity">Quantity</Label>
-                    <Input
-                      id="quantity"
-                      type="number"
-                      min="1"
-                      value={paymentForm.quantity}
-                      onChange={(e) => setPaymentForm(prev => ({
-                        ...prev,
-                        quantity: parseInt(e.target.value) || 1
-                      }))}
-                      className="mt-1"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="shippingAddress">Shipping Address</Label>
-                    <select
-                      id="shippingAddress"
-                      value={paymentForm.shippingAddressId}
-                      onChange={(e) => setPaymentForm(prev => ({
-                        ...prev,
-                        shippingAddressId: e.target.value
-                      }))}
-                      className="w-full mt-1 p-2 border border-gray-300 rounded-md"
-                    >
-                      <option value="">Select an address</option>
-                      {userAddresses.map((address) => (
-                        <option key={address.id} value={address.id}>
-                          {address.full_name} - {address.address_line1}, {address.city}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
 
-                  {group.product && (
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <div className="flex justify-between text-sm">
-                        <span>Unit Price:</span>
-                        <span>₹{group.product.price}</span>
-                      </div>
-                      {group.status?.current_discount_percentage > 0 && (
-                        <div className="flex justify-between text-sm">
-                          <span>Discount:</span>
-                          <span>-{group.status.current_discount_percentage}%</span>
-                        </div>
-                      )}
-                      <Separator className="my-2" />
-                      <div className="flex justify-between font-semibold">
-                        <span>Total:</span>
-                        <span>₹{(group.product.price * (1 - (group.status?.current_discount_percentage || 0) / 100) * paymentForm.quantity).toFixed(2)}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleProcessPayment}
-                      disabled={processPaymentMutation.isPending}
-                      className="flex-1"
-                    >
-                      {processPaymentMutation.isPending ? 'Processing...' : 'Pay Now'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowPaymentDialog(false)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
 
             {/* Invite Dialog */}
         <InviteMembersDialog

@@ -28,7 +28,7 @@ const OrderConfirmation = () => {
           *,
           order_items (
             *,
-            products (
+            product:products (
               id,
               name,
               image_url
