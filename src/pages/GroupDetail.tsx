@@ -16,6 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import ImageGallery from "@/components/ImageGallery";
 
 const GroupDetail = () => {
   const { groupId } = useParams();
@@ -191,6 +192,24 @@ const GroupDetail = () => {
         .select('*')
         .eq('product_id', group.product_id)
         .order('members_required', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!group?.product_id
+  });
+
+  // Fetch product images for the gallery
+  const { data: productImages = [] } = useQuery({
+    queryKey: ['product-images', group?.product_id],
+    queryFn: async () => {
+      if (!group?.product_id) return [];
+      
+      const { data, error } = await supabase
+        .from('product_images')
+        .select('*')
+        .eq('product_id', group.product_id)
+        .order('display_order', { ascending: true });
       
       if (error) throw error;
       return data || [];
@@ -716,6 +735,22 @@ const GroupDetail = () => {
                         )}
                       </div>
                     </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Product Image Gallery */}
+              {group.product && (
+                <Card className="mb-6">
+                  <CardHeader>
+                    <CardTitle>Product Images</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ImageGallery 
+                      images={productImages}
+                      productName={group.product.name}
+                      fallbackImage={group.product.image_url}
+                    />
                   </CardContent>
                 </Card>
               )}

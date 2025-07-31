@@ -18,15 +18,10 @@ interface ImageGalleryProps {
 }
 
 const ImageGallery = ({ images, productName, fallbackImage }: ImageGalleryProps) => {
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [touchStart, setTouchStart] = useState(0);
-  const [touchEnd, setTouchEnd] = useState(0);
-  const modalRef = useRef<HTMLDivElement>(null);
-
   // If no images, use fallback
   const displayImages = images.length > 0 ? images : fallbackImage ? [{ image_url: fallbackImage }] : [];
   
+  // Early return before hooks to avoid hook order issues
   if (displayImages.length === 0) {
     return (
       <div className="w-full aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
@@ -34,6 +29,12 @@ const ImageGallery = ({ images, productName, fallbackImage }: ImageGalleryProps)
       </div>
     );
   }
+
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const currentImage = displayImages[currentImageIndex];
   const hasMultipleImages = displayImages.length > 1;
