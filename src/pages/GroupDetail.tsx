@@ -430,7 +430,7 @@ const GroupDetail = () => {
 
   // Handle functions
   const handleJoinGroup = () => {
-    setShowJoinDialog(true);
+      setShowJoinDialog(true);
   };
 
   const handleJoinWithCode = () => {
@@ -451,14 +451,14 @@ const GroupDetail = () => {
 
   const handleCopyAccessCode = async () => {
     if (group?.access_code) {
-      try {
-        await navigator.clipboard.writeText(group.access_code);
-        toast({
+    try {
+      await navigator.clipboard.writeText(group.access_code);
+      toast({
           title: "Access Code Copied!",
-          description: "The access code has been copied to your clipboard.",
-        });
-      } catch (error) {
-        toast({
+        description: "The access code has been copied to your clipboard.",
+      });
+    } catch (error) {
+      toast({
           title: "Copy Failed",
           description: "Failed to copy access code",
           variant: "destructive"
@@ -544,7 +544,7 @@ const GroupDetail = () => {
             </div>
           </div>
         </div>
-        </Layout>
+      </Layout>
     );
   }
 
@@ -558,14 +558,14 @@ const GroupDetail = () => {
                 <h1 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Group</h1>
                 <p className="text-gray-600 mb-6">{error.message}</p>
                 <Button onClick={() => navigate('/groups')}>
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Groups
-                </Button>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Groups
+              </Button>
               </div>
             </div>
           </div>
         </div>
-        </Layout>
+      </Layout>
     );
   }
 
@@ -579,14 +579,14 @@ const GroupDetail = () => {
                 <h1 className="text-2xl font-bold text-gray-900 mb-4">Group Not Found</h1>
                 <p className="text-gray-600 mb-6">The group you're looking for doesn't exist or you don't have access to it.</p>
                 <Button onClick={() => navigate('/groups')}>
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Groups
-                </Button>
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Groups
+              </Button>
               </div>
             </div>
           </div>
         </div>
-        </Layout>
+      </Layout>
     );
   }
 
@@ -639,19 +639,19 @@ const GroupDetail = () => {
                       <span>Created {new Date(group.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
-                </div>
-                
+                  </div>
+
                 <div className="flex gap-2">
                   {isCreator && isGroupActive && (
                     <>
-                      <Button
+                      <Button 
                         onClick={() => setShowInviteDialog(true)}
                         className="bg-pink-600 hover:bg-pink-700"
                       >
                         <UserPlus className="w-4 h-4 mr-2" />
                         Invite
                       </Button>
-                      <Button
+                      <Button 
                         onClick={handleFinalizeOrder}
                         disabled={finalizeGroupOrderMutation.isPending}
                         className="bg-green-600 hover:bg-green-700"
@@ -659,7 +659,7 @@ const GroupDetail = () => {
                         <CheckCircle className="w-4 h-4 mr-2" />
                         Finalize Order
                       </Button>
-                      <Button
+                      <Button 
                         onClick={handleCancelOrder}
                         disabled={cancelGroupOrderMutation.isPending}
                         variant="destructive"
@@ -672,10 +672,10 @@ const GroupDetail = () => {
                   
                   {!isMember && isGroupActive && (
                     <Button onClick={handleJoinGroup} className="bg-pink-600 hover:bg-pink-700">
-                      <UserPlus className="w-4 h-4 mr-2" />
+                          <UserPlus className="w-4 h-4 mr-2" />
                       Join Group
-                    </Button>
-                  )}
+                        </Button>
+                    )}
                 </div>
               </div>
 
@@ -700,8 +700,8 @@ const GroupDetail = () => {
                             <Badge variant="outline">
                               {timeRemaining.hours}h {timeRemaining.minutes}m
                             </Badge>
-                          )}
-                        </div>
+                    )}
+                  </div>
                       )}
 
                       {/* Discount Progress */}
@@ -715,9 +715,9 @@ const GroupDetail = () => {
                           <div className="flex items-center justify-between text-sm">
                             <span>Current Discount:</span>
                             <Badge variant="secondary">{discountProgress.currentDiscount}%</Badge>
-                          </div>
-                        </div>
-                      )}
+                </div>
+              </div>
+            )}
 
                       {/* Payment Status */}
                       <div className="flex items-center justify-between">
@@ -734,7 +734,7 @@ const GroupDetail = () => {
                           </Badge>
                         )}
                       </div>
-                    </div>
+              </div>
                   </CardContent>
                 </Card>
               )}
@@ -776,7 +776,7 @@ const GroupDetail = () => {
                         <div className="flex items-center gap-4 mt-2">
                           <span className="text-lg font-bold text-pink-600">
                             ₹{group.product.price}
-                          </span>
+                            </span>
                           {group.status?.current_discount_percentage > 0 && (
                             <Badge variant="secondary">
                               {group.status.current_discount_percentage}% off
@@ -835,49 +835,49 @@ const GroupDetail = () => {
                           </div>
                         </div>
                       ))}
-                    </div>
+                </div>
                   </CardContent>
                 </Card>
               )}
-            </div>
+      </div>
 
             {/* Join Dialog */}
-            <Dialog open={showJoinDialog} onOpenChange={setShowJoinDialog}>
+      <Dialog open={showJoinDialog} onOpenChange={setShowJoinDialog}>
               <DialogContent>
-                <DialogHeader>
+          <DialogHeader>
                   <DialogTitle>Join Group</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="accessCode">Access Code</Label>
-                    <Input
-                      id="accessCode"
-                      type="text"
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="accessCode">Access Code</Label>
+              <Input
+                id="accessCode"
+                type="text"
                       placeholder="Enter 8-digit code"
-                      value={accessCode}
+                value={accessCode}
                       onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
                       maxLength={8}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={handleJoinWithCode}
+                className="mt-1"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleJoinWithCode}
                       disabled={joinGroupMutation.isPending}
                       className="flex-1"
-                    >
+              >
                       {joinGroupMutation.isPending ? 'Joining...' : 'Join Group'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setShowJoinDialog(false)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowJoinDialog(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
             {/* Payment Dialog */}
             <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
@@ -961,18 +961,18 @@ const GroupDetail = () => {
             </Dialog>
 
             {/* Invite Dialog */}
-            <InviteMembersDialog
+        <InviteMembersDialog
               isOpen={showInviteDialog}
               onOpenChange={setShowInviteDialog}
-              groupId={groupId!}
+          groupId={groupId!}
               groupName={group.name}
               accessCode={group.access_code}
-            />
+        />
           </div>
         </div>
         </div>
-      </Layout>
-    );
-  };
+    </Layout>
+  );
+};
 
 export default GroupDetail;
