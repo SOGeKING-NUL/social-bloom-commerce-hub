@@ -542,7 +542,9 @@ const UserProfile = () => {
           access_code,
           created_at,
           product_id,
-          order_id
+          order_id,
+          finalization_deadline,
+          admin_finalized_at
         `)
         .in("id", groupIds)
         .order("created_at", { ascending: false });

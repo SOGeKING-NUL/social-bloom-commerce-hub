@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Lock, Key, Copy, Check, Users, Calendar } from "lucide-react";
+import { Lock, Key, Copy, Check, Users, Calendar, Clock, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
@@ -24,6 +24,8 @@ type GroupWithProduct = {
     image_url: string | null;
   } | null;
   order_id?: string | null; // Add order_id to check if order is completed
+  finalization_deadline?: string | null;
+  admin_finalized_at?: string | null;
 };
 
 interface GroupOrderCardProps {
@@ -34,6 +36,32 @@ const GroupOrderCard: React.FC<GroupOrderCardProps> = ({ group }) => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [copied, setCopied] = React.useState(false);
+
+  // Countdown timer state
+  const [timeLeft, setTimeLeft] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!group.finalization_deadline || group.admin_finalized_at) {
+      setTimeLeft(null);
+      return;
+    }
+    const deadline = new Date(group.finalization_deadline).getTime();
+    const update = () => {
+      const now = Date.now();
+      const diff = deadline - now;
+      if (diff <= 0) {
+        setTimeLeft("expired");
+        return;
+      }
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+    };
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [group.finalization_deadline, group.admin_finalized_at]);
 
   // Fetch product categories
   const { data: productCategories } = useQuery({
@@ -205,7 +233,7 @@ const GroupOrderCard: React.FC<GroupOrderCardProps> = ({ group }) => {
             </motion.div>
           )}
 
-          {/* Order Status */}
+          {/* Order Status or Countdown */}
           {group.order_id && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -224,6 +252,37 @@ const GroupOrderCard: React.FC<GroupOrderCardProps> = ({ group }) => {
                   <p className="text-sm font-medium text-green-900 dark:text-green-100">
                     Group order has been finalized
                   </p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+          {!group.order_id && group.finalization_deadline && !group.admin_finalized_at && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className={`rounded-xl border p-3 ${timeLeft === "expired" ? "bg-red-50 border-red-200" : "bg-yellow-50 border-yellow-200"}`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`rounded-lg p-2 ${timeLeft === "expired" ? "bg-red-500" : "bg-yellow-400"}`}>
+                  {timeLeft === "expired" ? (
+                    <X className="w-4 h-4 text-white" />
+                  ) : (
+                    <Clock className="w-4 h-4 text-white" />
+                  )}
+                </div>
+                <div>
+                  {timeLeft === "expired" ? (
+                    <>
+                      <p className="text-xs font-medium text-red-700 uppercase tracking-wide">Order Expired</p>
+                      <p className="text-sm font-medium text-red-900">Group order was not finalized in time</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-xs font-medium text-yellow-700 uppercase tracking-wide">Time Left</p>
+                      <p className="text-sm font-medium text-yellow-900">{timeLeft} left to finalize group order</p>
+                    </>
+                  )}
                 </div>
               </div>
             </motion.div>
