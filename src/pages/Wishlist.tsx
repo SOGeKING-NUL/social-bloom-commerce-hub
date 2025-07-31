@@ -12,6 +12,7 @@ import { useProductRating } from "@/hooks/useProductRating";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import StarRating from "@/components/StarRating";
+import { getProductImages } from "@/lib/utils";
 
 // Component to display product rating in wishlist
 const WishlistProductRating = ({ productId }: { productId?: string }) => {
@@ -61,8 +62,7 @@ const Wishlist = () => {
           products!inner (
             id,
             name,
-            price,
-            image_url
+            price
           )
         `
         )
@@ -76,7 +76,22 @@ const Wishlist = () => {
 
       console.log("Wishlist data fetched:", data);
 
-      return data?.filter((item) => item.products) || [];
+      const items = data?.filter((item) => item.products) || [];
+      
+      // Fetch product images for all wishlist items
+      const productIds = items.map(item => item.products.id);
+      const productImages = await getProductImages(productIds);
+      
+      // Add image_url to each item
+      const itemsWithImages = items.map(item => ({
+        ...item,
+        products: {
+          ...item.products,
+          image_url: productImages[item.products.id] || null
+        }
+      }));
+      
+      return itemsWithImages;
     },
     enabled: !!user?.id,
     retry: 3,

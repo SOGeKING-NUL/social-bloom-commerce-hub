@@ -27,6 +27,7 @@ import {
   AlertCircle,
   Filter,
   Eye,
+  MapPin,
 } from 'lucide-react';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
@@ -139,6 +140,7 @@ const VendorOrders = () => {
     queryKey: ['vendor-group-orders', user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
+      
       let query = supabase
         .from('orders')
         .select(`
@@ -146,8 +148,10 @@ const VendorOrders = () => {
           order_items (
             *,
             products (
+              id,
               name,
-              vendor_id
+              vendor_id,
+              image_url
             )
           ),
           profiles (
@@ -165,21 +169,26 @@ const VendorOrders = () => {
       const productIds = data?.flatMap(order => 
         order.order_items?.map(item => item.products?.id).filter(Boolean) || []
       ) || [];
-      const productImages = await getProductImages(productIds);
       
-      // Add image_url to each order item
-      const ordersWithImages = data?.map(order => ({
-        ...order,
-        order_items: order.order_items?.map(item => ({
-          ...item,
-          products: {
-            ...item.products,
-            image_url: productImages[item.products?.id] || null
-          }
-        }))
-      })) || [];
-      
-      return ordersWithImages;
+      if (productIds.length > 0) {
+        const productImages = await getProductImages(productIds);
+        
+        // Add image_url to each order item
+        const ordersWithImages = data?.map(order => ({
+          ...order,
+          order_items: order.order_items?.map(item => ({
+            ...item,
+            products: {
+              ...item.products,
+              image_url: productImages[item.products?.id] || item.products?.image_url || null
+            }
+          }))
+        })) || [];
+        
+        return ordersWithImages;
+      } else {
+        return data || [];
+      }
     },
     enabled: !!user?.id,
   });
@@ -197,7 +206,7 @@ const VendorOrders = () => {
             *,
             profiles (full_name, email)
           ),
-          products (name, vendor_id)
+          products (id, name, vendor_id, image_url)
         `)
         .eq('products.vendor_id', user.id);
       const { data, error } = await query;
@@ -215,7 +224,7 @@ const VendorOrders = () => {
         ...item,
         products: {
           ...item.products,
-          image_url: productImages[item.products?.id] || null
+          image_url: productImages[item.products?.id] || item.products?.image_url || null
         }
       }));
       
@@ -491,106 +500,191 @@ const OrderCard = ({ order, participants, onStatusUpdate }: OrderCardProps) => {
   const isGroupOrder = order.is_group_order;
 
   return (
-    <Card className={`w-full ${isGroupOrder ? 'border-2 border-pink-200 bg-pink-50/30' : ''}`}>
-      <CardHeader>
-        <div className="flex items-start justify-between">
+    <Card className={`w-full ${isGroupOrder ? 'border-2 border-pink-200 bg-gradient-to-br from-pink-50/50 to-white' : 'border border-gray-200 bg-white'} shadow-lg hover:shadow-xl transition-all duration-300`}>
+      <CardHeader className="pb-6">
+        {/* Header Row */}
+        <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <CardTitle className="text-lg">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center gap-2">
                 {isGroupOrder ? (
-                  <div className="flex items-center gap-2">
+                  <div className="p-2 bg-pink-100 rounded-full">
                     <Users className="w-5 h-5 text-pink-600" />
-                    Group Order: {order.order_number}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2">
+                  <div className="p-2 bg-blue-100 rounded-full">
                     <ShoppingCart className="w-5 h-5 text-blue-600" />
-                    Order: {order.order_number}
                   </div>
                 )}
-              </CardTitle>
-              <Badge className={getStatusColor(order.status)}>
+                <div>
+                  <CardTitle className="text-xl font-bold text-gray-900">
+                    {isGroupOrder ? 'Group Order' : 'Order'}
+                  </CardTitle>
+                  <p className="text-sm text-gray-500 font-mono">
+                    {order.order_number}
+                  </p>
+                </div>
+              </div>
+              <Badge className={`${getStatusColor(order.status)} text-white px-3 py-1.5 font-medium shadow-sm`}>
                 {getStatusIcon(order.status)}
-                <span className="ml-1">{order.status}</span>
+                <span className="ml-1.5 capitalize">{order.status}</span>
               </Badge>
-            </div>
-            
-            <div className="text-sm text-gray-600 space-y-1">
-              <p><strong>Customer:</strong> {order.profiles?.full_name || 'N/A'}</p>
-              <p><strong>Email:</strong> {order.profiles?.email || 'N/A'}</p>
-              <p><strong>Date:</strong> {new Date(order.created_at).toLocaleDateString()}</p>
-              {isGroupOrder && (
-                <p><strong>Participants:</strong> {order.participant_count || participants.length}</p>
-              )}
             </div>
           </div>
 
           <div className="text-right">
-            <p className="text-2xl font-bold text-green-600">₹{order.total_amount}</p>
+            <p className="text-3xl font-bold text-green-600 mb-1">₹{order.total_amount}</p>
             {isGroupOrder && order.discount_percentage && (
-              <p className="text-sm text-pink-600">{order.discount_percentage}% group discount</p>
+              <p className="text-sm text-pink-600 font-medium bg-pink-50 px-2 py-1 rounded-full">
+                {order.discount_percentage}% group discount
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Customer Info Grid */}
+        <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+              <span className="text-sm font-medium text-gray-700">Customer</span>
+            </div>
+            <p className="text-gray-900 font-semibold">{order.profiles?.full_name || 'N/A'}</p>
+            <p className="text-sm text-gray-600">{order.profiles?.email || 'N/A'}</p>
+          </div>
+          
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span className="text-sm font-medium text-gray-700">Order Details</span>
+            </div>
+            <p className="text-gray-900 font-semibold">
+              {new Date(order.created_at).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+              })}
+            </p>
+            {isGroupOrder && (
+              <p className="text-sm text-gray-600">
+                {order.participant_count || participants.length} participant{order.participant_count !== 1 ? 's' : ''}
+              </p>
             )}
           </div>
         </div>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="pt-0 space-y-6">
         {/* Product Details */}
-        <div className="mb-4">
-          <h4 className="font-semibold mb-2">Product Details</h4>
-          <div className="flex items-center gap-3">
-            <img
-              src={order.order_items?.[0]?.products?.image_url || '/placeholder.svg'}
-              alt={order.order_items?.[0]?.product_name || 'Product'}
-              className="w-16 h-16 object-cover rounded"
-            />
-            <div>
-              <p className="font-medium">{order.order_items?.[0]?.product_name || 'N/A'}</p>
-              <p className="text-sm text-gray-600">
-                Qty: {order.order_items?.[0]?.quantity || 0} × ₹{order.order_items?.[0]?.unit_price || 0}
-              </p>
+        <div>
+          <h4 className="font-semibold text-lg text-gray-900 mb-4 flex items-center gap-2">
+            <Package className="w-5 h-5 text-gray-600" />
+            Product Details
+          </h4>
+          <div className="flex items-start gap-4 p-4 bg-gradient-to-r from-gray-50 to-white rounded-lg border border-gray-100">
+            <div className="flex-shrink-0">
+              <img
+                src={order.order_items?.[0]?.products?.image_url || '/placeholder.svg'}
+                alt={order.order_items?.[0]?.products?.name || 'Product'}
+                className="w-28 h-28 object-cover rounded-lg shadow-md border border-gray-200"
+                onError={(e) => {
+                  console.log('Image failed to load, using placeholder');
+                  e.currentTarget.src = '/placeholder.svg';
+                }}
+                onLoad={() => {
+                  console.log('Image loaded successfully:', order.order_items?.[0]?.products?.image_url);
+                }}
+              />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between mb-2">
+                <h5 className="font-bold text-lg text-gray-900 truncate">
+                  {order.order_items?.[0]?.products?.name || 'N/A'}
+                </h5>
+                <span className="text-sm text-gray-500 font-mono">
+                  #{order.order_items?.[0]?.product_id || 'N/A'}
+                </span>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Quantity:</span> {order.order_items?.[0]?.quantity || 0}
+                </p>
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Unit Price:</span> ₹{order.order_items?.[0]?.unit_price || 0}
+                </p>
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Total:</span> ₹{(order.order_items?.[0]?.quantity || 0) * (order.order_items?.[0]?.unit_price || 0)}
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Shipping Address */}
-        <div className="mb-4">
-          <h4 className="font-semibold mb-2">Shipping Address</h4>
-          <p className="text-sm text-gray-700">{order.shipping_address_text}</p>
+        <div>
+          <h4 className="font-semibold text-lg text-gray-900 mb-4 flex items-center gap-2">
+            <MapPin className="w-5 h-5 text-gray-600" />
+            Shipping Address
+          </h4>
+          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-gray-800 font-medium leading-relaxed">
+              {order.shipping_address_text || 'Address not available'}
+            </p>
+          </div>
         </div>
 
         {/* Group Order Participants */}
         {isGroupOrder && participants.length > 0 && (
-          <div className="mb-4">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="font-semibold">Participants</h4>
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="font-semibold text-lg text-gray-900 flex items-center gap-2">
+                <Users className="w-5 h-5 text-gray-600" />
+                Participants ({participants.length})
+              </h4>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={() => setIsExpanded(!isExpanded)}
+                className="text-pink-600 hover:text-pink-700 hover:bg-pink-50"
               >
-                <Eye className="w-4 h-4 mr-2" />
-                {isExpanded ? 'Hide' : 'Show'} Details
+                {isExpanded ? 'Show Less' : 'Show Details'}
               </Button>
             </div>
             
             {isExpanded && (
-              <div className="space-y-3 border-t pt-3">
+              <div className="space-y-3">
                 {participants.map((participant, index) => (
-                  <div key={participant.id} className="bg-white p-3 rounded border">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium">{participant.profiles?.full_name || 'N/A'}</p>
-                        <p className="text-sm text-gray-600">{participant.profiles?.email || 'N/A'}</p>
-                        <p className="text-sm text-gray-600">Qty: {participant.quantity} × ₹{participant.unit_price}</p>
+                  <div key={participant.id} className="p-4 bg-white rounded-lg border border-gray-200 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-8 h-8 bg-pink-100 rounded-full flex items-center justify-center">
+                            <span className="text-sm font-medium text-pink-600">
+                              {participant.profiles?.full_name?.charAt(0) || 'U'}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">
+                              {participant.profiles?.full_name || 'Unknown User'}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {participant.profiles?.email || 'No email'}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="ml-11 space-y-1">
+                          <p className="text-sm text-gray-600">
+                            <span className="font-medium">Quantity:</span> {participant.quantity} × ₹{participant.unit_price}
+                          </p>
+                          <p className="text-sm text-gray-500 truncate">
+                            {participant.shipping_address_text}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold">₹{participant.final_price}</p>
+                      <div className="text-right ml-4">
+                        <p className="font-bold text-green-600 text-lg">₹{participant.final_price}</p>
                       </div>
                     </div>
-                    <p className="text-sm text-gray-600 mt-2">
-                      <strong>Address:</strong> {participant.shipping_address_text}
-                    </p>
                   </div>
                 ))}
               </div>
@@ -598,26 +692,32 @@ const OrderCard = ({ order, participants, onStatusUpdate }: OrderCardProps) => {
           </div>
         )}
 
-        {/* Status Update */}
-        <div className="flex items-center justify-between pt-4 border-t">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">Update Status:</span>
+        {/* Order Actions */}
+        <div className="flex items-center justify-between pt-6 border-t border-gray-200">
+          <div className="flex items-center gap-3">
             <Select
               value={order.status}
-              onValueChange={(value: OrderStatus) => onStatusUpdate({ orderId: order.id, status: value })}
+              onValueChange={(value) => onStatusUpdate({ orderId: order.id, status: value as OrderStatus })}
             >
-              <SelectTrigger className="w-32">
+              <SelectTrigger className="w-48 bg-white border-gray-300">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="processing">Processing</SelectItem>
-                <SelectItem value="shipped">Shipped</SelectItem>
-                <SelectItem value="delivered">Delivered</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
+                <SelectItem value="pending">⏳ Pending</SelectItem>
+                <SelectItem value="paid">✅ Paid</SelectItem>
+                <SelectItem value="processing">⚙️ Processing</SelectItem>
+                <SelectItem value="shipped">🚚 Shipped</SelectItem>
+                <SelectItem value="delivered">📦 Delivered</SelectItem>
+                <SelectItem value="cancelled">❌ Cancelled</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="border-gray-300">
+              <Eye className="w-4 h-4 mr-2" />
+              View Details
+            </Button>
           </div>
         </div>
       </CardContent>

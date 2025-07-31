@@ -16,6 +16,7 @@ import { ArrowLeft, MapPin, Plus, Edit, Trash2, CreditCard, Truck, CheckCircle, 
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { getProductImages } from "@/lib/utils";
 
 type CheckoutStep = "address" | "review" | "payment";
 
@@ -60,14 +61,29 @@ const Checkout = () => {
           products!inner (
             id,
             name,
-            price,
-            image_url
+            price
           )
         `)
         .eq("user_id", user.id);
 
       if (error) throw error;
-      return data || [];
+      
+      const items = data || [];
+      
+      // Fetch product images for all items
+      const productIds = items.map(item => item.products.id);
+      const productImages = await getProductImages(productIds);
+      
+      // Add image_url to each item
+      const itemsWithImages = items.map(item => ({
+        ...item,
+        products: {
+          ...item.products,
+          image_url: productImages[item.products.id] || null
+        }
+      }));
+      
+      return itemsWithImages;
     },
     enabled: !!user?.id && !isGroupOrder,
   });
@@ -85,8 +101,7 @@ const Checkout = () => {
           products (
             id,
             name,
-            price,
-            image_url
+            price
           ),
           group_order_status (
             current_discount_percentage,
@@ -99,6 +114,13 @@ const Checkout = () => {
         .single();
 
       if (error) throw error;
+      
+      if (data?.products) {
+        // Fetch product image for group order
+        const productImages = await getProductImages([data.products.id]);
+        data.products.image_url = productImages[data.products.id] || null;
+      }
+      
       return data;
     },
     enabled: !!groupId && isGroupOrder,

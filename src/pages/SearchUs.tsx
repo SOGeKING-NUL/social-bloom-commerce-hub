@@ -22,6 +22,7 @@ import {
 
 import type { Database } from "@/integrations/supabase/types";
 import Header from "@/components/Header";
+import { getProductImages } from "@/lib/utils";
 
 type Tables<T extends keyof Database["public"]["Tables"]> =
   Database["public"]["Tables"][T]["Row"];
@@ -79,7 +80,20 @@ export const searchProducts = async (
     .textSearch("name", query, { type: "websearch" });
 
   if (error) throw error;
-  return data || [];
+  
+  const products = data || [];
+  
+  // Fetch product images for all products
+  const productIds = products.map(product => product.id);
+  const productImages = await getProductImages(productIds);
+  
+  // Add image_url to each product
+  const productsWithImages = products.map(product => ({
+    ...product,
+    image_url: productImages[product.id] || null
+  }));
+  
+  return productsWithImages;
 };
 
 export const searchGroups = async (

@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getProductImages } from "@/lib/utils";
 
 const PRODUCTS_PER_PAGE = 12;
 
@@ -98,6 +99,10 @@ const Products = () => {
         throw error;
       }
       
+      // Fetch product images for all products
+      const productIds = (products || []).map(product => product.id);
+      const productImages = await getProductImages(productIds);
+      
       const processedProducts = (products || []).map(product => {
         const profileData = product.vendor_profile;
         const kycDataFromProfile = profileData?.vendor_kyc_data || [];
@@ -116,6 +121,7 @@ const Products = () => {
 
         return {
           ...product,
+          image_url: productImages[product.id] || null, // Add image_url from product_images
           vendor,
           vendor_kyc: kycDataForCard
         };

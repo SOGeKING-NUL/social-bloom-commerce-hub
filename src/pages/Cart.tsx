@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import Layout from "@/components/Layout";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { getProductImages } from "@/lib/utils";
 
 const Cart = () => {
   const navigate = useNavigate();
@@ -41,7 +42,6 @@ const Cart = () => {
             id,
             name,
             price,
-            image_url,
             group_order_enabled
           )
         `)
@@ -55,7 +55,22 @@ const Cart = () => {
       console.log('Cart data fetched:', data);
       
       // Filter out items with null products
-      return data?.filter(item => item.product) || [];
+      const items = data?.filter(item => item.product) || [];
+      
+      // Fetch product images for all items
+      const productIds = items.map(item => item.product.id);
+      const productImages = await getProductImages(productIds);
+      
+      // Add image_url to each item
+      const itemsWithImages = items.map(item => ({
+        ...item,
+        product: {
+          ...item.product,
+          image_url: productImages[item.product.id] || null
+        }
+      }));
+      
+      return itemsWithImages;
     },
     enabled: !!user?.id,
     retry: 3,

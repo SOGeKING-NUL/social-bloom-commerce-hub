@@ -14,6 +14,7 @@ import InstagramStylePostCreator from "@/components/InstagramStylePostCreator";
 import PostCard from "@/components/PostCard";
 import { useNavigate } from "react-router-dom";
 import { debounce } from "lodash";
+import { getProductImages } from "@/lib/utils";
 
 // Define feelings (same as in post creator)
 const feelings = [
@@ -140,8 +141,7 @@ const Feed = () => {
             products (
               id,
               name,
-              price,
-              image_url
+              price
             )
           )
         `
@@ -150,6 +150,14 @@ const Feed = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+
+      // Get all product IDs from tagged products
+      const productIds = data?.flatMap(post => 
+        post.post_tagged_products?.map(mapping => mapping.products?.id).filter(Boolean) || []
+      ) || [];
+      
+      // Fetch product images for all tagged products
+      const productImages = await getProductImages(productIds);
 
       // Transform the data
       const transformedPosts = data.map((post) => ({
@@ -169,11 +177,11 @@ const Feed = () => {
         comments_count: post.comment_count?.[0]?.count || 0,
         images: post.post_images?.sort((a, b) => a.display_order - b.display_order) || [],
         post_tags: post.post_tag_mappings?.map((mapping: any) => mapping.post_tags) || [],
-        tagged_products: post.post_tagged_products?.map((mapping: any) => ({
+        tagged_products: post.post_tagged_products?.map((mapping) => ({
           product_id: mapping.products.id,
           product_name: mapping.products.name,
           product_price: mapping.products.price,
-          product_image: mapping.products.image_url,
+          product_image: productImages[mapping.products.id] || null, // Use image from product_images
         })) || [],
         rating: post.rating,
       }));

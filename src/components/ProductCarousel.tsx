@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { CaretLeft, CaretRight } from "@phosphor-icons/react";
 import { useNavigate } from "react-router-dom";
+import { getProductImages } from "@/lib/utils";
 
 const ProductCarousel = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -29,7 +30,20 @@ const ProductCarousel = () => {
         .limit(10);
 
       if (error) throw error;
-      return data;
+      
+      const products = data || [];
+      
+      // Fetch product images for all products
+      const productIds = products.map(product => product.id);
+      const productImages = await getProductImages(productIds);
+      
+      // Add image_url to each product
+      const productsWithImages = products.map(product => ({
+        ...product,
+        image_url: productImages[product.id] || null
+      }));
+      
+      return productsWithImages;
     },
   });
 
