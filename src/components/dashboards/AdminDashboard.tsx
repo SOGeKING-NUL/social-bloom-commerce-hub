@@ -55,10 +55,12 @@ import {
   Download,
   ImageIcon,
   FileIcon,
+  Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { debounce } from "lodash";
 
 type UserRole = "user" | "vendor" | "admin";
 
@@ -88,6 +90,42 @@ const AdminDashboard = () => {
   const [showRejectionHistoryModal, setShowRejectionHistoryModal] = useState(false);
   const [selectedKYCHistory, setSelectedKYCHistory] = useState<any>(null);
   const [rejectionHistory, setRejectionHistory] = useState<any[]>([]);
+  const [userSearchTerm, setUserSearchTerm] = useState("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
+
+  // Debounced search effect
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchTerm(userSearchTerm);
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [userSearchTerm]);
+
+  // Access control - only admins can access this dashboard
+  if (!profile || profile.role !== 'admin') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <Header />
+        <div className="flex-1 container mx-auto px-4 py-8">
+          <div className="max-w-md mx-auto">
+            <Card>
+              <CardContent className="text-center py-8">
+                <Shield className="w-12 h-12 mx-auto text-red-500 mb-4" />
+                <h2 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h2>
+                <p className="text-gray-600">
+                  You don't have permission to access the admin dashboard. Only administrators can view this page.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   // Close mobile menu when section changes
   useEffect(() => {
@@ -403,6 +441,14 @@ const AdminDashboard = () => {
         description: "User role has been updated successfully",
       });
     },
+    onError: (error) => {
+      console.error("Error updating user role:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update user role. Please try again.",
+        variant: "destructive",
+      });
+    },
   });
 
   // Approve KYC
@@ -523,11 +569,6 @@ const AdminDashboard = () => {
     }) => {
       if (action === "delete") {
         await supabase.from("group_members").delete().eq("group_id", groupId);
-        await supabase
-          .from("group_join_requests")
-          .delete()
-          .eq("group_id", groupId);
-        await supabase.from("group_invites").delete().eq("group_id", groupId);
 
         const { error } = await supabase
           .from("groups")
@@ -540,8 +581,6 @@ const AdminDashboard = () => {
           .from("groups")
           .update({
             is_private: true,
-            invite_only: true,
-            auto_approve_requests: false,
           })
           .eq("id", groupId);
 
@@ -864,72 +903,124 @@ const AdminDashboard = () => {
     </div>
   );
 
-  const renderUsers = () => (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold">
-        User Management ({users?.length || 0} users)
-      </h3>
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b bg-gray-50">
-                  <th className="text-left p-4">User</th>
-                  <th className="text-left p-4">Email</th>
-                  <th className="text-left p-4">Role</th>
-                  <th className="text-left p-4">Joined</th>
-                  <th className="text-left p-4">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users?.map((user) => (
-                  <tr key={user.id} className="border-b hover:bg-gray-50">
-                    <td className="p-4">{user.full_name || "N/A"}</td>
-                    <td className="p-4">{user.email}</td>
-                    <td className="p-4">
-                      <Select
-                        value={user.role}
-                        onValueChange={(role: UserRole) =>
-                          updateUserRoleMutation.mutate({
-                            userId: user.id,
-                            role,
-                          })
-                        }
-                      >
-                        <SelectTrigger className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="user">User</SelectItem>
-                          <SelectItem value="vendor">Vendor</SelectItem>
-                          <SelectItem value="admin">Admin</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </td>
-                    <td className="p-4">
-                      {new Date(user.created_at!).toLocaleDateString()}
-                    </td>
-                    <td className="p-4">
-                      {user.id !== profile?.id && (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => deleteUserMutation.mutate(user.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+  const renderUsers = () => {
+    // Filter users based on search term
+    const filteredUsers = users?.filter((user) => {
+      const searchLower = debouncedSearchTerm.toLowerCase();
+      return (
+        user.full_name?.toLowerCase().includes(searchLower) ||
+        user.email.toLowerCase().includes(searchLower) ||
+        user.role.toLowerCase().includes(searchLower)
+      );
+    }) || [];
+
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold">
+            User Management ({filteredUsers.length} of {users?.length || 0} users)
+          </h3>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search users by name, email, or role..."
+                value={userSearchTerm}
+                onChange={(e) => setUserSearchTerm(e.target.value)}
+                className="pl-10 w-80"
+              />
+              {userSearchTerm && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setUserSearchTerm("");
+                    setDebouncedSearchTerm("");
+                  }}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              )}
+            </div>
           </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+        </div>
+        
+        <Card>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b bg-gray-50">
+                    <th className="text-left p-4">User</th>
+                    <th className="text-left p-4">Email</th>
+                    <th className="text-left p-4">Role</th>
+                    <th className="text-left p-4">Joined</th>
+                    <th className="text-left p-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="text-center py-8 text-gray-500">
+                        {debouncedSearchTerm ? "No users found matching your search." : "No users found."}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredUsers.map((user) => (
+                      <tr key={user.id} className="border-b hover:bg-gray-50">
+                        <td className="p-4">{user.full_name || "N/A"}</td>
+                        <td className="p-4">{user.email}</td>
+                        <td className="p-4">
+                          <Select
+                            value={user.role}
+                            onValueChange={(role: UserRole) =>
+                              updateUserRoleMutation.mutate({
+                                userId: user.id,
+                                role,
+                              })
+                            }
+                            disabled={updateUserRoleMutation.isPending}
+                          >
+                            <SelectTrigger className="w-32">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="user">User</SelectItem>
+                              <SelectItem value="vendor">Vendor</SelectItem>
+                              <SelectItem value="admin">Admin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          {updateUserRoleMutation.isPending && (
+                            <div className="text-xs text-gray-500 mt-1">Updating...</div>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          {new Date(user.created_at!).toLocaleDateString()}
+                        </td>
+                        <td className="p-4">
+                          {user.id !== profile?.id && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => deleteUserMutation.mutate(user.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  };
 
   const renderProducts = () => (
     <div className="space-y-4">
@@ -1062,9 +1153,6 @@ const AdminDashboard = () => {
                       >
                         {group.is_private ? "Private" : "Public"}
                       </Badge>
-                      {group.invite_only && (
-                        <Badge variant="outline">Invite Only</Badge>
-                      )}
                     </div>
                     <p className="text-sm text-gray-600">{group.description}</p>
                     <div className="flex items-center gap-4 mt-2 text-sm text-gray-500">
