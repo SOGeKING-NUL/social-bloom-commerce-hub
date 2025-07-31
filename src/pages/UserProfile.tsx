@@ -687,6 +687,7 @@ const UserProfile = () => {
         { id: "products", label: "Products", icon: Package },
         { id: "posts", label: "Posts", icon: FileText },
         { id: "groups", label: "Groups", icon: Users },
+        { id: "orders", label: "Orders", icon: ShoppingCart },
         { id: "kyc", label: "KYC Status", icon: Shield },
         { id: "company", label: "Company Info", icon: Building },
       ];
@@ -1212,59 +1213,84 @@ const UserProfile = () => {
     </div>
   );
 
-  const renderOrders = () => (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Order History</h3>
-      {orders.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-8">
-            <ShoppingCart className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500">No orders yet.</p>
-          </CardContent>
-        </Card>
-      ) : (
+  const renderOrders = () => {
+    if (isVendor && isOwnProfile) {
+      return (
         <div className="space-y-4">
-          {orders.map((order) => (
-            <Card key={order.id}>
-              <CardContent className="p-4">
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-3 gap-2">
-              <div>
-                    <h4 className="font-medium">
-                      Order #{order.id.slice(0, 8)}
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      Status: {order.status}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Date: {new Date(order.created_at).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <p className="text-lg font-semibold">₹{order.total_amount}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {order.order_items?.map((item: any) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center gap-2 bg-gray-50 rounded p-2"
-                    >
-                      <img
-                        src={item.products?.image_url || "/placeholder.svg"}
-                        alt={item.products?.name}
-                        className="w-8 h-8 rounded object-cover"
-                      />
-                      <span className="text-sm">
-                        {item.products?.name} x{item.quantity}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Vendor Orders</h3>
+            <Button onClick={() => navigate('/vendor/orders')}>
+              <Package className="w-4 h-4 mr-2" />
+              View All Orders
+            </Button>
+          </div>
+          <Card>
+            <CardContent className="text-center py-8">
+              <Package className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-500 mb-4">Manage all orders for your products</p>
+              <Button onClick={() => navigate('/vendor/orders')}>
+                Go to Orders Dashboard
+              </Button>
+            </CardContent>
+          </Card>
         </div>
-      )}
-    </div>
-  );
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Order History</h3>
+        {orders.length === 0 ? (
+          <Card>
+            <CardContent className="text-center py-8">
+              <ShoppingCart className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-500">No orders yet.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {orders.map((order) => (
+              <Card key={order.id}>
+                <CardContent className="p-4">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-3 gap-2">
+                    <div>
+                      <h4 className="font-medium">
+                        Order #{order.id.slice(0, 8)}
+                      </h4>
+                      <p className="text-sm text-gray-600">
+                        Status: {order.status}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        Date: {new Date(order.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <p className="text-lg font-semibold">₹{order.total_amount}</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {order.order_items?.map((item: any) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-2 bg-gray-50 rounded p-2"
+                      >
+                        <img
+                          src={item.products?.image_url || "/placeholder.svg"}
+                          alt={item.products?.name}
+                          className="w-8 h-8 rounded object-cover"
+                        />
+                        <span className="text-sm">
+                          {item.products?.name} x{item.quantity}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderCart = () => (
     <div className="space-y-4">
@@ -1283,16 +1309,16 @@ const UserProfile = () => {
               <CardContent className="p-4">
                 <div className="flex items-center gap-4">
                   <img
-                    src={item.products?.image_url || "/placeholder.svg"}
-                    alt={item.products?.name}
+                    src={item.product?.image_url || "/placeholder.svg"}
+                    alt={item.product?.name}
                     className="w-16 h-16 rounded object-cover"
                   />
                   <div className="flex-1">
-                    <h4 className="font-semibold">{item.products?.name}</h4>
+                    <h4 className="font-semibold">{item.product?.name}</h4>
                     <p className="text-sm text-gray-600">
                       Quantity: {item.quantity}
                     </p>
-                    <p className="text-lg font-bold">₹{item.products?.price}</p>
+                    <p className="text-lg font-bold">₹{item.product?.price}</p>
                   </div>
                 </div>
               </CardContent>

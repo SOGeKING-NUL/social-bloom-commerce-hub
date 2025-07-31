@@ -25,6 +25,7 @@ import OrderConfirmation from "./pages/OrderConfirmation";
 import NotFound from "./pages/NotFound";
 import SearchUs from "./pages/SearchUs";
 import Dashboard from "./pages/DashBoard";
+import VendorOrders from "./pages/VendorOrders";
 
 const queryClient = new QueryClient();
 
@@ -108,6 +109,11 @@ const App = () => (
               <Route path="/settings" element={
                 <ProtectedRoute>
                   <Settings />
+                </ProtectedRoute>
+              } />
+              <Route path="/vendor/orders" element={
+                <ProtectedRoute>
+                  <VendorOrders />
                 </ProtectedRoute>
               } />
               {/* Redirect old routes to user profile */}
