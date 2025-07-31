@@ -51,10 +51,49 @@ const GroupsPreview = () => {
           ? supabase.from('profiles').select('id, full_name, email').in('id', creatorIds)
           : Promise.resolve({ data: [], error: null });
         
-        // Get products in parallel  
+        // Get products with their first image from product_images table
         const productsPromise = productIds.length > 0
-          ? supabase.from('products').select('id, name, image_url').in('id', productIds)
-          : Promise.resolve({ data: [], error: null });
+          ? Promise.all(
+              productIds.map(async (productId) => {
+                try {
+                  // Get product basic info
+                  const { data: productData, error: productError } = await supabase
+                    .from("products")
+                    .select("id, name")
+                    .eq("id", productId)
+                    .single();
+
+                  if (productError) {
+                    console.error("Error fetching product:", productId, productError);
+                    return null;
+                  }
+
+                  // Get first image from product_images table
+                  const { data: imagesData, error: imagesError } = await supabase
+                    .from("product_images")
+                    .select("image_url")
+                    .eq("product_id", productId)
+                    .order("display_order", { ascending: true })
+                    .limit(1);
+
+                  if (imagesError) {
+                    console.error("Error fetching images for product:", productId, imagesError);
+                  }
+
+                  const imageUrl = imagesData?.[0]?.image_url || null;
+                  console.log(`Product ${productData.name} (${productId}): image_url = ${imageUrl}`);
+
+                  return {
+                    ...productData,
+                    image_url: imageUrl,
+                  };
+                } catch (error) {
+                  console.error("Error processing product:", productId, error);
+                  return null;
+                }
+              })
+            )
+          : Promise.resolve([]);
         
         // Get group members count in parallel
         const groupIds = publicGroups.map(g => g.id);
@@ -75,7 +114,7 @@ const GroupsPreview = () => {
         });
         
         const creators = creatorsResult.data || [];
-        const products = productsResult.data || [];
+        const products = productsResult || []; // productsResult is now an array directly
         const membersData = membersResult.data || [];
         
         // Count members per group

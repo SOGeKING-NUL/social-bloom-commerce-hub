@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Users, Lock, ArrowLeft, ShoppingBag, UserPlus, Settings, Key, Copy } from "lucide-react";
+import { Users, Lock, ArrowLeft, ShoppingBag, UserPlus, Settings, Key, Copy, Clock, CreditCard, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import Layout from "@/components/Layout";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -12,6 +12,10 @@ import InviteMembersDialog from "@/components/InviteMembersDialog";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 const GroupDetail = () => {
   const { groupId } = useParams();
@@ -22,6 +26,11 @@ const GroupDetail = () => {
   const [showInviteDialog, setShowInviteDialog] = useState(false);
   const [showJoinDialog, setShowJoinDialog] = useState(false);
   const [accessCode, setAccessCode] = useState("");
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [paymentForm, setPaymentForm] = useState({
+    quantity: 1,
+    shippingAddressId: "",
+  });
 
   console.log('GroupDetail: Component loading with groupId:', groupId, 'user:', user?.id);
 
@@ -54,7 +63,7 @@ const GroupDetail = () => {
       }
       
       // Get related data in parallel
-      const [creatorResult, productResult, membersResult] = await Promise.allSettled([
+      const [creatorResult, productResult, membersResult, statusResult, paymentsResult] = await Promise.allSettled([
         // Creator profile
         supabase
           .from('profiles')
@@ -73,18 +82,41 @@ const GroupDetail = () => {
         supabase
           .from('group_members')
           .select('user_id, joined_at')
+          .eq('group_id', groupId),
+        
+        // Group order status
+        supabase
+          .from('group_order_status')
+          .select('*')
+          .eq('group_id', groupId)
+          .single(),
+        
+        // Group order payments
+        supabase
+          .from('group_order_payments')
+          .select(`
+            *,
+            user:profiles!user_id (
+              full_name,
+              email
+            )
+          `)
           .eq('group_id', groupId)
       ]);
       
       console.log('GroupDetail: Parallel queries results:', {
         creatorResult,
         productResult,
-        membersResult
+        membersResult,
+        statusResult,
+        paymentsResult
       });
       
       let creatorProfile = null;
       let product = null;
       let members = [];
+      let status = null;
+      let payments = [];
       
       if (creatorResult.status === 'fulfilled' && creatorResult.value.data) {
         creatorProfile = creatorResult.value.data;
@@ -98,18 +130,72 @@ const GroupDetail = () => {
         members = membersResult.value.data;
       }
       
+      if (statusResult.status === 'fulfilled' && statusResult.value.data) {
+        status = statusResult.value.data;
+      }
+      
+      if (paymentsResult.status === 'fulfilled' && paymentsResult.value.data) {
+        payments = paymentsResult.value.data;
+      }
+      
       // Check if current user is a member
       const isMember = user?.id ? members.some(member => member.user_id === user.id) : false;
+      
+      // Check if current user is the creator
+      const isCreator = user?.id === groupData.creator_id;
+      
+      // Check if current user has paid
+      const userPayment = payments.find(payment => payment.user_id === user?.id);
       
       return {
         ...groupData,
         creator_profile: creatorProfile,
         product,
         members,
-        is_member: isMember
+        status,
+        payments,
+        is_member: isMember,
+        is_creator: isCreator,
+        user_payment: userPayment
       };
     },
     enabled: !!groupId && !!user
+  });
+
+  // Fetch user addresses for payment
+  const { data: userAddresses = [] } = useQuery({
+    queryKey: ['user-addresses', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from('user_addresses')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('is_default', { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user?.id && showPaymentDialog
+  });
+
+  // Fetch discount tiers for the product
+  const { data: discountTiers = [] } = useQuery({
+    queryKey: ['discount-tiers', group?.product_id],
+    queryFn: async () => {
+      if (!group?.product_id) return [];
+      
+      const { data, error } = await supabase
+        .from('product_discount_tiers')
+        .select('*')
+        .eq('product_id', group.product_id)
+        .order('members_required', { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!group?.product_id
   });
 
   // Add to cart mutation
@@ -198,124 +284,232 @@ const GroupDetail = () => {
         description: `Welcome to ${group?.name}!`,
       });
       
-      // Close dialog and reset
       setShowJoinDialog(false);
       setAccessCode("");
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Join mutation error:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to join group. Please try again.",
+        description: error.message || "Failed to join group",
         variant: "destructive"
       });
     }
   });
 
-  // Leave group mutation
-  const leaveGroupMutation = useMutation({
+  // Process payment mutation
+  const processPaymentMutation = useMutation({
     mutationFn: async () => {
-      if (!user || !groupId) {
+      if (!user || !groupId || !group?.product) {
         throw new Error('Missing required data');
       }
       
-      console.log('=== LEAVE GROUP MUTATION START ===');
-      console.log('Group:', groupId, 'User:', user.id);
+      const { quantity, shippingAddressId } = paymentForm;
+      const selectedAddress = userAddresses.find(addr => addr.id === shippingAddressId);
       
-      // Remove membership
-      const { error: memberError } = await supabase
-        .from('group_members')
-        .delete()
-        .eq('group_id', groupId)
-        .eq('user_id', user.id);
-      
-      if (memberError) {
-        console.error('Leave error:', memberError);
-        throw memberError;
+      if (!selectedAddress) {
+        throw new Error('Please select a shipping address');
       }
       
-      console.log('Successfully left group');
-      return { action: 'left' };
-    },
-    onSuccess: (result) => {
-      console.log('Leave mutation success:', result);
+      // Calculate price with current discount
+      const currentDiscount = group.status?.current_discount_percentage || 0;
+      const unitPrice = group.product.price;
+      const discountedPrice = unitPrice * (1 - currentDiscount / 100);
+      const finalPrice = discountedPrice * quantity;
       
-      // Invalidate queries
+      // Create payment record
+      const { error } = await supabase
+        .from('group_order_payments')
+        .insert({
+          group_id: groupId,
+          user_id: user.id,
+          quantity,
+          unit_price: unitPrice,
+          discount_percentage: currentDiscount,
+          final_price: finalPrice,
+          payment_status: 'paid', // For now, assume payment is successful
+          shipping_address_id: shippingAddressId,
+          shipping_address_text: `${selectedAddress.full_name}, ${selectedAddress.address_line1}, ${selectedAddress.city}, ${selectedAddress.state} ${selectedAddress.postal_code}`,
+          paid_at: new Date().toISOString()
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['group', groupId] });
-      queryClient.invalidateQueries({ queryKey: ['groups'] });
-      
-      // Show success message
       toast({
-        title: "Left Group",
-        description: `You left ${group?.name}`,
+        title: "Payment Successful!",
+        description: "Your payment has been processed successfully.",
       });
+      setShowPaymentDialog(false);
+      setPaymentForm({ quantity: 1, shippingAddressId: "" });
     },
-    onError: (error) => {
-      console.error('Leave mutation error:', error);
+    onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to leave group. Please try again.",
+        title: "Payment Failed",
+        description: error.message || "Failed to process payment",
         variant: "destructive"
       });
     }
   });
 
-  const handleJoinGroup = () => {
-    if (!group?.is_private) {
-      // Public group - join directly
-      joinGroupMutation.mutate("");
-    } else {
-      // Private group - show access code dialog
-      setShowJoinDialog(true);
+  // Finalize group order mutation
+  const finalizeGroupOrderMutation = useMutation({
+    mutationFn: async () => {
+      if (!groupId) throw new Error('Group ID is required');
+      
+      const { data, error } = await supabase.rpc('finalize_group_order', {
+        group_uuid: groupId
+      });
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+      toast({
+        title: "Group Order Finalized!",
+        description: `Order #${result.order_number} has been placed with ${result.participant_count} participants.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Finalization Failed",
+        description: error.message || "Failed to finalize group order",
+        variant: "destructive"
+      });
     }
+  });
+
+  // Cancel group order mutation
+  const cancelGroupOrderMutation = useMutation({
+    mutationFn: async () => {
+      if (!groupId) throw new Error('Group ID is required');
+      
+      const { data, error } = await supabase.rpc('refund_group_order_participants', {
+        group_uuid: groupId
+      });
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['group', groupId] });
+      toast({
+        title: "Group Order Cancelled",
+        description: `Refunds have been processed for ${result.refunded_count} participants.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Cancellation Failed",
+        description: error.message || "Failed to cancel group order",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Handle functions
+  const handleJoinGroup = () => {
+    setShowJoinDialog(true);
   };
 
   const handleJoinWithCode = () => {
-    if (accessCode.trim()) {
-      joinGroupMutation.mutate(accessCode.trim());
+    if (!accessCode.trim()) {
+      toast({
+        title: "Access Code Required",
+        description: "Please enter the 8-digit access code",
+        variant: "destructive"
+      });
+      return;
     }
+    joinGroupMutation.mutate(accessCode);
   };
 
   const handleLeaveGroup = () => {
-    leaveGroupMutation.mutate();
+    // Implement leave group logic
   };
 
   const handleCopyAccessCode = async () => {
-    if (!group?.access_code) return;
-
-    try {
-      await navigator.clipboard.writeText(group.access_code);
-      toast({
-        title: "Access code copied!",
-        description: "The access code has been copied to your clipboard.",
-      });
-    } catch (error) {
-      toast({
-        title: "Failed to copy",
-        description: "Please copy the access code manually.",
-        variant: "destructive",
-      });
+    if (group?.access_code) {
+      try {
+        await navigator.clipboard.writeText(group.access_code);
+        toast({
+          title: "Access Code Copied!",
+          description: "The access code has been copied to your clipboard.",
+        });
+      } catch (error) {
+        toast({
+          title: "Copy Failed",
+          description: "Failed to copy access code",
+          variant: "destructive"
+        });
+      }
     }
   };
 
   const handleAddToCart = () => {
-    if (group?.product) {
+    if (group?.product?.id) {
       addToCartMutation.mutate(group.product.id);
     }
   };
 
-  const isCreator = group?.creator_id === user?.id;
-  const canViewMembers = !group?.is_private || group?.is_member || isCreator;
-  const canViewProduct = !group?.is_private || group?.is_member || isCreator;
+  const handleProcessPayment = () => {
+    if (!paymentForm.shippingAddressId) {
+      toast({
+        title: "Address Required",
+        description: "Please select a shipping address",
+        variant: "destructive"
+      });
+      return;
+    }
+    processPaymentMutation.mutate();
+  };
 
-  console.log('GroupDetail: Current render state:', {
-    groupLoaded: !!group,
-    isJoined: group?.is_member,
-    hasPendingRequest: false, // No longer applicable
-    inviteOnly: group?.invite_only,
-    isCreator,
-    mutationPending: false // No longer applicable
-  });
+  const handleFinalizeOrder = () => {
+    finalizeGroupOrderMutation.mutate();
+  };
+
+  const handleCancelOrder = () => {
+    cancelGroupOrderMutation.mutate();
+  };
+
+  // Calculate time remaining
+  const getTimeRemaining = () => {
+    if (!group?.finalization_deadline) return null;
+    
+    const deadline = new Date(group.finalization_deadline);
+    const now = new Date();
+    const diff = deadline.getTime() - now.getTime();
+    
+    if (diff <= 0) return { expired: true };
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    return { hours, minutes, expired: false };
+  };
+
+  const timeRemaining = getTimeRemaining();
+
+  // Calculate progress for discount tiers
+  const getDiscountProgress = () => {
+    if (!discountTiers.length || !group?.status) return null;
+    
+    const paidParticipants = group.status.paid_participants;
+    const maxTier = Math.max(...discountTiers.map(tier => tier.members_required));
+    const progress = Math.min((paidParticipants / maxTier) * 100, 100);
+    
+    return {
+      current: paidParticipants,
+      max: maxTier,
+      progress,
+      currentTier: group.status.current_tier,
+      currentDiscount: group.status.current_discount_percentage
+    };
+  };
+
+  const discountProgress = getDiscountProgress();
 
   if (isLoading) {
     return (
@@ -324,47 +518,35 @@ const GroupDetail = () => {
           <div className="container mx-auto px-4 py-8">
             <div className="max-w-4xl mx-auto">
               <div className="animate-pulse">
-                <div className="h-8 bg-gray-200 rounded w-1/2 mb-6"></div>
+                <div className="h-8 bg-gray-200 rounded mb-6"></div>
                 <div className="h-64 bg-gray-200 rounded mb-6"></div>
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-                <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-32 bg-gray-200 rounded"></div>
               </div>
             </div>
           </div>
         </div>
-      </Layout>
+        </Layout>
     );
   }
 
   if (error) {
-    console.error('GroupDetail: Error state:', error);
     return (
       <Layout>
         <div className="min-h-screen bg-gradient-to-b from-white to-pink-50">
           <div className="container mx-auto px-4 py-8">
-            <div className="max-w-4xl mx-auto text-center">
-              <Button
-                variant="ghost"
-                onClick={() => navigate('/groups')}
-                className="mb-6 text-pink-600 hover:bg-pink-50"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Groups
-              </Button>
-              
-              <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-6">
-                <h1 className="text-2xl font-bold mb-2 text-red-800">Error Loading Group</h1>
-                <p className="text-red-600 mb-4">{error.message}</p>
-                <p className="text-sm text-gray-600">Group ID: {groupId}</p>
+            <div className="max-w-4xl mx-auto">
+              <div className="text-center">
+                <h1 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Group</h1>
+                <p className="text-gray-600 mb-6">{error.message}</p>
+                <Button onClick={() => navigate('/groups')}>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Groups
+                </Button>
               </div>
-              
-              <Button onClick={() => navigate('/groups')}>
-                Back to Groups
-              </Button>
             </div>
           </div>
         </div>
-      </Layout>
+        </Layout>
     );
   }
 
@@ -373,29 +555,27 @@ const GroupDetail = () => {
       <Layout>
         <div className="min-h-screen bg-gradient-to-b from-white to-pink-50">
           <div className="container mx-auto px-4 py-8">
-            <div className="max-w-4xl mx-auto text-center">
-              <Button
-                variant="ghost"
-                onClick={() => navigate('/groups')}
-                className="mb-6 text-pink-600 hover:bg-pink-50"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Groups
-              </Button>
-              
-              <h1 className="text-2xl font-bold mb-4">Group not found</h1>
-              <p className="text-gray-600 mb-4">The group you're looking for doesn't exist or has been removed.</p>
-              <p className="text-sm text-gray-500 mb-6">Group ID: {groupId}</p>
-              
-              <Button onClick={() => navigate('/groups')}>
-                Back to Groups
-              </Button>
+            <div className="max-w-4xl mx-auto">
+              <div className="text-center">
+                <h1 className="text-2xl font-bold text-gray-900 mb-4">Group Not Found</h1>
+                <p className="text-gray-600 mb-6">The group you're looking for doesn't exist or you don't have access to it.</p>
+                <Button onClick={() => navigate('/groups')}>
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Groups
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-      </Layout>
+        </Layout>
     );
   }
+
+  const isCreator = group.is_creator;
+  const isMember = group.is_member;
+  const hasPaid = group.user_payment?.payment_status === 'paid';
+  const isGroupActive = group.is_active;
+  const isGroupFinalized = group.status?.status === 'finalized';
 
   return (
     <Layout>
@@ -412,278 +592,352 @@ const GroupDetail = () => {
               Back to Groups
             </Button>
 
-            {/* Debug Info Panel */}
-            <div className="bg-gray-100 p-4 mb-6 rounded-lg text-xs font-mono">
-              <div className="font-bold mb-2">DEBUG INFO:</div>
-              <div>User ID: {user?.id}</div>
-              <div>Group ID: {groupId}</div>
-              <div>Is Joined: {String(group.is_member)}</div>
-              <div>Has Pending Request: {String(false)}</div>
-              <div>Latest Join Request: {group.latestJoinRequest ? JSON.stringify(group.latestJoinRequest) : 'None'}</div>
-              <div>Invite Only: {String(group.invite_only)}</div>
-              <div>Is Private: {String(group.is_private)}</div>
-              <div>Auto Approve: {String(group.auto_approve_requests)}</div>
-              <div>Is Creator: {String(isCreator)}</div>
-              <div>Mutation Pending: {String(false)}</div>
-            </div>
-
             {/* Group Header */}
             <div className="smooth-card p-6 mb-8">
-              <div className="flex flex-col md:flex-row gap-6">
-                <div className="md:w-1/2">
-                  <img 
-                    src={group.product?.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=500&h=300&fit=crop"} 
-                    alt={group.name}
-                    className="w-full h-64 object-cover rounded-lg"
-                  />
-                </div>
-                <div className="md:w-1/2">
-                  <div className="flex items-center gap-2 mb-2">
-                    {group.is_private && (
-                      <>
-                        <Lock className="w-5 h-5 text-pink-500" />
-                        <span className="text-sm text-gray-500">Private Group</span>
-                      </>
-                    )}
-                    {group.invite_only && (
-                      <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">
-                        Invite Only
-                      </span>
-                    )}
-                    {group.is_member && (
-                      <span className="bg-green-500 text-white text-xs px-2 py-1 rounded-full">
-                        Joined
-                      </span>
-                    )}
-                    {group.hasPendingRequest && (
-                      <span className="bg-yellow-500 text-white text-xs px-2 py-1 rounded-full">
-                        Requested
-                      </span>
+              <div className="flex items-start justify-between mb-6">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-4">
+                    <h1 className="text-3xl font-bold text-gray-900">{group.name}</h1>
+                    {group.is_private && <Lock className="w-5 h-5 text-gray-500" />}
+                    {!isGroupActive && (
+                      <Badge variant="secondary" className="bg-gray-100 text-gray-700">
+                        {isGroupFinalized ? 'Finalized' : 'Inactive'}
+                      </Badge>
                     )}
                   </div>
-                  <h1 className="text-3xl font-bold mb-4">{group.name}</h1>
-                  <p className="text-gray-600 mb-4">{group.description || "A shopping group for exclusive products"}</p>
                   
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="flex items-center text-gray-500">
-                      <Users className="w-5 h-5 mr-2" />
-                      <span>{group.members.length} members</span>
+                  {group.description && (
+                    <p className="text-gray-600 mb-4">{group.description}</p>
+                  )}
+                  
+                  <div className="flex items-center gap-6 text-sm text-gray-500">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      <span>{group.members?.length || 0} members</span>
                     </div>
-                    {isCreator && (
-                      <p className="text-sm text-pink-600 font-medium">You created this group</p>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      <span>Created {new Date(group.created_at).toLocaleDateString()}</span>
+                    </div>
                   </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    {/* Show appropriate button based on state */}
-                    {!group.is_member && !group.invite_only && !group.hasPendingRequest && (
-                      <Button 
-                        onClick={handleJoinGroup}
-                        disabled={joinGroupMutation.isPending}
-                        className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
+                </div>
+                
+                <div className="flex gap-2">
+                  {isCreator && isGroupActive && (
+                    <>
+                      <Button
+                        onClick={() => setShowInviteDialog(true)}
+                        className="bg-pink-600 hover:bg-pink-700"
                       >
-                        {joinGroupMutation.isPending ? "Processing..." : (group.is_private && !group.auto_approve_requests ? "Request to Join" : "Join Group")}
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        Invite
                       </Button>
-                    )}
-                    
-                    {group.hasPendingRequest && (
-                      <Button 
-                        disabled
-                        className="bg-yellow-500 text-white cursor-not-allowed opacity-75"
+                      <Button
+                        onClick={handleFinalizeOrder}
+                        disabled={finalizeGroupOrderMutation.isPending}
+                        className="bg-green-600 hover:bg-green-700"
                       >
-                        Request Pending
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        Finalize Order
                       </Button>
-                    )}
-                    
-                    {group.is_member && !isCreator && (
-                      <Button 
-                        onClick={handleLeaveGroup}
-                        disabled={leaveGroupMutation.isPending}
-                        variant="outline"
-                        className="border-pink-200 text-pink-600 hover:bg-pink-50"
+                      <Button
+                        onClick={handleCancelOrder}
+                        disabled={cancelGroupOrderMutation.isPending}
+                        variant="destructive"
                       >
-                        {leaveGroupMutation.isPending ? "Leaving..." : "Leave Group"}
+                        <XCircle className="w-4 h-4 mr-2" />
+                        Cancel
                       </Button>
-                    )}
-
-                    {group.invite_only && !group.is_member && !isCreator && !group.hasPendingRequest && (
-                      <div className="text-center">
-                        <p className="text-gray-600 mb-2">This is an invite-only group</p>
-                        <p className="text-sm text-gray-500">Contact the group creator for an invitation</p>
-                      </div>
-                    )}
-
-                    {isCreator && (
-                      <>
-                        <Button 
-                          onClick={() => setShowInviteDialog(true)}
-                          variant="outline"
-                          className="border-pink-200 text-pink-600 hover:bg-pink-50"
-                        >
-                          <UserPlus className="w-4 h-4 mr-2" />
-                          Invite Members
-                        </Button>
-                        <Button 
-                          onClick={() => setShowJoinRequests(true)}
-                          variant="outline"
-                          className="border-pink-200 text-pink-600 hover:bg-pink-50"
-                        >
-                          <Settings className="w-4 h-4 mr-2" />
-                          Manage Requests
-                        </Button>
-                      </>
-                    )}
-                  </div>
+                    </>
+                  )}
+                  
+                  {!isMember && isGroupActive && (
+                    <Button onClick={handleJoinGroup} className="bg-pink-600 hover:bg-pink-700">
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Join Group
+                    </Button>
+                  )}
                 </div>
               </div>
+
+              {/* Group Order Status */}
+              {isMember && group.status && (
+                <Card className="mb-6">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <ShoppingBag className="w-5 h-5" />
+                      Group Order Status
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      {/* Time Remaining */}
+                      {timeRemaining && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Time Remaining:</span>
+                          {timeRemaining.expired ? (
+                            <Badge variant="destructive">Expired</Badge>
+                          ) : (
+                            <Badge variant="outline">
+                              {timeRemaining.hours}h {timeRemaining.minutes}m
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Discount Progress */}
+                      {discountProgress && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <span>Discount Progress</span>
+                            <span>{discountProgress.current} / {discountProgress.max} participants</span>
+                          </div>
+                          <Progress value={discountProgress.progress} className="h-2" />
+                          <div className="flex items-center justify-between text-sm">
+                            <span>Current Discount:</span>
+                            <Badge variant="secondary">{discountProgress.currentDiscount}%</Badge>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Payment Status */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Your Payment Status:</span>
+                        {hasPaid ? (
+                          <Badge className="bg-green-100 text-green-800">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Paid
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline">
+                            <AlertCircle className="w-3 h-3 mr-1" />
+                            Pending
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Product Information */}
+              {group.product && (
+                <Card className="mb-6">
+                  <CardHeader>
+                    <CardTitle>Product Details</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-4">
+                      {group.product.image_url && (
+                        <img
+                          src={group.product.image_url}
+                          alt={group.product.name}
+                          className="w-16 h-16 object-cover rounded-lg"
+                        />
+                      )}
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-lg">{group.product.name}</h3>
+                        <p className="text-gray-600">{group.product.description}</p>
+                        <div className="flex items-center gap-4 mt-2">
+                          <span className="text-lg font-bold text-pink-600">
+                            ₹{group.product.price}
+                          </span>
+                          {group.status?.current_discount_percentage > 0 && (
+                            <Badge variant="secondary">
+                              {group.status.current_discount_percentage}% off
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button onClick={handleAddToCart} variant="outline">
+                          <ShoppingBag className="w-4 h-4 mr-2" />
+                          Add to Cart
+                        </Button>
+                        {isMember && !hasPaid && isGroupActive && (
+                          <Button onClick={() => setShowPaymentDialog(true)}>
+                            <CreditCard className="w-4 h-4 mr-2" />
+                            Pay Now
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Participants List */}
+              {isMember && group.payments && group.payments.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Participants</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {group.payments.map((payment) => (
+                        <div key={payment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="w-8 h-8">
+                              <AvatarFallback>
+                                {payment.user?.full_name?.charAt(0) || 'U'}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium">{payment.user?.full_name || 'Unknown User'}</p>
+                              <p className="text-sm text-gray-500">
+                                Qty: {payment.quantity} × ₹{payment.unit_price}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold">₹{payment.final_price}</p>
+                            <Badge
+                              variant={payment.payment_status === 'paid' ? 'default' : 'secondary'}
+                              className="text-xs"
+                            >
+                              {payment.payment_status === 'paid' ? 'Paid' : 'Pending'}
+                            </Badge>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
-            {/* Product Section */}
-            {canViewProduct && group.product && (
-              <div className="smooth-card p-6 mb-8">
-                <h2 className="text-2xl font-semibold mb-4">Featured Product</h2>
-                <div className="flex flex-col md:flex-row gap-6">
-                  <div className="md:w-1/3">
-                    <img 
-                      src={group.product.image_url || "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=300&h=300&fit=crop"} 
-                      alt={group.product.name}
-                      className="w-full h-48 object-cover rounded-lg"
+            {/* Join Dialog */}
+            <Dialog open={showJoinDialog} onOpenChange={setShowJoinDialog}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Join Group</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="accessCode">Access Code</Label>
+                    <Input
+                      id="accessCode"
+                      type="text"
+                      placeholder="Enter 8-digit code"
+                      value={accessCode}
+                      onChange={(e) => setAccessCode(e.target.value.toUpperCase())}
+                      maxLength={8}
+                      className="mt-1"
                     />
                   </div>
-                  <div className="md:w-2/3">
-                    <h3 className="text-xl font-semibold mb-2">{group.product.name}</h3>
-                    <p className="text-gray-600 mb-4">{group.product.description}</p>
-                    <p className="text-2xl font-bold text-pink-600 mb-4">₹{group.product.price}</p>
-                    <p className="text-sm text-gray-500 mb-4">
-                      By {group.product.vendor_profile?.full_name || group.product.vendor_profile?.email || 'Unknown Vendor'}
-                    </p>
-                    
-                    {group.is_member && (
-                      <Button 
-                        onClick={handleAddToCart}
-                        disabled={addToCartMutation.isPending}
-                        className="social-button bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
-                      >
-                        <ShoppingBag className="w-4 h-4 mr-2" />
-                        {addToCartMutation.isPending ? 'Adding...' : 'Add to Cart'}
-                      </Button>
-                    )}
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleJoinWithCode}
+                      disabled={joinGroupMutation.isPending}
+                      className="flex-1"
+                    >
+                      {joinGroupMutation.isPending ? 'Joining...' : 'Join Group'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowJoinDialog(false)}
+                    >
+                      Cancel
+                    </Button>
                   </div>
                 </div>
-              </div>
-            )}
+              </DialogContent>
+            </Dialog>
 
-            {!canViewProduct && (
-              <div className="smooth-card p-6 mb-8 text-center">
-                <Lock className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-600 mb-2">Private Group Content</h3>
-                <p className="text-gray-500">Join the group to see the featured product and other exclusive content.</p>
-              </div>
-            )}
+            {/* Payment Dialog */}
+            <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Make Payment</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="quantity">Quantity</Label>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      min="1"
+                      value={paymentForm.quantity}
+                      onChange={(e) => setPaymentForm(prev => ({
+                        ...prev,
+                        quantity: parseInt(e.target.value) || 1
+                      }))}
+                      className="mt-1"
+                    />
+                  </div>
+                  
+                  <div>
+                    <Label htmlFor="shippingAddress">Shipping Address</Label>
+                    <select
+                      id="shippingAddress"
+                      value={paymentForm.shippingAddressId}
+                      onChange={(e) => setPaymentForm(prev => ({
+                        ...prev,
+                        shippingAddressId: e.target.value
+                      }))}
+                      className="w-full mt-1 p-2 border border-gray-300 rounded-md"
+                    >
+                      <option value="">Select an address</option>
+                      {userAddresses.map((address) => (
+                        <option key={address.id} value={address.id}>
+                          {address.full_name} - {address.address_line1}, {address.city}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-            {/* Members Section */}
-            <div className="smooth-card p-6">
-              <h2 className="text-2xl font-semibold mb-4">
-                Members ({canViewMembers ? group.members.length : '?'})
-              </h2>
-              
-              {canViewMembers ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {group.members.map((member) => (
-                    <div key={member.user_id} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50">
-                      <Avatar className="w-10 h-10">
-                        <AvatarImage src={member.user_profile?.avatar_url} />
-                        <AvatarFallback>
-                          {member.user_profile?.full_name?.charAt(0) || member.user_profile?.email?.charAt(0) || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div>
-                        <p className="font-medium">
-                          {member.user_profile?.full_name || member.user_profile?.email?.split('@')[0] || 'User'}
-                          {member.user_id === group.creator_id && (
-                            <span className="ml-2 text-xs bg-pink-100 text-pink-800 px-2 py-1 rounded-full">
-                              Creator
-                            </span>
-                          )}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          Joined {new Date(member.joined_at).toLocaleDateString()}
-                        </p>
+                  {group.product && (
+                    <div className="p-4 bg-gray-50 rounded-lg">
+                      <div className="flex justify-between text-sm">
+                        <span>Unit Price:</span>
+                        <span>₹{group.product.price}</span>
+                      </div>
+                      {group.status?.current_discount_percentage > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span>Discount:</span>
+                          <span>-{group.status.current_discount_percentage}%</span>
+                        </div>
+                      )}
+                      <Separator className="my-2" />
+                      <div className="flex justify-between font-semibold">
+                        <span>Total:</span>
+                        <span>₹{(group.product.price * (1 - (group.status?.current_discount_percentage || 0) / 100) * paymentForm.quantity).toFixed(2)}</span>
                       </div>
                     </div>
-                  ))}
+                  )}
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleProcessPayment}
+                      disabled={processPaymentMutation.isPending}
+                      className="flex-1"
+                    >
+                      {processPaymentMutation.isPending ? 'Processing...' : 'Pay Now'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowPaymentDialog(false)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
-              ) : (
-                <div className="text-center py-8">
-                  <Lock className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">Member list is private. Join the group to see who's in it!</p>
-                </div>
-              )}
-              
-              {canViewMembers && group.members.length === 0 && (
-                <div className="text-center py-8">
-                  <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">No members yet. Be the first to join!</p>
-                </div>
-              )}
-            </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Invite Dialog */}
+            <InviteMembersDialog
+              isOpen={showInviteDialog}
+              onOpenChange={setShowInviteDialog}
+              groupId={groupId!}
+              groupName={group.name}
+              accessCode={group.access_code}
+            />
           </div>
         </div>
-      </div>
-
-      {/* Dialogs */}
-      {/* Access Code Join Dialog */}
-      <Dialog open={showJoinDialog} onOpenChange={setShowJoinDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Key className="w-5 h-5 text-pink-500" />
-              Join Private Group
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="accessCode">Access Code</Label>
-              <Input
-                id="accessCode"
-                type="text"
-                placeholder="Enter 8-digit access code"
-                value={accessCode}
-                onChange={(e) => setAccessCode(e.target.value)}
-                className="mt-1"
-                maxLength={8}
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={handleJoinWithCode}
-                disabled={!accessCode.trim() || joinGroupMutation.isPending}
-                className="flex-1 bg-gradient-to-r from-pink-500 to-rose-400 hover:from-pink-600 hover:to-rose-500"
-              >
-                {joinGroupMutation.isPending ? "Joining..." : "Join Group"}
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setShowJoinDialog(false)}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Invite Members Dialog - Only for group creator */}
-      {isCreator && (
-        <InviteMembersDialog
-          groupId={groupId!}
-          groupName={group?.name || ""}
-          open={showInviteDialog}
-          onOpenChange={setShowInviteDialog}
-        />
-      )}
-    </Layout>
-  );
-};
+        </div>
+      </Layout>
+    );
+  };
 
 export default GroupDetail;

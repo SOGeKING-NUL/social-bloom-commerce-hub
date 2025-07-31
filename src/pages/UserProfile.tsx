@@ -543,27 +543,59 @@ const UserProfile = () => {
         const productIds = groupsData.map(group => group.product_id).filter(Boolean);
         
         if (productIds.length > 0) {
-          const { data: productsData, error: productsError } = await supabase
-            .from("products")
-            .select("id, name, image_url")
-            .in("id", productIds);
+          // Fetch products with their first image from product_images table
+          const productsWithImages = await Promise.all(
+            productIds.map(async (productId) => {
+              try {
+                // Get product basic info
+                const { data: productData, error: productError } = await supabase
+                  .from("products")
+                  .select("id, name")
+                  .eq("id", productId)
+                  .single();
 
-          if (productsError) {
-            console.error("Error fetching products:", productsError);
-            // Don't throw here, just log the error and continue without products
-          } else {
-            console.log("Products data:", productsData);
-            
-            // Merge products with groups
-            const productsMap = new Map(productsData?.map(p => [p.id, p]) || []);
-            const groupsWithProducts: any[] = groupsData.map(group => ({
-              ...group,
-              product: productsMap.get(group.product_id) || null
-            }));
-            
-            console.log("Groups with products:", groupsWithProducts);
-            return groupsWithProducts;
-          }
+                if (productError) {
+                  console.error("Error fetching product:", productId, productError);
+                  return null;
+                }
+
+                // Get first image from product_images table
+                const { data: imagesData, error: imagesError } = await supabase
+                  .from("product_images")
+                  .select("image_url")
+                  .eq("product_id", productId)
+                  .order("display_order", { ascending: true })
+                  .limit(1);
+
+                if (imagesError) {
+                  console.error("Error fetching images for product:", productId, imagesError);
+                }
+
+                const imageUrl = imagesData?.[0]?.image_url || null;
+                console.log(`Product ${productData.name} (${productId}): image_url = ${imageUrl}`);
+
+                return {
+                  ...productData,
+                  image_url: imageUrl,
+                };
+              } catch (error) {
+                console.error("Error processing product:", productId, error);
+                return null;
+              }
+            })
+          );
+
+          // Filter out null products and create map
+          const validProducts = productsWithImages.filter(p => p !== null);
+          const productsMap = new Map(validProducts.map(p => [p.id, p]));
+          
+          const groupsWithProducts: any[] = groupsData.map(group => ({
+            ...group,
+            product: productsMap.get(group.product_id) || null
+          }));
+          
+          console.log("Groups with products:", groupsWithProducts);
+          return groupsWithProducts;
         }
       }
 

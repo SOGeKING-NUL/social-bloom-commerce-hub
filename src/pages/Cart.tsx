@@ -5,7 +5,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ShoppingCart, Trash2, ArrowLeft, Plus, Minus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ShoppingCart, Trash2, ArrowLeft, Plus, Minus, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Layout from "@/components/Layout";
 import Header from "@/components/Header";
@@ -40,7 +41,8 @@ const Cart = () => {
             id,
             name,
             price,
-            image_url
+            image_url,
+            group_order_enabled
           )
         `)
         .eq('user_id', user.id);
@@ -306,7 +308,8 @@ const Cart = () => {
                   )}
                 </div>
                 <div className="space-y-6">
-                  {cartItems.map((item) => (
+                  {/* Regular Items */}
+                  {cartItems.filter(item => !item.product?.group_order_enabled).map((item) => (
                     <div 
                       key={item.id} 
                       className="flex items-start border-b border-gray-200 pb-6"
@@ -379,6 +382,109 @@ const Cart = () => {
                       </div>
                     </div>
                   ))}
+
+                  {/* Group Order Items */}
+                  {cartItems.filter(item => item.product?.group_order_enabled).length > 0 && (
+                    <>
+                      <div className="border-t border-gray-200 pt-6 mt-6">
+                        <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
+                          <Users className="w-5 h-5 text-pink-600" />
+                          Group Order Items
+                        </h3>
+                        <p className="text-sm text-gray-600 mb-4">
+                          These items are eligible for group orders. Join or create a group to get better discounts!
+                        </p>
+                      </div>
+                      {cartItems.filter(item => item.product?.group_order_enabled).map((item) => (
+                        <div 
+                          key={item.id} 
+                          className="flex items-start border-b border-gray-200 pb-6 bg-pink-50 rounded-lg p-4"
+                        >
+                          <Checkbox 
+                            id={`item-${item.id}`}
+                            checked={selectedItems.includes(item.id)}
+                            onCheckedChange={(checked) => handleItemSelect(item.id, checked as boolean)}
+                            className="mt-4 mr-4"
+                          />
+                          <div className="flex-1 flex gap-4">
+                            <img 
+                              src={item.product?.image_url || "/placeholder.svg"}
+                              alt={item.product?.name || 'Product'}
+                              className="w-24 h-24 object-cover rounded-md"
+                              onClick={() => navigate(`/products/${item.product?.id}`)}
+                              onError={(e) => {
+                                e.currentTarget.src = "/placeholder.svg";
+                              }}
+                            />
+                            <div className="flex-1 flex justify-between">
+                              <div>
+                                <h3 
+                                  className="font-semibold text-gray-800 cursor-pointer hover:text-pink-600 transition-colors"
+                                  onClick={() => navigate(`/products/${item.product?.id}`)}
+                                >
+                                  {item.product?.name || 'Unnamed Product'}
+                                </h3>
+                                <span className="text-lg font-bold text-gray-900 block mt-1">
+                                  ₹{item.product?.price?.toFixed(2) || '0.00'}
+                                </span>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <p className="text-sm text-green-600">In stock</p>
+                                  <Badge variant="secondary" className="text-xs">
+                                    Group Order Eligible
+                                  </Badge>
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end gap-2">
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => updateQuantityMutation.mutate({
+                                      itemId: item.id,
+                                      quantity: item.quantity - 1
+                                    })}
+                                  >
+                                    <Minus className="w-4 h-4" />
+                                  </Button>
+                                  <span className="w-8 text-center font-medium">{item.quantity}</span>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => updateQuantityMutation.mutate({
+                                      itemId: item.id,
+                                      quantity: item.quantity + 1
+                                    })}
+                                  >
+                                    <Plus className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-pink-600 border-pink-300 hover:bg-pink-50"
+                                    onClick={() => navigate(`/products/${item.product?.id}`)}
+                                  >
+                                    Create Group
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-red-500 border-red-300 hover:bg-red-50"
+                                    onClick={() => removeItemMutation.mutate(item.id)}
+                                    disabled={removeItemMutation.isPending}
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Remove
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </div>
               </div>
 

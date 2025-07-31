@@ -41,6 +41,7 @@ const CreateGroupModal = ({ isOpen, onOpenChange, onSuccess, preSelectedProductI
     product_id: preSelectedProductId || "", // Pre-select product if provided
     is_private: true, // Default to private
     member_limit: 50,
+    time_limit_hours: 24, // Default 24 hours
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -116,13 +117,7 @@ const CreateGroupModal = ({ isOpen, onOpenChange, onSuccess, preSelectedProductI
       console.log("Current user:", user?.id, "User role:", user?.role);
 
       try {
-        // First, test access to the tiers table
-        const { data: testData, error: testError } = await supabase
-          .rpc('test_tier_access', { product_uuid: formData.product_id });
-
-        console.log("Tier access test result:", testData, testError);
-
-        // Now fetch the actual tiers
+        // Fetch the actual tiers
         const { data, error } = await supabase
           .from("product_discount_tiers")
           .select("*")
@@ -187,6 +182,7 @@ const CreateGroupModal = ({ isOpen, onOpenChange, onSuccess, preSelectedProductI
           product_id: groupData.product_id,
           is_private: groupData.is_private,
           member_limit: groupData.member_limit,
+          time_limit_hours: groupData.time_limit_hours,
         })
         .select()
         .single();
@@ -232,6 +228,7 @@ const CreateGroupModal = ({ isOpen, onOpenChange, onSuccess, preSelectedProductI
         product_id: "",
         is_private: true, // Reset to private default
         member_limit: 50,
+        time_limit_hours: 24,
       });
       
       // Close modal
@@ -431,6 +428,26 @@ const CreateGroupModal = ({ isOpen, onOpenChange, onSuccess, preSelectedProductI
                 <SelectItem value="25">25 members</SelectItem>
                 <SelectItem value="50">50 members</SelectItem>
                 <SelectItem value="100">100 members</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="time-limit">Time Limit (Hours)</Label>
+            <Select
+              value={formData.time_limit_hours.toString()}
+              onValueChange={(value) => setFormData({ ...formData, time_limit_hours: parseInt(value) })}
+              disabled={isSubmitting}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="6">6 hours</SelectItem>
+                <SelectItem value="12">12 hours</SelectItem>
+                <SelectItem value="24">24 hours</SelectItem>
+                <SelectItem value="48">48 hours</SelectItem>
+                <SelectItem value="72">72 hours</SelectItem>
               </SelectContent>
             </Select>
           </div>
