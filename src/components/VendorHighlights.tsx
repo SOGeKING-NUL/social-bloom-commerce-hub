@@ -229,10 +229,7 @@ const VendorHighlights = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1, delay: 1.6 }}
             >
-              Invite your friends, create a group order and avail{" "}
-              <span className="font-bold text-green-600">
-                up to 30% discount!
-              </span>
+              Discover amazing products from our community of vendors and creators.
             </motion.p>
             <motion.div
               initial={{ opacity: 0, y: 20 }}

@@ -7,24 +7,13 @@ import { useProductRating } from "@/hooks/useProductRating";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Heart, ShoppingCart, ArrowLeft, Users, Share2, Minus, Plus } from "lucide-react";
+import { Heart, ShoppingCart, ArrowLeft, Share2, Minus, Plus } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ImageGallery from "@/components/ImageGallery";
-import CreateGroupModal from "@/components/CreateGroupModal";
 import ReviewSummary from "@/components/ReviewSummary";
 import ReviewList from "@/components/ReviewList";
 import ReviewPostCreator from "@/components/ReviewPostCreator";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import StarRating from "@/components/StarRating";
 
@@ -34,12 +23,6 @@ const ProductDetail = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
-  const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
-  const [groupForm, setGroupForm] = useState({
-    name: '',
-    description: '',
-  });
 
   // Fetch product details
   const { data: product, isLoading, error } = useQuery({
@@ -645,36 +628,11 @@ const ProductDetail = () => {
                   {addToCartMutation.isPending ? 'Adding...' : 'Add to Cart'}
                 </Button>
                 )}
-                
-                {hasTiers && (
-                      <Button
-                        variant="outline"
-                        className="w-full border-pink-200 text-pink-600 hover:bg-pink-50"
-                        size="lg"
-                        disabled={!user} // Disable if user not logged in
-                    onClick={() => setShowCreateGroupModal(true)}
-                      >
-                        <Users className="w-5 h-5 mr-2" />
-                        Create Group for this Product
-                      </Button>
-                )}
               </div>
             </div>
           </div>
         </div>
       </div>
-      
-      {/* Create Group Modal */}
-      <CreateGroupModal
-        isOpen={showCreateGroupModal}
-        onOpenChange={setShowCreateGroupModal}
-        onSuccess={() => {
-          setShowCreateGroupModal(false);
-          queryClient.invalidateQueries({ queryKey: ["groups"] });
-          toast({ title: "Group created successfully!" });
-        }}
-        preSelectedProductId={product?.id}
-      />
       
       {/* Reviews Section */}
       <div className="container mx-auto px-4 py-8">

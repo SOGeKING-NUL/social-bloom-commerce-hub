@@ -398,7 +398,7 @@ const GroupDetail = () => {
           title: "Copy Failed",
           description: "Failed to copy access code",
           variant: "destructive"
-        });
+      });
       }
     }
   };
@@ -611,8 +611,8 @@ const GroupDetail = () => {
                         Cancel
                       </Button>
                     </>
-                  )}
-                  
+                    )}
+
                   {!isMember && isGroupActive && (
                     <Button onClick={handleJoinGroup} className="bg-pink-600 hover:bg-pink-700">
                           <UserPlus className="w-4 h-4 mr-2" />
@@ -680,7 +680,7 @@ const GroupDetail = () => {
               </div>
                   </CardContent>
                 </Card>
-              )}
+            )}
 
               {/* Product Image Gallery */}
               {group.product && (

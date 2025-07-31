@@ -5,19 +5,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Heart, ShoppingCart, Users, Star } from "lucide-react";
+import { Heart, ShoppingCart, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useProductRating } from "@/hooks/useProductRating";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 
 interface ProductCardProps {
   product: {
@@ -45,11 +35,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [isGroupDialogOpen, setIsGroupDialogOpen] = useState(false);
-  const [groupForm, setGroupForm] = useState({
-    name: '',
-    description: '',
-  });
 
   // Check if product is in wishlist
   const { data: isInWishlist = false } = useQuery({
@@ -170,53 +155,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
     },
   });
 
-  // Create group mutation
-  const createGroupMutation = useMutation({
-    mutationFn: async () => {
-      if (!user) throw new Error('Please login to create a group');
-      
-      console.log('Creating group with data:', {
-        name: groupForm.name,
-        description: groupForm.description,
-        creator_id: user.id,
-        product_id: product.id,
-      });
-      
-      const { data, error } = await supabase
-        .from('groups')
-        .insert({
-          name: groupForm.name,
-          description: groupForm.description,
-          creator_id: user.id,
-          product_id: product.id,
-        })
-        .select()
-        .single();
-      
-      if (error) {
-        console.error('Group creation error:', error);
-        throw error;
-      }
-      
-      return data;
-    },
-    onSuccess: (data) => {
-      console.log('Group created successfully:', data);
-      setIsGroupDialogOpen(false);
-      setGroupForm({ name: '', description: '' });
-      toast({ title: "Group created successfully!" });
-      navigate('/groups');
-    },
-    onError: (error: any) => {
-      console.error('Create group error:', error);
-      toast({ 
-        title: "Error creating group", 
-        description: error.message || "Please try again later",
-        variant: "destructive" 
-      });
-    },
-  });
-
   const handleWishlistToggle = () => {
     if (!user) {
       toast({ title: "Please login to add to wishlist" });
@@ -299,51 +237,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
             <ShoppingCart className="w-4 h-4 mr-2" />
             {addToCartMutation.isPending ? 'Adding...' : 'Add to Cart'}
           </Button>
-          
-          <Dialog open={isGroupDialogOpen} onOpenChange={setIsGroupDialogOpen}>
-            <DialogTrigger asChild>
-              <Button
-                variant="outline"
-                className="w-full border-pink-200 text-pink-600 hover:bg-pink-50"
-                size="sm"
-              >
-                <Users className="w-4 h-4 mr-2" />
-                Create Group
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create Group for {product.name}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="groupName">Group Name</Label>
-                  <Input
-                    id="groupName"
-                    value={groupForm.name}
-                    onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
-                    placeholder="Enter group name"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="groupDescription">Description</Label>
-                  <Textarea
-                    id="groupDescription"
-                    value={groupForm.description}
-                    onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })}
-                    placeholder="Describe your group"
-                  />
-                </div>
-                <Button
-                  onClick={() => createGroupMutation.mutate()}
-                  className="w-full"
-                  disabled={!groupForm.name || createGroupMutation.isPending}
-                >
-                  {createGroupMutation.isPending ? 'Creating...' : 'Create Group'}
-                </Button>
-              </div>
-            </DialogContent>
-          </Dialog>
         </div>
       </CardContent>
     </Card>
