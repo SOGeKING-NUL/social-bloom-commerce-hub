@@ -39,6 +39,7 @@ import {
   TrendingUp,
   Lock,
   Key,
+  Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import Header from "@/components/Header";
@@ -79,6 +80,19 @@ const UserProfile = () => {
     location: "",
     avatar_url: "",
   });
+  const [groupSearchTerm, setGroupSearchTerm] = useState("");
+  const [debouncedGroupSearchTerm, setDebouncedGroupSearchTerm] = useState("");
+
+  // Debounced search effect for groups
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedGroupSearchTerm(groupSearchTerm);
+    }, 300);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [groupSearchTerm]);
 
   // Bulk selection state
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(
@@ -527,9 +541,11 @@ const UserProfile = () => {
           is_private,
           access_code,
           created_at,
-          product_id
+          product_id,
+          order_id
         `)
-        .in("id", groupIds);
+        .in("id", groupIds)
+        .order("created_at", { ascending: false });
 
       if (groupsError) {
         console.error("Error fetching groups:", groupsError);
@@ -1154,64 +1170,140 @@ const UserProfile = () => {
     );
   };
 
-  const renderGroups = () => (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Groups</h3>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowJoinByCodeDialog(true)}
-            className="flex items-center gap-2"
-          >
-            <Key className="w-4 h-4" />
-            Join by Code
-          </Button>
-          <Button
-            size="sm"
-            onClick={() => setShowCreateGroupModal(true)}
-            className="flex items-center gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Create Group
-          </Button>
-        </div>
-      </div>
+  const renderGroups = () => {
+    // Filter groups based on search term
+    const filteredGroups = userGroups?.filter((group) => {
+      const searchLower = debouncedGroupSearchTerm.toLowerCase();
+      return (
+        group.name?.toLowerCase().includes(searchLower) ||
+        group.description?.toLowerCase().includes(searchLower) ||
+        group.product?.name?.toLowerCase().includes(searchLower)
+      );
+    }) || [];
 
-      {userGroups.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-12">
-            <Users className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500 mb-4">Not in any groups yet.</p>
-            <div className="flex gap-2 justify-center">
+    return (
+      <div className="space-y-6">
+        {/* Header with Search */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <h3 className="text-xl font-semibold text-gray-900">
+              Groups ({filteredGroups.length} of {userGroups?.length || 0})
+            </h3>
+            {userGroups?.length > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                Latest First
+              </Badge>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Input
+                type="text"
+                placeholder="Search groups by name, description, or product..."
+                value={groupSearchTerm}
+                onChange={(e) => setGroupSearchTerm(e.target.value)}
+                className="pl-10 w-64"
+              />
+              {groupSearchTerm && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setGroupSearchTerm("");
+                    setDebouncedGroupSearchTerm("");
+                  }}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                >
+                  <X className="w-3 h-3" />
+                </Button>
+              )}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-2">
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => setShowJoinByCodeDialog(true)}
                 className="flex items-center gap-2"
               >
                 <Key className="w-4 h-4" />
-                Join Private Group
+                Join by Code
               </Button>
               <Button
+                size="sm"
                 onClick={() => setShowCreateGroupModal(true)}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600"
               >
                 <Plus className="w-4 h-4" />
                 Create Group
               </Button>
             </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {userGroups.map((group) => (
-            <GroupOrderCard key={group.id} group={group} />
-          ))}
+          </div>
         </div>
-      )}
-    </div>
-  );
+
+        {/* Content */}
+        {userGroups?.length === 0 ? (
+          <Card className="border-2 border-dashed border-gray-200 bg-gray-50/50">
+            <CardContent className="text-center py-12">
+              <Users className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">No Groups Yet</h3>
+              <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                Join existing groups or create your own to start group ordering with friends and family.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowJoinByCodeDialog(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Key className="w-4 h-4" />
+                  Join Private Group
+                </Button>
+                <Button
+                  onClick={() => setShowCreateGroupModal(true)}
+                  className="flex items-center gap-2 bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Group
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : filteredGroups.length === 0 ? (
+          <Card className="border-2 border-dashed border-gray-200 bg-gray-50/50">
+            <CardContent className="text-center py-12">
+              <Search className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-700 mb-2">No Groups Found</h3>
+              <p className="text-gray-500 mb-4">
+                No groups match your search criteria.
+              </p>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setGroupSearchTerm("");
+                  setDebouncedGroupSearchTerm("");
+                }}
+                className="flex items-center gap-2"
+              >
+                <X className="w-4 h-4" />
+                Clear Search
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {filteredGroups.map((group) => (
+              <GroupOrderCard key={group.id} group={group} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
 
   const renderOrders = () => {
     if (isVendor && isOwnProfile) {

@@ -23,6 +23,7 @@ type GroupWithProduct = {
     name: string;
     image_url: string | null;
   } | null;
+  order_id?: string | null; // Add order_id to check if order is completed
 };
 
 interface GroupOrderCardProps {
@@ -200,6 +201,30 @@ const GroupOrderCard: React.FC<GroupOrderCardProps> = ({ group }) => {
                     )}
                   </motion.div>
                 </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Order Status */}
+          {group.order_id && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-800 p-3"
+            >
+              <div className="flex items-center gap-3">
+                <div className="bg-green-500 rounded-lg p-2">
+                  <Check className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-green-700 dark:text-green-300 uppercase tracking-wide">
+                    Order Completed
+                  </p>
+                  <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                    Group order has been finalized
+                  </p>
+                </div>
               </div>
             </motion.div>
           )}
